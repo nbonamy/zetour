@@ -118,6 +118,23 @@ h1 {
   line-height: 1;
 }
 
+.reset-trigger {
+  align-self: stretch;
+  padding: 7px 10px;
+  border: 2px solid #26323a;
+  background: #f5f0df;
+  color: #8b4035;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.reset-trigger:hover {
+  background: #ffb2a4;
+}
+
 .play-layout {
   display: grid;
   grid-template-columns: minmax(480px, 0.9fr) minmax(560px, 1.1fr);
@@ -167,6 +184,8 @@ h1 {
 
 .stage-metrics {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 15px;
   font-weight: 700;
 }
@@ -196,11 +215,16 @@ h1 {
   background: #8ed7e8;
 }
 
-.game-canvas,
+.game-canvas {
+  position: absolute;
+  inset: 0;
+}
+
 .game-canvas canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
+  object-fit: contain;
 }
 
 .game-canvas canvas {
@@ -355,6 +379,61 @@ kbd {
 .workshop-enter-from .workshop-window,
 .workshop-leave-to .workshop-window {
   transform: scale(0.97);
+}
+
+.reset-dialog {
+  width: min(480px, 100%);
+  padding: 24px;
+  border: 3px solid #26323a;
+  background: #f5f0df;
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.4);
+}
+
+.reset-dialog .eyebrow {
+  color: #c14f40;
+}
+
+.reset-dialog h2 {
+  margin: 5px 0 10px;
+  font-family: monospace;
+  font-size: 26px;
+  text-transform: uppercase;
+}
+
+.reset-dialog > p:not(.eyebrow) {
+  margin: 0;
+  color: #59636b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.reset-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.reset-actions button {
+  padding: 10px;
+  border: 2px solid #26323a;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.reset-cancel {
+  background: #f5f0df;
+}
+
+.reset-confirm {
+  background: #ff9f8d;
+}
+
+.reset-actions button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 #26323a;
 }
 
 .upgrade-panel {
@@ -597,6 +676,11 @@ kbd {
     3px 3px 0 #162027;
 }
 
+.tree-node:not(:disabled):active {
+  transform: translate(calc(-50% + 2px), calc(-50% + 2px));
+  box-shadow: 1px 1px 0 #162027;
+}
+
 .tree-node.acquired {
   border-color: #8ee36b;
 }
@@ -801,6 +885,10 @@ kbd {
     padding: 7px;
   }
 
+  .reset-trigger {
+    grid-column: 1 / -1;
+  }
+
   .resource-icon {
     display: none;
   }
@@ -843,6 +931,10 @@ kbd {
 
   .workshop-close {
     font-size: 10px;
+  }
+
+  .reset-actions {
+    grid-template-columns: 1fr;
   }
 
   .upgrade-graph {

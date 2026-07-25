@@ -37,7 +37,7 @@ export const upgrades: UpgradeDefinition[] = [
     description: "Replaces the fixed starter bike and unlocks component upgrades.",
     icon: "🚲",
     currency: "cash",
-    baseCost: 100,
+    baseCost: 60,
     costScale: 1,
     maxLevel: 1,
     levelNames: ["Workshop road bike"],

@@ -25,7 +25,7 @@ describe("upgrade tree", () => {
 
     const state = store.getSnapshot();
     expect(state.upgrades["road-bike"]).toBe(1);
-    expect(state.cash).toBe(400);
+    expect(state.cash).toBe(440);
     expect(store.purchaseStatus(upgrade("tires")).available).toBe(true);
   });
 

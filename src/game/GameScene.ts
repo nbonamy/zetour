@@ -16,6 +16,9 @@ export class GameScene extends Phaser.Scene {
   private hazards!: Phaser.Physics.Arcade.Group;
   private mountain!: Phaser.GameObjects.TileSprite;
   private fields!: Phaser.GameObjects.TileSprite;
+  private gradeMarkers!: Phaser.GameObjects.TileSprite;
+  private conditionText!: Phaser.GameObjects.Text;
+  private windStreaks: Phaser.GameObjects.Rectangle[] = [];
   private laneMarkers: Phaser.GameObjects.TileSprite[] = [];
   private targetLane = 1;
   private pickupCountdown = 800;
@@ -63,12 +66,39 @@ export class GameScene extends Phaser.Scene {
     const snapshot = gameStore.getSnapshot();
     const scrollSpeed = 58 + snapshot.stats.speedKmh * 1.9;
     const isActive = this.time.now - this.lastPointerMoveAt < 5_000;
+    const windPenalty = snapshot.stageDefinition.windPenalty;
+    const gradient = snapshot.stageDefinition.gradient;
 
     this.mountain.tilePositionX += scrollSpeed * delta * 0.00014;
     this.fields.tilePositionX += scrollSpeed * delta * 0.00035;
+    this.gradeMarkers.tilePositionX += scrollSpeed * delta * 0.001;
+    this.gradeMarkers.setAlpha(
+      gradient > 0 ? Math.min(0.75, 0.15 + gradient * 7) : 0,
+    );
     this.laneMarkers.forEach((marker) => {
       marker.tilePositionX += scrollSpeed * delta * 0.001;
     });
+    this.windStreaks.forEach((streak, index) => {
+      streak.setVisible(windPenalty > 0);
+      streak.setAlpha(Math.min(0.8, 0.2 + windPenalty * 2.5));
+      streak.x -= (90 + windPenalty * 850) * (delta / 1_000);
+      if (streak.x < -40) {
+        streak.x = WIDTH + 30 + index * 13;
+      }
+    });
+    this.conditionText.setText(
+      `${
+        windPenalty > 0
+          ? snapshot.stats.windMitigation > 0
+            ? `HEADWIND ← ${Math.round(windPenalty * 100)}% → ${Math.round(snapshot.stats.effectiveWindPenalty * 100)}%`
+            : `HEADWIND ← ${Math.round(windPenalty * 100)}%`
+          : "CALM"
+      }  |  ${
+        gradient > 0
+          ? `CLIMB ↗ ${(gradient * 100).toFixed(1)}%`
+          : "FLAT"
+      }`,
+    );
 
     const response = 1 - Math.exp(-delta / (210 / snapshot.stats.handling));
     this.rider.y = Phaser.Math.Linear(
@@ -106,6 +136,18 @@ export class GameScene extends Phaser.Scene {
   private createWorld(): void {
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x8ed7e8);
     this.add.circle(545, 58, 28, 0xffe390);
+    this.windStreaks = Array.from({ length: 9 }, (_, index) =>
+      this.add
+        .rectangle(
+          50 + index * 78,
+          32 + (index % 4) * 31,
+          18 + (index % 3) * 8,
+          2,
+          0xe9fbff,
+        )
+        .setDepth(2)
+        .setVisible(false),
+    );
 
     this.mountain = this.add
       .tileSprite(WIDTH / 2, 104, WIDTH, 110, "mountains")
@@ -125,12 +167,25 @@ export class GameScene extends Phaser.Scene {
         this.add.tileSprite(WIDTH / 2, y, WIDTH, 3, "lane-dash"),
       );
     });
+    this.gradeMarkers = this.add
+      .tileSprite(WIDTH / 2, 248, WIDTH, 16, "climb-chevron")
+      .setDepth(3)
+      .setAlpha(0);
 
     this.add
       .text(12, 338, "MOVE THE MOUSE UP / DOWN — NO CLICKING", {
         fontFamily: "monospace",
         fontSize: "10px",
         color: "#fff8d8",
+      })
+      .setDepth(20);
+    this.conditionText = this.add
+      .text(12, 12, "CALM  |  FLAT", {
+        fontFamily: "monospace",
+        fontSize: "11px",
+        color: "#fff8d8",
+        stroke: "#26323a",
+        strokeThickness: 3,
       })
       .setDepth(20);
   }
@@ -298,6 +353,13 @@ export class GameScene extends Phaser.Scene {
     });
     texture("lane-dash", 64, 3, (g) => {
       g.fillStyle(0xe8e0c9).fillRect(0, 0, 30, 3);
+    });
+    texture("climb-chevron", 64, 16, (g) => {
+      g.lineStyle(3, 0xf1cf4b, 0.9)
+        .lineBetween(5, 12, 13, 4)
+        .lineBetween(13, 4, 21, 12)
+        .lineBetween(37, 12, 45, 4)
+        .lineBetween(45, 4, 53, 12);
     });
     texture("mountains", 128, 110, (g) => {
       g.fillStyle(0x7099a1)

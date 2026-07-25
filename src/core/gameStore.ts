@@ -14,6 +14,7 @@ export interface StageDefinition {
   number: number;
   name: string;
   gradient: number;
+  windPenalty: number;
   distanceM: number;
   sweatYield: number;
   cashPerKm: number;
@@ -24,6 +25,7 @@ export const stages: StageDefinition[] = [
     number: 1,
     name: "Local circuit",
     gradient: 0,
+    windPenalty: 0,
     distanceM: 600,
     sweatYield: 1,
     cashPerKm: 34,
@@ -31,7 +33,8 @@ export const stages: StageDefinition[] = [
   {
     number: 2,
     name: "Windy open road",
-    gradient: 0.01,
+    gradient: 0,
+    windPenalty: 0.25,
     distanceM: 900,
     sweatYield: 1.25,
     cashPerKm: 40,
@@ -39,7 +42,8 @@ export const stages: StageDefinition[] = [
   {
     number: 3,
     name: "Rolling countryside",
-    gradient: 0.025,
+    gradient: 0.02,
+    windPenalty: 0,
     distanceM: 1_200,
     sweatYield: 1.65,
     cashPerKm: 45,
@@ -48,6 +52,7 @@ export const stages: StageDefinition[] = [
     number: 4,
     name: "First categorized climb",
     gradient: 0.045,
+    windPenalty: 0,
     distanceM: 1_600,
     sweatYield: 2.2,
     cashPerKm: 52,
@@ -55,7 +60,8 @@ export const stages: StageDefinition[] = [
   {
     number: 5,
     name: "Mountain pass",
-    gradient: 0.065,
+    gradient: 0.05,
+    windPenalty: 0.15,
     distanceM: 2_200,
     sweatYield: 3,
     cashPerKm: 62,
@@ -64,6 +70,7 @@ export const stages: StageDefinition[] = [
     number: 6,
     name: "Alpe d'Huez",
     gradient: 0.081,
+    windPenalty: 0.1,
     distanceM: 3_000,
     sweatYield: 4,
     cashPerKm: 80,
@@ -88,6 +95,8 @@ export interface ComputedStats {
   handling: number;
   potholeProtection: number;
   draftMultiplier: number;
+  windMitigation: number;
+  effectiveWindPenalty: number;
 }
 
 export interface GameSnapshot extends SaveState {
@@ -111,6 +120,7 @@ interface StorageLike {
 interface GameStoreOptions {
   storage?: StorageLike | null;
   now?: () => number;
+  random?: () => number;
 }
 
 type Listener = (snapshot: GameSnapshot) => void;
@@ -131,9 +141,12 @@ export class GameStore {
   private state: SaveState;
   private readonly storage: StorageLike | null;
   private readonly now: () => number;
+  private readonly random: () => number;
   private listeners = new Set<Listener>();
   private noticeListeners = new Set<NoticeListener>();
   private lastEmitAt = 0;
+  private sweatGenerationRemainder = 0;
+  private cashGenerationRemainder = 0;
 
   constructor(options: GameStoreOptions = {}) {
     this.storage =
@@ -143,6 +156,7 @@ export class GameStore {
           : window.localStorage
         : options.storage;
     this.now = options.now ?? Date.now;
+    this.random = options.random ?? Math.random;
     this.state = this.load();
     this.applyOfflineProgress();
   }
@@ -178,11 +192,19 @@ export class GameStore {
     const safeDelta = Math.min(deltaSeconds, 0.25);
     const stats = this.computeStats();
     const distance = (stats.speedKmh / 3.6) * safeDelta;
+    const sweatGenerated =
+      this.sweatGenerationRemainder + stats.sweatPerSecond * safeDelta;
+    const cashGenerated =
+      this.cashGenerationRemainder + stats.cashPerSecond * safeDelta;
+    const wholeSweat = Math.floor(sweatGenerated);
+    const wholeCash = Math.floor(cashGenerated);
 
     this.state.distanceM += distance;
     this.state.stageDistanceM += distance;
-    this.state.sweat += stats.sweatPerSecond * safeDelta;
-    this.state.cash += stats.cashPerSecond * safeDelta;
+    this.state.sweat += wholeSweat;
+    this.state.cash += wholeCash;
+    this.sweatGenerationRemainder = sweatGenerated - wholeSweat;
+    this.cashGenerationRemainder = cashGenerated - wholeCash;
 
     const stageDefinition = this.currentStage();
     if (
@@ -221,20 +243,35 @@ export class GameStore {
 
   hitPothole(): number {
     const stats = this.computeStats();
-    const lossRate = 0.08 * (1 - stats.potholeProtection);
-    const cappedLoss = Math.min(
-      this.state.cash * lossRate,
-      this.state.stage * 8,
-    );
+    const rolledLossPercentage = 10 + this.random() * 10;
+    const effectiveLossPercentage =
+      10 +
+      (rolledLossPercentage - 10) * (1 - stats.potholeProtection);
     const lost = Math.min(
       this.state.cash,
-      this.state.cash > 0 ? Math.max(1, cappedLoss) : 0,
+      this.state.cash > 0
+        ? Math.max(
+            1,
+            Math.ceil((this.state.cash * effectiveLossPercentage) / 100),
+          )
+        : 0,
     );
     this.state.cash = Math.max(0, this.state.cash - lost);
-    const rounded = Math.round(lost);
-    this.notice(`Pothole — dropped ${rounded} Cash`, "bad");
+    this.notice(
+      `Pothole — dropped ${lost} Cash (${Math.round(effectiveLossPercentage)}%)`,
+      "bad",
+    );
     this.emit();
-    return rounded;
+    return lost;
+  }
+
+  resetCareer(): void {
+    this.state = initialState(this.now());
+    this.sweatGenerationRemainder = 0;
+    this.cashGenerationRemainder = 0;
+    this.save();
+    this.notice("Career reset — back to the local circuit", "neutral");
+    this.emit();
   }
 
   purchase(upgrade: UpgradeDefinition): boolean {
@@ -315,15 +352,26 @@ export class GameStore {
     const wheels = this.level("wheels");
     const brakes = this.level("brakes");
     const domestiques = this.level("domestique");
+    const aeroSocks = this.level("aero-socks");
+    const helmet = this.level("helmet");
     const aeroLevels =
-      this.level("aero-socks") +
-      this.level("helmet") +
-      this.level("skinsuit");
+      aeroSocks + helmet + this.level("skinsuit");
+    const sockWindMitigation =
+      aeroSocks >= 3 ? 0.08 + (aeroSocks - 3) * 0.04 : 0;
+    const helmetWindMitigation =
+      helmet >= 3 ? 0.12 + (helmet - 3) * 0.06 : 0;
+    const wheelWindMitigation =
+      wheels >= 2 ? 0.1 + (wheels - 2) * 0.06 : 0;
+    const windMitigation = Math.min(
+      0.5,
+      sockWindMitigation + helmetWindMitigation + wheelWindMitigation,
+    );
+    const effectiveWindPenalty = stage.windPenalty * (1 - windMitigation);
 
     const flatSpeed =
-      21 +
-      power * 1.55 +
-      roadBike * 3.2 +
+      12 +
+      power * 1.8 +
+      roadBike * 4.5 +
       frame * 1.35 +
       performanceTires * 1.2 +
       tubeless * 0.7 +
@@ -331,8 +379,10 @@ export class GameStore {
       wheels * 1.15 +
       aeroLevels * 0.28;
     const gradientPenalty = Math.max(0.42, 1 - stage.gradient * 6.2);
+    const windMultiplier = 1 - effectiveWindPenalty;
     const draftMultiplier = 1 + domestiques * 0.08;
-    const speedKmh = flatSpeed * gradientPenalty * draftMultiplier;
+    const speedKmh =
+      flatSpeed * gradientPenalty * windMultiplier * draftMultiplier;
 
     return {
       speedKmh,
@@ -351,6 +401,8 @@ export class GameStore {
         reinforced * 0.16 + performanceTires * 0.2 + tubeless * 0.28,
       ),
       draftMultiplier,
+      windMitigation,
+      effectiveWindPenalty,
     };
   }
 
@@ -364,8 +416,12 @@ export class GameStore {
     const stats = this.computeStats();
     const distance = (stats.speedKmh / 3.6) * elapsedSeconds;
     this.state.distanceM += distance;
-    this.state.sweat += stats.sweatPerSecond * elapsedSeconds * 0.6;
-    this.state.cash += stats.cashPerSecond * elapsedSeconds * 0.6;
+    this.state.sweat += Math.floor(
+      stats.sweatPerSecond * elapsedSeconds * 0.6,
+    );
+    this.state.cash += Math.floor(
+      stats.cashPerSecond * elapsedSeconds * 0.6,
+    );
     this.notice(
       `Offline ride: ${Math.round(elapsedSeconds / 60)} min of safe progress`,
       "neutral",
@@ -406,7 +462,11 @@ export class GameStore {
       return {
         ...initialState(this.now()),
         ...currentState,
-        cash: (currentState.cash ?? 0) + rideCash,
+        sweat: Math.max(0, Math.floor(Number(currentState.sweat ?? 0))),
+        cash: Math.max(
+          0,
+          Math.floor(Number(currentState.cash ?? 0) + rideCash),
+        ),
         upgrades: migratedUpgrades,
       };
     } catch {

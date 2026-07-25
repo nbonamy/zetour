@@ -98,8 +98,15 @@ watch(
   },
 );
 
-const selectNode = (upgrade: UpgradeDefinition): void => {
+const activateNode = (upgrade: UpgradeDefinition): void => {
   selectedId.value = upgrade.id;
+};
+
+const buyNode = (upgrade: UpgradeDefinition): void => {
+  activateNode(upgrade);
+  if (visibility(upgrade) === "revealed") {
+    gameStore.purchase(upgrade);
+  }
 };
 
 const buySelected = (): void => {
@@ -246,7 +253,9 @@ onMounted(centerViewport);
           :aria-label="
             visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name
           "
-          @click="selectNode(node)"
+          @pointerenter="activateNode(node)"
+          @focus="activateNode(node)"
+          @click="buyNode(node)"
         >
           <span class="node-icon">
             {{ visibility(node) === "mystery" ? "?" : node.icon }}

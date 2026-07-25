@@ -33,7 +33,10 @@ const savedState = (overrides: Partial<SaveState>): SaveState => ({
   ...overrides,
 });
 
-export const createTestStore = (overrides: Partial<SaveState> = {}) => {
+export const createTestStore = (
+  overrides: Partial<SaveState> = {},
+  random: () => number = () => 0.5,
+) => {
   let now = NOW;
   const storage = new MemoryStorage(
     JSON.stringify(savedState(overrides)),
@@ -41,6 +44,7 @@ export const createTestStore = (overrides: Partial<SaveState> = {}) => {
   const store = new GameStore({
     storage,
     now: () => now,
+    random,
   });
 
   return {
