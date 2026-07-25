@@ -1,5 +1,5 @@
 export type Currency = "sweat" | "cash";
-export type Branch = "bike" | "rider" | "equipment" | "team";
+export type Branch = "bike" | "rider" | "nutrition" | "equipment" | "team";
 
 export interface UpgradeDefinition {
   id: string;
@@ -25,8 +25,17 @@ export interface UpgradeDefinition {
 export const branchLabels: Record<Branch, string> = {
   bike: "Bike",
   rider: "Rider",
+  nutrition: "Nutrition",
   equipment: "Equipment",
   team: "Team",
+};
+
+export const branchUnlockStages: Record<Branch, number> = {
+  rider: 1,
+  nutrition: 1,
+  bike: 3,
+  equipment: 2,
+  team: 5,
 };
 
 export const upgrades: UpgradeDefinition[] = [
@@ -41,6 +50,7 @@ export const upgrades: UpgradeDefinition[] = [
     costScale: 1,
     maxLevel: 1,
     levelNames: ["Workshop road bike"],
+    requiredStage: 3,
     tree: { x: 50, y: 20 },
   },
   {
@@ -56,7 +66,7 @@ export const upgrades: UpgradeDefinition[] = [
     costs: [165, 480],
     levelNames: ["Aluminium frame", "Carbon frame"],
     requires: "road-bike",
-    requiredStages: [1, 2],
+    requiredStages: [3, 4],
     tree: { x: 20, y: 48 },
   },
   {
@@ -72,7 +82,7 @@ export const upgrades: UpgradeDefinition[] = [
     costs: [45, 120, 280],
     levelNames: ["Reinforced tires", "Performance tires", "Tubeless tires"],
     requires: "road-bike",
-    requiredStages: [1, 1, 3],
+    requiredStages: [3, 3, 4],
     tree: { x: 50, y: 55 },
   },
   {
@@ -92,7 +102,7 @@ export const upgrades: UpgradeDefinition[] = [
       "Electronic 12-speed",
     ],
     requires: "road-bike",
-    requiredStages: [1, 2, 4],
+    requiredStages: [3, 4, 5],
     tree: { x: 80, y: 48 },
   },
   {
@@ -108,7 +118,7 @@ export const upgrades: UpgradeDefinition[] = [
     costs: [130, 365, 1_020],
     levelNames: ["Lightweight alloy", "Carbon wheels", "Deep aero wheels"],
     requires: "frame",
-    requiredStages: [1, 3, 4],
+    requiredStages: [3, 4, 5],
     tree: { x: 20, y: 80 },
   },
   {
@@ -124,19 +134,21 @@ export const upgrades: UpgradeDefinition[] = [
     costs: [110, 320],
     levelNames: ["Mechanical disc brakes", "Hydraulic disc brakes"],
     requires: "shifting",
-    requiredStages: [2, 4],
+    requiredStages: [3, 5],
     tree: { x: 80, y: 80 },
   },
   {
     id: "endurance",
     branch: "rider",
     name: "Endurance",
-    description: "Earn more Sweat and resist fatigue on longer stages.",
+    description: "Maintain efficient power as stages become longer.",
     icon: "♥",
     currency: "sweat",
     baseCost: 20,
-    costScale: 1.8,
+    costScale: 2,
     maxLevel: 6,
+    costs: [20, 45, 100, 225, 500, 1_100],
+    requiredStages: [1, 1, 2, 3, 4, 5],
     levelNames: [
       "Aerobic base I",
       "Aerobic base II",
@@ -155,8 +167,10 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "⚡",
     currency: "sweat",
     baseCost: 35,
-    costScale: 1.9,
+    costScale: 2,
     maxLevel: 6,
+    costs: [35, 75, 165, 360, 800, 1_750],
+    requiredStages: [1, 1, 2, 3, 4, 5],
     levelNames: [
       "Tempo power I",
       "Tempo power II",
@@ -174,10 +188,11 @@ export const upgrades: UpgradeDefinition[] = [
     description: "Change lanes faster and recover from hazards sooner.",
     icon: "↔",
     currency: "sweat",
-    baseCost: 55,
-    costScale: 2,
+    baseCost: 50,
+    costScale: 2.4,
     maxLevel: 4,
-    requiredStage: 2,
+    costs: [50, 120, 300, 750],
+    requiredStages: [1, 2, 3, 4],
     levelNames: [
       "Cornering basics",
       "Fast line changes",
@@ -185,6 +200,71 @@ export const upgrades: UpgradeDefinition[] = [
       "Pro handling",
     ],
     tree: { x: 76, y: 52 },
+  },
+  {
+    id: "body-composition",
+    branch: "rider",
+    name: "Body composition",
+    description: "Reduce the penalty of steep gradients without sacrificing power.",
+    icon: "△",
+    currency: "sweat",
+    baseCost: 60,
+    costScale: 2.5,
+    maxLevel: 5,
+    costs: [60, 150, 375, 940, 2_350],
+    requiredStages: [2, 2, 3, 4, 5],
+    levelNames: [
+      "Healthy habits",
+      "Lean endurance build",
+      "Climber build I",
+      "Climber build II",
+      "Grand-tour condition",
+    ],
+    requires: "endurance",
+    tree: { x: 25, y: 80 },
+  },
+  {
+    id: "hydration",
+    branch: "nutrition",
+    name: "Hydration",
+    description: "Preserve Flow longer by recovering better between efforts.",
+    icon: "◉",
+    currency: "sweat",
+    baseCost: 25,
+    costScale: 2.4,
+    maxLevel: 5,
+    costs: [25, 60, 145, 350, 850],
+    requiredStages: [1, 1, 2, 3, 4],
+    levelNames: [
+      "Carry a bidon",
+      "Electrolyte mix",
+      "Timed hydration",
+      "Hot-weather plan",
+      "Pro hydration protocol",
+    ],
+    tree: { x: 50, y: 32 },
+  },
+  {
+    id: "fueling",
+    branch: "nutrition",
+    name: "Fueling",
+    description: "Sustain more speed with progressively better ride nutrition.",
+    icon: "●",
+    currency: "sweat",
+    baseCost: 40,
+    costScale: 2.4,
+    maxLevel: 5,
+    costs: [40, 95, 225, 540, 1_300],
+    requiredStages: [1, 2, 2, 3, 4],
+    levelNames: [
+      "Banana",
+      "Energy bar",
+      "Carbohydrate gel",
+      "Fueling schedule",
+      "Race nutrition plan",
+    ],
+    requires: "hydration",
+    tree: { x: 50, y: 68 },
   },
   {
     id: "aero-socks",
@@ -196,6 +276,7 @@ export const upgrades: UpgradeDefinition[] = [
     baseCost: 25,
     costScale: 2.2,
     maxLevel: 4,
+    requiredStage: 2,
     levelNames: [
       "Cycling socks",
       "Compression socks",
@@ -214,6 +295,7 @@ export const upgrades: UpgradeDefinition[] = [
     baseCost: 60,
     costScale: 2.2,
     maxLevel: 4,
+    requiredStage: 2,
     levelNames: [
       "Road helmet",
       "Performance helmet",
@@ -251,7 +333,7 @@ export const upgrades: UpgradeDefinition[] = [
     baseCost: 350,
     costScale: 2.8,
     maxLevel: 3,
-    requiredStage: 3,
+    requiredStage: 5,
     levelNames: [
       "First domestique",
       "Two-rider paceline",

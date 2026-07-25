@@ -35,10 +35,10 @@ next challenge. The player never pedals or clicks for resources, but can
 optionally steer to improve the ride's return.
 
 The opening is intentionally slow: the fixed starter bike travels at about
-12 km/h, making it feel obviously inadequate. This dull state must be brief.
-The affordable first Workshop Road Bike creates a large immediate speed jump,
-and the first Power training levels arrive quickly enough that the player sees
-meaningful acceleration during the opening minutes.
+12 km/h, making it feel obviously inadequate. Stages 1 and 2 focus on improving
+the rider through training and nutrition. Equipment opens at Stage 2. The Bike
+branch opens at Stage 3, when accumulated sponsor Cash puts the first Workshop
+Road Bike within reach and creates a large immediate speed jump.
 
 ## Buying Units
 
@@ -51,11 +51,11 @@ Sweat represents accumulated physical effort. It is generated continuously by
 riding, with harder terrain producing more:
 
 ```text
-Sweat gained = distance travelled × stage yield × temporary bonuses
+Sweat gained = riding time × stage effort × temporary bonuses
 ```
 
-Sweat is spent on the Rider branch: fitness, power, endurance, technique,
-nutrition knowledge, and body-composition improvements.
+Sweat is spent on the Rider and Nutrition branches: fitness, power, endurance,
+technique, fueling, hydration, and body-composition improvements.
 
 ### Cash
 
@@ -109,6 +109,7 @@ available =
 | Branch | Unit | Cost pattern | Upgrade effect |
 | --- | --- | --- | --- |
 | Rider | Sweat | Medium cost, many repeatable levels | Steady power and endurance growth |
+| Nutrition | Sweat | Low entry cost, progressively expensive levels | Sustained speed and Flow retention |
 | Equipment | Cash | Low starting cost, several levels | Small cumulative gains |
 | Bike | Cash | Expensive milestone purchases | Large gains and new component subtrees |
 | Team | Cash | Very expensive and stage-gated | Strong multiplicative bonuses |
@@ -119,11 +120,11 @@ so the player always understands what kind of riding will reach the next node.
 An illustrative early-game cost sequence could be:
 
 ```text
-Rider endurance:   100 → 180 → 325 → 585 Sweat
-Aero socks:        $30 → $90 → $270 → $810
-Road bike:         $500
-Carbon frame:      $2,500
-First teammate:    $8,000, plus the Stage 3 requirement
+Rider endurance:   20 → 45 → 100 → 225 → 500 → 1,100 Sweat
+Hydration:         25 → 60 → 145 → 350 → 850 Sweat
+Aero socks:        $25 → $55 → $121 → $266
+Road bike:         $60, plus the Stage 3 requirement
+First teammate:    $350, plus the Stage 5 requirement
 ```
 
 The exact numbers will be tuned through playtesting. Their relative shape is
@@ -218,7 +219,8 @@ saved or spent, so it remains a ride multiplier rather than a third currency.
 
 A faster rider enters from the left, overtakes the player, and settles just
 ahead of the entire team. Staying in the same lane behind their wheel activates
-a temporary speed bonus and additional shelter from headwind.
+a temporary 50% speed bonus and additional shelter from headwind. A countdown
+directly above the rider displays the remaining time.
 
 The other rider periodically changes lanes. The player has a short reaction
 window to follow. Missing the move breaks the draft immediately; the other
@@ -288,11 +290,11 @@ both raw and effective wind whenever mitigation is active.
 
 | Stage | Main challenge | What it teaches | Major unlock |
 | --- | --- | --- | --- |
-| 1. Local circuit | Flat, safe, short | Automatic riding and earning Cash | First upgradeable bike can be purchased |
-| 2. Windy open road | Flat with strong headwind | Aerodynamics | Advanced equipment levels |
-| 3. Rolling countryside | Small slope, no wind | Shifting and endurance | Team branch |
-| 4. First categorized climb | Medium slope, no wind | Power-to-weight ratio | Climbing specializations |
-| 5. Mountain pass | Medium slope with headwind | Nutrition, weight, and braking | Professional equipment tiers |
+| 1. Local circuit | Flat, safe, short | Rider training and nutrition | Rider and Nutrition branches |
+| 2. Windy open road | Flat with strong headwind | Power, handling, and aerodynamics | Equipment branch |
+| 3. Rolling countryside | Small slope, no wind | Spending accumulated sponsor Cash | Bike branch |
+| 4. First categorized climb | Medium slope, no wind | Power-to-weight ratio | Advanced components |
+| 5. Mountain pass | Medium slope with headwind | Drafting and combined optimization | Team branch |
 | 6. Alpe d'Huez | High slope with headwind | Complete build optimization | Next campaign |
 
 Completing Alpe d'Huez finishes the first campaign. It can unlock a new season
@@ -302,14 +304,15 @@ ultra-distance riding, or another mountain range.
 ## Permanent Progression Tree
 
 The progression tree has one root, **Cycling Career**, which is unlocked by
-default. Four branches grow directly from that root:
+default. Five branches grow directly from that root:
 
 ```text
 Cycling Career — unlocked by default
-├── Bike — unlocked by default
 ├── Rider — unlocked by default
-├── Equipment — unlocked by default
-└── Team — visible but locked until Stage 3
+├── Nutrition — unlocked by default
+├── Bike — visible but locked until Stage 3
+├── Equipment — visible but locked until Stage 2
+└── Team — visible but locked until Stage 5
 ```
 
 The graph is not visible during normal riding. The player deliberately opens
@@ -318,14 +321,14 @@ pauses road movement, hazards, pickups, and resource generation; closing the
 Workshop resumes the ride.
 
 The Workshop is one large two-dimensional canvas, not four separate menus.
-Cycling Career sits at its center and the Bike, Rider, Equipment, and Team
-branches expand outward. The canvas is larger than the viewport and can be
-explored by dragging, scrolling, or using a trackpad. It opens centered on the
-Career node.
+Cycling Career sits at its center and the Rider, Nutrition, Bike, Equipment,
+and Team branches expand outward. The canvas is larger than the viewport and
+can be explored by dragging, scrolling, or using a trackpad. It opens centered
+on the Career node.
 
 Progressive discovery keeps the large graph readable:
 
-- The center and four branch roots are visible from the start.
+- The center and five branch roots are visible from the start.
 - The first available upgrade in each unlocked branch is visible.
 - The next connected generation appears as an unknown node.
 - Purchasing its parent reveals the node's identity, levels, and price.
@@ -348,10 +351,10 @@ strictly superior option.
 
 ### Bike and Components
 
-The Bike branch is available immediately. Its root node is the basic,
-non-upgradeable starter bike, which is owned by default. The player's first
-major objective is to earn enough Cash on the local circuit to purchase the
-next node: an upgradeable road bike.
+The Bike branch is visible but locked through Stages 1 and 2. Its root node is
+the basic, non-upgradeable starter bike, which is owned by default. Sponsor
+Cash continues accumulating while the rider trains, so reaching Stage 3 puts
+the upgradeable road bike within reach.
 
 ```text
 Bike branch
@@ -405,11 +408,10 @@ flat, windy stages. There should not be one universally optimal build.
 
 ### Equipment: Apparel and Accessories
 
-The Equipment branch is independent from the Bike branch and is available from
-the beginning. Its root node is the rider's basic recreational kit. Every
-family contains multiple levels, starting with ordinary equipment and ending
-with specialized professional gear. Advanced levels can still require
-stage victories.
+The Equipment branch is independent from the Bike branch and opens at Stage 2.
+Its root node is the rider's basic recreational kit. Every family contains
+multiple levels, starting with ordinary equipment and ending with specialized
+professional gear. Advanced levels can still require stage victories.
 
 ```text
 Equipment branch
@@ -500,25 +502,30 @@ Rider branch
     ├── Technique
     │   ├── Efficient cadence
     │   └── Descending and handling
-    └── Nutrition
-        ├── Better hydration
-        ├── Race fueling
-        └── Recovery program
+    └── Body composition
+        ├── Lean endurance build
+        └── Climbing specialization
 ```
 
-Training primarily raises sustainable power and efficiency. Nutrition improves
-endurance and recovery, with limited and realistic body-composition
-improvements. The important climbing statistic is power-to-weight ratio, not
-weight alone.
+Training primarily raises sustainable power and efficiency. Body-composition
+improvements reduce the effect of steep gradients within realistic limits. The
+important climbing statistic is power-to-weight ratio, not weight alone.
+
+### Nutrition
+
+The Nutrition branch is available from Stage 1 and uses Sweat. Hydration slows
+Flow decay between successful actions. Buying Hydration reveals Fueling, whose
+levels progress from basic ride food to a complete race nutrition plan and
+increase sustainable speed.
 
 ### Team and Support
 
-The Team branch is visible from the beginning but remains locked until Stage 3
-is completed. Unlocking it reveals the first purchasable node: Hire First
+The Team branch is visible from the beginning but remains locked until Stage 5.
+Unlocking it reveals the first purchasable node: Hire First
 Domestique. Additional riders create a drafting train and provide support:
 
 ```text
-Team branch — locked until Stage 3
+Team branch — locked until Stage 5
 └── Solo rider
     └── Hire first domestique
         ├── Two-rider paceline
@@ -531,7 +538,8 @@ Team branch — locked until Stage 3
 ```
 
 Drafting provides a strong multiplicative efficiency bonus on fast, flat
-roads. Its effect decreases on steep climbs because speeds are lower.
+roads: one domestique adds 20% speed, two add 30%, and three add 40%. Its effect
+decreases on steep climbs because speeds are lower.
 Teammates remain useful in the mountains by pacing the leader, carrying
 nutrition, and delivering the leader fresh to the foot of the climb.
 

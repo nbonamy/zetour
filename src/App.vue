@@ -152,7 +152,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           <span>All collected resources are available immediately</span>
           <span>
             {{ snapshot.stats.sweatPerSecond.toFixed(1) }} Sweat/s ·
-            {{ snapshot.stats.cashPerSecond.toFixed(2) }} Cash/s
+            ${{ snapshot.stats.cashPerSecond.toFixed(2) }}/s
           </span>
           <button type="button" class="workshop-trigger" @click="openWorkshop">
             Open workshop <kbd>U</kbd>

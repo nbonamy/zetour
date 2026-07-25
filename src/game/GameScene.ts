@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { gameStore } from "../core/gameStore";
+import { RANDOM_RIDER_DRAFT_BONUS } from "../core/drafting";
 import {
   addFlow,
   chooseEncounter,
@@ -8,6 +9,7 @@ import {
   draftRulesForStage,
   encounterLabel,
   flowMultiplier,
+  formatDraftTimer,
   hasPickupPassedRider,
   isRemainingSequencePickup,
   outsideDraftTargetX,
@@ -51,6 +53,7 @@ export class GameScene extends Phaser.Scene {
   private combo = 0;
   private lastFlowActionAt = 0;
   private draftCyclist?: Phaser.GameObjects.Sprite;
+  private draftTimerText?: Phaser.GameObjects.Text;
   private domestiques: Phaser.GameObjects.Sprite[] = [];
   private draftLane = 1;
   private draftLaneCountdown = 0;
@@ -145,7 +148,7 @@ export class GameScene extends Phaser.Scene {
 
     this.updateRoadObjects(this.pickups, scrollSpeed);
     this.updateRoadObjects(this.hazards, scrollSpeed);
-    this.updateFlow(delta);
+    this.updateFlow(delta, snapshot.stats.flowDecayPerSecond);
     this.updateDraft(delta, snapshot.stage);
     this.updateSpeedFeedback(
       delta,
@@ -546,9 +549,9 @@ export class GameScene extends Phaser.Scene {
     this.floatText(this.rider.x + 12, this.rider.y - 24, label, "#f1cf4b");
   }
 
-  private updateFlow(delta: number): void {
+  private updateFlow(delta: number, decayPerSecond: number): void {
     if (this.time.now - this.lastFlowActionAt > 2_500 && !this.drafting) {
-      this.flow = decayFlow(this.flow, delta / 1_000);
+      this.flow = decayFlow(this.flow, delta / 1_000, decayPerSecond);
       if (this.flow === 0) this.combo = 0;
     }
     const multiplier = flowMultiplier(this.flow);
@@ -567,6 +570,16 @@ export class GameScene extends Phaser.Scene {
     this.draftCyclist = this.add
       .sprite(-42, LANE_Y[this.draftLane], "draft-rider")
       .setDepth(11);
+    this.draftTimerText = this.add
+      .text(-42, LANE_Y[this.draftLane] - 27, "CATCH", {
+        fontFamily: "monospace",
+        fontSize: "10px",
+        color: "#fff8d8",
+        backgroundColor: "#26323a",
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5)
+      .setDepth(15);
     this.draftLaneCountdown = Phaser.Math.Between(2_700, 4_200);
     this.draftAcquisitionRemaining = 3_200;
     this.draftTimeRemaining = 0;
@@ -590,11 +603,15 @@ export class GameScene extends Phaser.Scene {
       LANE_Y[this.draftLane],
       1 - Math.exp(-delta / 180),
     );
+    this.positionDraftTimer(cyclist);
 
     if (this.droppedFromDraft) {
       cyclist.x += 220 * deltaSeconds;
+      this.positionDraftTimer(cyclist);
       if (cyclist.x > WIDTH + 50) {
         cyclist.destroy();
+        this.draftTimerText?.destroy();
+        this.draftTimerText = undefined;
         this.draftCyclist = undefined;
         this.encounterCountdown = Phaser.Math.Between(4_000, 6_500);
       }
@@ -607,6 +624,7 @@ export class GameScene extends Phaser.Scene {
     } else {
       cyclist.x = Math.min(targetX, cyclist.x + 3 * deltaSeconds);
     }
+    this.positionDraftTimer(cyclist);
     if (cyclist.x < targetX - 12) return;
 
     const aligned =
@@ -617,9 +635,12 @@ export class GameScene extends Phaser.Scene {
         this.drafting = true;
         this.draftGraceRemaining = rules.reactionSeconds;
         this.draftTimeRemaining = rules.durationSeconds;
-        gameStore.setTemporaryDraftBonus(0.12);
+        gameStore.setTemporaryDraftBonus(RANDOM_RIDER_DRAFT_BONUS);
+        this.draftTimerText?.setText(
+          formatDraftTimer(this.draftTimeRemaining),
+        );
         this.showEncounter(
-          `IN THE DRAFT · +12% SPEED · ${rules.durationSeconds}s`,
+          `IN THE DRAFT · +50% SPEED · ${rules.durationSeconds}s`,
           1_600,
         );
         this.rewardFlow(12, "DRAFT");
@@ -630,6 +651,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.draftTimeRemaining -= deltaSeconds;
+    this.draftTimerText?.setText(formatDraftTimer(this.draftTimeRemaining));
     if (this.draftTimeRemaining <= 0) {
       this.finishDraft();
       return;
@@ -653,7 +675,7 @@ export class GameScene extends Phaser.Scene {
 
     if (aligned) {
       this.draftGraceRemaining = rules.reactionSeconds;
-      gameStore.setTemporaryDraftBonus(0.12);
+      gameStore.setTemporaryDraftBonus(RANDOM_RIDER_DRAFT_BONUS);
       this.flow = addFlow(this.flow, deltaSeconds * 2.5);
       this.lastFlowActionAt = this.time.now;
     } else {
@@ -668,6 +690,7 @@ export class GameScene extends Phaser.Scene {
     this.drafting = false;
     this.droppedFromDraft = true;
     gameStore.setTemporaryDraftBonus(0);
+    this.draftTimerText?.setText("DROPPED");
     this.showEncounter("DROPPED!", 1_300);
   }
 
@@ -675,7 +698,12 @@ export class GameScene extends Phaser.Scene {
     this.drafting = false;
     this.droppedFromDraft = true;
     gameStore.setTemporaryDraftBonus(0);
+    this.draftTimerText?.setText("0s");
     this.showEncounter("RIDER ACCELERATES AWAY", 1_500);
+  }
+
+  private positionDraftTimer(cyclist: Phaser.GameObjects.Sprite): void {
+    this.draftTimerText?.setPosition(cyclist.x, cyclist.y - 27);
   }
 
   private syncDomestiques(level: number): void {

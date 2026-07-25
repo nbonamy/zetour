@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stages } from "../src/core/gameStore";
+import { stages } from "../../src/core/gameStore";
 import {
   addFlow,
   availableEncounters,
@@ -8,10 +8,11 @@ import {
   domestiqueFormationX,
   draftRulesForStage,
   flowMultiplier,
+  formatDraftTimer,
   hasPickupPassedRider,
   isRemainingSequencePickup,
   outsideDraftTargetX,
-} from "../src/game/rideSystems";
+} from "../../src/game/rideSystems";
 
 describe("active ride systems", () => {
   it("builds Flow into a capped reward multiplier", () => {
@@ -56,6 +57,13 @@ describe("active ride systems", () => {
     expect(outsideDraftTargetX(3)).toBeGreaterThan(
       Math.max(...domestiqueFormationX(3)),
     );
+  });
+
+  it("formats the visible random-rider countdown", () => {
+    expect(formatDraftTimer(15)).toBe("15s");
+    expect(formatDraftTimer(14.01)).toBe("15s");
+    expect(formatDraftTimer(0.01)).toBe("1s");
+    expect(formatDraftTimer(-1)).toBe("0s");
   });
 
   it("fails a pickup only after it has safely passed the rider", () => {

@@ -27,9 +27,13 @@ npm run build
 - Collect fan bags for Sweat and Cash.
 - Avoid potholes, which make the rider drop Cash.
 - Follow directed bonus, slalom, sprint, climb, and drafting encounters.
+- Random riders provide a timed 50% draft; domestiques provide permanent
+  formation bonuses of 20%, 30%, or 40%.
 - Chain pickups and near-misses to build a temporary Flow reward multiplier.
 - Every collected unit is credited immediately.
 - Open the Career Workshop with its button or `U`; the ride pauses while it is
   open.
-- Drag or scroll its large canvas to explore the four connected branches.
-- Spend Sweat on the Rider branch and Cash on Bike, Equipment, and Team.
+- Drag or scroll its large canvas to explore the five connected branches.
+- Stage 1 opens Rider and Nutrition, Stage 2 opens Equipment, Stage 3 opens
+  Bike, and Stage 5 opens Team.
+- Spend Sweat on Rider and Nutrition; spend Cash on Bike, Equipment, and Team.

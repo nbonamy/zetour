@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   branchLabels,
+  branchUnlockStages,
   type Branch,
   type UpgradeDefinition,
   upgradeById,
@@ -18,28 +19,32 @@ type NodeVisibility = "revealed" | "mystery" | "hidden";
 const selectedId = ref<string | null>(null);
 const viewport = ref<HTMLElement | null>(null);
 const dragging = ref(false);
-const world = { width: 2_200, height: 1_500 };
-const center = { x: 1_100, y: 750 };
+const world = { width: 2_200, height: 1_600 };
+const center = { x: 1_100, y: 780 };
 const branchPositions: Record<Branch, { x: number; y: number }> = {
-  bike: { x: 820, y: 590 },
-  rider: { x: 1_380, y: 590 },
-  equipment: { x: 1_380, y: 910 },
-  team: { x: 820, y: 910 },
+  bike: { x: 800, y: 590 },
+  rider: { x: 1_360, y: 560 },
+  nutrition: { x: 1_490, y: 780 },
+  equipment: { x: 1_360, y: 1_000 },
+  team: { x: 800, y: 970 },
 };
 const nodePositions: Record<string, { x: number; y: number }> = {
-  "road-bike": { x: 820, y: 420 },
-  frame: { x: 590, y: 250 },
-  tires: { x: 820, y: 190 },
-  shifting: { x: 1_030, y: 250 },
-  wheels: { x: 510, y: 450 },
-  brakes: { x: 1_080, y: 430 },
-  endurance: { x: 1_200, y: 350 },
-  power: { x: 1_400, y: 210 },
-  technique: { x: 1_620, y: 350 },
-  "aero-socks": { x: 1_200, y: 1_150 },
-  helmet: { x: 1_400, y: 1_290 },
-  skinsuit: { x: 1_620, y: 1_150 },
-  domestique: { x: 820, y: 1_150 },
+  "road-bike": { x: 800, y: 410 },
+  frame: { x: 590, y: 240 },
+  tires: { x: 800, y: 190 },
+  shifting: { x: 1_010, y: 240 },
+  wheels: { x: 520, y: 430 },
+  brakes: { x: 1_060, y: 420 },
+  endurance: { x: 1_180, y: 350 },
+  power: { x: 1_380, y: 220 },
+  technique: { x: 1_580, y: 350 },
+  "body-composition": { x: 1_080, y: 170 },
+  hydration: { x: 1_730, y: 660 },
+  fueling: { x: 1_880, y: 860 },
+  "aero-socks": { x: 1_170, y: 1_210 },
+  helmet: { x: 1_380, y: 1_340 },
+  skinsuit: { x: 1_590, y: 1_210 },
+  domestique: { x: 800, y: 1_210 },
 };
 const branches = Object.keys(branchLabels) as Branch[];
 
@@ -238,7 +243,9 @@ onMounted(centerViewport);
         >
           <span>{{ gameStore.isBranchUnlocked(branch) ? "◆" : "🔒" }}</span>
           <strong>{{ branchLabels[branch] }}</strong>
-          <small v-if="!gameStore.isBranchUnlocked(branch)">Stage 3</small>
+          <small v-if="!gameStore.isBranchUnlocked(branch)">
+            Stage {{ branchUnlockStages[branch] }}
+          </small>
         </div>
 
         <button
@@ -348,8 +355,8 @@ onMounted(centerViewport);
         <div class="detail-kicker">Career progression</div>
         <h3>Select a node</h3>
         <p>
-          Explore Bike, Rider, Equipment, and Team from the central career
-          node. Unknown bonuses reveal as you purchase their parent.
+          Explore Rider, Nutrition, Bike, Equipment, and Team from the central
+          career node. Unknown bonuses reveal as you purchase their parent.
         </p>
       </template>
     </aside>

@@ -1,10 +1,16 @@
 import {
+  branchUnlockStages,
   type Branch,
   type Currency,
   type UpgradeDefinition,
   upgradeById,
   upgradeCost,
 } from "./upgrades";
+import { bagRewardForStage } from "./economy";
+import {
+  domestiqueDraftBonus,
+  RANDOM_RIDER_DRAFT_BONUS,
+} from "./drafting";
 
 const SAVE_KEY = "biker-inc-save-v1";
 const SAVE_INTERVAL_MS = 5_000;
@@ -97,6 +103,7 @@ export interface ComputedStats {
   draftMultiplier: number;
   windMitigation: number;
   effectiveWindPenalty: number;
+  flowDecayPerSecond: number;
 }
 
 export interface GameSnapshot extends SaveState {
@@ -228,17 +235,16 @@ export class GameStore {
   }
 
   collectBag(type: "sweat" | "cash", multiplier = 1): number {
-    const baseAmount =
-      type === "sweat"
-        ? 8 + this.state.stage * 4
-        : 10 + this.state.stage * 6;
-    const amount = Math.max(1, Math.round(baseAmount * multiplier));
+    const amount = bagRewardForStage(type, this.state.stage, multiplier);
     if (type === "sweat") {
       this.state.sweat += amount;
     } else {
       this.state.cash += amount;
     }
-    this.notice(`+${amount} ${type === "sweat" ? "Sweat" : "Cash"}`, "good");
+    this.notice(
+      type === "sweat" ? `+${amount} Sweat` : `+$${amount}`,
+      "good",
+    );
     this.emit();
     return amount;
   }
@@ -260,7 +266,7 @@ export class GameStore {
     );
     this.state.cash = Math.max(0, this.state.cash - lost);
     this.notice(
-      `Pothole — dropped ${lost} Cash (${Math.round(effectiveLossPercentage)}%)`,
+      `Pothole — dropped $${lost} (${Math.round(effectiveLossPercentage)}%)`,
       "bad",
     );
     this.emit();
@@ -301,6 +307,14 @@ export class GameStore {
     if (level >= upgrade.maxLevel) {
       return { ...status, available: false, reason: "Max level" };
     }
+    const branchUnlockStage = branchUnlockStages[upgrade.branch];
+    if (!this.isBranchUnlocked(upgrade.branch)) {
+      return {
+        ...status,
+        available: false,
+        reason: `Branch unlocks at Stage ${branchUnlockStage}`,
+      };
+    }
     const requiredStage =
       upgrade.requiredStages?.[level] ?? upgrade.requiredStage;
     if (requiredStage && this.state.stage < requiredStage) {
@@ -333,11 +347,14 @@ export class GameStore {
   }
 
   isBranchUnlocked(branch: Branch): boolean {
-    return branch !== "team" || this.state.stage >= 3;
+    return this.state.stage >= branchUnlockStages[branch];
   }
 
   setTemporaryDraftBonus(bonus: number): void {
-    this.temporaryDraftBonus = Math.max(0, Math.min(0.25, bonus));
+    this.temporaryDraftBonus = Math.max(
+      0,
+      Math.min(RANDOM_RIDER_DRAFT_BONUS, bonus),
+    );
   }
 
   private currentStage(): StageDefinition {
@@ -353,6 +370,9 @@ export class GameStore {
     const power = this.level("power");
     const endurance = this.level("endurance");
     const technique = this.level("technique");
+    const bodyComposition = this.level("body-composition");
+    const hydration = this.level("hydration");
+    const fueling = this.level("fueling");
     const roadBike = this.level("road-bike");
     const frame = this.level("frame");
     const tires = this.level("tires");
@@ -386,6 +406,8 @@ export class GameStore {
     const flatSpeed =
       12 +
       power * 1.8 +
+      endurance * 0.4 +
+      fueling * 0.55 +
       roadBike * 4.5 +
       frame * 1.35 +
       performanceTires * 1.2 +
@@ -393,17 +415,21 @@ export class GameStore {
       shifting * 0.65 +
       wheels * 1.15 +
       aeroLevels * 0.28;
-    const gradientPenalty = Math.max(0.42, 1 - stage.gradient * 6.2);
+    const climbingEfficiency = 1 - Math.min(0.25, bodyComposition * 0.05);
+    const gradientPenalty = Math.max(
+      0.42,
+      1 - stage.gradient * 6.2 * climbingEfficiency,
+    );
     const windMultiplier = 1 - effectiveWindPenalty;
     const draftMultiplier =
-      1 + domestiques * 0.08 + this.temporaryDraftBonus;
+      1 + domestiqueDraftBonus(domestiques) + this.temporaryDraftBonus;
     const speedKmh =
       flatSpeed * gradientPenalty * windMultiplier * draftMultiplier;
 
     return {
       speedKmh,
       sweatPerSecond:
-        (0.7 + speedKmh / 80) * stage.sweatYield * (1 + endurance * 0.1),
+        (0.08 + speedKmh / 250) * stage.sweatYield,
       cashPerSecond: (speedKmh / 3_600) * stage.cashPerKm,
       handling:
         1 +
@@ -419,6 +445,7 @@ export class GameStore {
       draftMultiplier,
       windMitigation,
       effectiveWindPenalty,
+      flowDecayPerSecond: Math.max(2.5, 5 - hydration * 0.5),
     };
   }
 

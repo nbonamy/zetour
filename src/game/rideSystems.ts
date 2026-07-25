@@ -34,6 +34,9 @@ export const domestiqueFormationX = (count: number): number[] =>
 export const outsideDraftTargetX = (domestiqueCount: number): number =>
   190 + Math.max(0, Math.min(3, Math.floor(domestiqueCount))) * 43;
 
+export const formatDraftTimer = (seconds: number): string =>
+  `${Math.max(0, Math.ceil(seconds))}s`;
+
 export const hasPickupPassedRider = (
   pickupX: number,
   riderX: number,

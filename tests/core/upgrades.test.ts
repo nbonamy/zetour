@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { upgradeById, upgradeCost } from "../src/core/upgrades";
-import { createTestStore } from "./helpers/createTestStore";
+import { upgradeById, upgradeCost } from "../../src/core/upgrades";
+import { createTestStore } from "../helpers/createTestStore";
 
 const upgrade = (id: string) => {
   const definition = upgradeById(id);
@@ -10,7 +10,7 @@ const upgrade = (id: string) => {
 
 describe("upgrade tree", () => {
   it("requires the workshop road bike before component upgrades", () => {
-    const { store } = createTestStore({ cash: 500 });
+    const { store } = createTestStore({ stage: 3, cash: 500 });
 
     const result = store.purchaseStatus(upgrade("tires"));
 
@@ -19,7 +19,7 @@ describe("upgrade tree", () => {
   });
 
   it("unlocks component purchases after buying the workshop road bike", () => {
-    const { store } = createTestStore({ cash: 500 });
+    const { store } = createTestStore({ stage: 3, cash: 500 });
 
     expect(store.purchase(upgrade("road-bike"))).toBe(true);
 
@@ -52,7 +52,7 @@ describe("upgrade tree", () => {
   });
 
   it("reports the next price immediately after an upgrade purchase", () => {
-    const { store } = createTestStore({ cash: 100 });
+    const { store } = createTestStore({ stage: 3, cash: 100 });
     const aeroSocks = upgrade("aero-socks");
 
     expect(store.purchaseStatus(aeroSocks).cost).toBe(25);
@@ -61,7 +61,7 @@ describe("upgrade tree", () => {
   });
 
   it("includes the required unit in insufficient-funds messages", () => {
-    const { store } = createTestStore();
+    const { store } = createTestStore({ stage: 3 });
 
     expect(store.purchaseStatus(upgrade("road-bike")).reason).toBe(
       "Need $60 more",
@@ -74,7 +74,7 @@ describe("upgrade tree", () => {
   it("keeps all tire tiers inside one progressive node", () => {
     const tires = upgrade("tires");
     const { store } = createTestStore({
-      stage: 3,
+      stage: 4,
       cash: 1_000,
       upgrades: { "road-bike": 1 },
     });
@@ -94,28 +94,63 @@ describe("upgrade tree", () => {
     expect(store.getSnapshot().upgrades.tires).toBe(3);
   });
 
-  it("keeps Team locked until Stage 3", () => {
+  it("unlocks Rider and Nutrition at Stage 1, Equipment at 2, Bike at 3, and Team at 5", () => {
+    const stageOne = createTestStore({ stage: 1 }).store;
     const stageTwo = createTestStore({ stage: 2 }).store;
+    const fundedStageTwo = createTestStore({
+      stage: 2,
+      cash: 100,
+    }).store;
     const stageThree = createTestStore({ stage: 3 }).store;
+    const stageFive = createTestStore({ stage: 5 }).store;
 
-    expect(stageTwo.isBranchUnlocked("team")).toBe(false);
-    expect(stageThree.isBranchUnlocked("team")).toBe(true);
+    expect(stageOne.isBranchUnlocked("rider")).toBe(true);
+    expect(stageOne.isBranchUnlocked("nutrition")).toBe(true);
+    expect(stageOne.isBranchUnlocked("equipment")).toBe(false);
+    expect(stageTwo.isBranchUnlocked("equipment")).toBe(true);
+    expect(stageTwo.isBranchUnlocked("bike")).toBe(false);
+    expect(
+      fundedStageTwo.purchaseStatus(upgrade("aero-socks")).available,
+    ).toBe(true);
+    expect(stageOne.isBranchUnlocked("bike")).toBe(false);
+    expect(stageThree.isBranchUnlocked("bike")).toBe(true);
+    expect(stageThree.isBranchUnlocked("team")).toBe(false);
+    expect(stageFive.isBranchUnlocked("team")).toBe(true);
   });
 
   it("enforces both stage and parent prerequisites", () => {
-    const stageOne = createTestStore({
+    const stageThree = createTestStore({
+      stage: 3,
       cash: 1_000,
       upgrades: { "road-bike": 1, frame: 1 },
     }).store;
-    const stageTwo = createTestStore({
-      stage: 2,
+    const stageFour = createTestStore({
+      stage: 4,
       cash: 1_000,
       upgrades: { "road-bike": 1, frame: 1 },
     }).store;
 
-    expect(stageOne.purchaseStatus(upgrade("frame")).reason).toBe(
-      "Unlocks at Stage 2",
+    expect(stageThree.purchaseStatus(upgrade("frame")).reason).toBe(
+      "Unlocks at Stage 4",
     );
-    expect(stageTwo.purchaseStatus(upgrade("frame")).available).toBe(true);
+    expect(stageFour.purchaseStatus(upgrade("frame")).available).toBe(true);
+  });
+
+  it("prevents direct purchases from a stage-locked branch", () => {
+    const { store } = createTestStore({ cash: 1_000 });
+
+    expect(store.purchaseStatus(upgrade("road-bike")).reason).toBe(
+      "Branch unlocks at Stage 3",
+    );
+    expect(store.purchase(upgrade("road-bike"))).toBe(false);
+  });
+
+  it("spends Sweat on progressive Nutrition upgrades", () => {
+    const { store } = createTestStore({ sweat: 100 });
+
+    expect(store.purchase(upgrade("hydration"))).toBe(true);
+    expect(store.purchaseStatus(upgrade("fueling")).available).toBe(true);
+    expect(store.purchase(upgrade("fueling"))).toBe(true);
+    expect(store.getSnapshot().sweat).toBe(35);
   });
 });
