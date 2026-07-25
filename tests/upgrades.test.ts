@@ -51,6 +51,26 @@ describe("upgrade tree", () => {
     expect(upgradeCost(aeroSocks, 2)).toBe(121);
   });
 
+  it("reports the next price immediately after an upgrade purchase", () => {
+    const { store } = createTestStore({ cash: 100 });
+    const aeroSocks = upgrade("aero-socks");
+
+    expect(store.purchaseStatus(aeroSocks).cost).toBe(25);
+    expect(store.purchase(aeroSocks)).toBe(true);
+    expect(store.purchaseStatus(aeroSocks).cost).toBe(55);
+  });
+
+  it("includes the required unit in insufficient-funds messages", () => {
+    const { store } = createTestStore();
+
+    expect(store.purchaseStatus(upgrade("road-bike")).reason).toBe(
+      "Need $60 more",
+    );
+    expect(store.purchaseStatus(upgrade("endurance")).reason).toBe(
+      "Need 20 more Sweat",
+    );
+  });
+
   it("keeps all tire tiers inside one progressive node", () => {
     const tires = upgrade("tires");
     const { store } = createTestStore({

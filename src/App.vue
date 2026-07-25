@@ -92,7 +92,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           </span>
         </div>
         <div class="resource cash">
-          <span class="resource-icon">€</span>
+          <span class="resource-icon">$</span>
           <span>
             <small>Cash</small>
             <strong>{{ format(snapshot.cash) }}</strong>
@@ -115,13 +115,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             <span>{{ (snapshot.distanceM / 1000).toFixed(2) }} km</span>
             <span>
               {{
-                snapshot.stageDefinition.windPenalty > 0
-                  ? snapshot.stats.windMitigation > 0
-                    ? `← ${Math.round(snapshot.stageDefinition.windPenalty * 100)}% → ${Math.round(snapshot.stats.effectiveWindPenalty * 100)}% wind`
-                    : `← ${Math.round(snapshot.stageDefinition.windPenalty * 100)}% wind`
-                  : "Calm"
-              }}
-            </span>
+    snapshot.stageDefinition.windPenalty > 0
+      ? snapshot.stats.windMitigation > 0
+        ? `${Math.round(snapshot.stageDefinition.windPenalty * 100)}% headwind · ${Math.round(snapshot.stats.effectiveWindPenalty * 100)}% after aero`
+        : `${Math.round(snapshot.stageDefinition.windPenalty * 100)}% headwind`
+      : "Calm"
+  }}
+</span>
             <span>
               {{
                 snapshot.stageDefinition.gradient > 0
@@ -177,7 +177,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               </div>
               <div class="workshop-resources">
                 <span><b>S</b> {{ format(snapshot.sweat) }} Sweat</span>
-                <span><b>€</b> {{ format(snapshot.cash) }} Cash</span>
+                <span><b>$</b> {{ format(snapshot.cash) }} Cash</span>
               </div>
               <button
                 type="button"

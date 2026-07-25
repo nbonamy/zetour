@@ -123,4 +123,17 @@ describe("stage and offline progression", () => {
     expect(windy.stats.effectiveWindPenalty).toBeCloseTo(0.175);
     expect(windy.stats.speedKmh / flat.stats.speedKmh).toBeCloseTo(0.825);
   });
+
+  it("gains speed and wind shelter while temporarily drafting", () => {
+    const { store } = createTestStore({ stage: 2 });
+    const solo = store.getSnapshot();
+
+    store.setTemporaryDraftBonus(0.12);
+    const drafting = store.getSnapshot();
+
+    expect(drafting.stats.speedKmh).toBeGreaterThan(solo.stats.speedKmh);
+    expect(drafting.stats.effectiveWindPenalty).toBeLessThan(
+      solo.stats.effectiveWindPenalty,
+    );
+  });
 });

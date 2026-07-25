@@ -26,6 +26,8 @@ npm run build
 - Move the mouse vertically over the road to change lanes.
 - Collect fan bags for Sweat and Cash.
 - Avoid potholes, which make the rider drop Cash.
+- Follow directed bonus, slalom, sprint, climb, and drafting encounters.
+- Chain pickups and near-misses to build a temporary Flow reward multiplier.
 - Every collected unit is credited immediately.
 - Open the Career Workshop with its button or `U`; the ride pauses while it is
   open.

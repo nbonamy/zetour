@@ -27,6 +27,15 @@ describe("riding economy", () => {
     expect(state.cash).toBe(16);
   });
 
+  it("applies the active Flow multiplier to roadside bags", () => {
+    const { store } = createTestStore();
+
+    const reward = store.collectBag("cash", 1.6);
+
+    expect(reward).toBe(26);
+    expect(store.getSnapshot().cash).toBe(26);
+  });
+
   it("makes passive Cash spendable immediately", () => {
     const { store, advance } = createTestStore();
 

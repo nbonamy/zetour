@@ -1,9 +1,25 @@
 import Phaser from "phaser";
 import { gameStore } from "../core/gameStore";
+import {
+  addFlow,
+  chooseEncounter,
+  decayFlow,
+  domestiqueFormationX,
+  draftRulesForStage,
+  encounterLabel,
+  flowMultiplier,
+  hasPickupPassedRider,
+  isRemainingSequencePickup,
+  outsideDraftTargetX,
+  type RideEncounter,
+} from "./rideSystems";
 
 type RoadObject = Phaser.Physics.Arcade.Image & {
   eventType?: "sweat" | "cash" | "pothole";
   companion?: Phaser.GameObjects.Image;
+  sequenceId?: number;
+  sequenceIndex?: number;
+  sequenceFailed?: boolean;
 };
 
 const WIDTH = 640;
@@ -18,14 +34,31 @@ export class GameScene extends Phaser.Scene {
   private fields!: Phaser.GameObjects.TileSprite;
   private gradeMarkers!: Phaser.GameObjects.TileSprite;
   private conditionText!: Phaser.GameObjects.Text;
+  private encounterText!: Phaser.GameObjects.Text;
+  private flowText!: Phaser.GameObjects.Text;
+  private flowBar!: Phaser.GameObjects.Rectangle;
   private windStreaks: Phaser.GameObjects.Rectangle[] = [];
+  private roadParticles: Phaser.GameObjects.Rectangle[] = [];
   private laneMarkers: Phaser.GameObjects.TileSprite[] = [];
   private targetLane = 1;
-  private pickupCountdown = 800;
-  private hazardCountdown = 2_200;
+  private encounterCountdown = 1_200;
+  private encounterCount = 0;
+  private pickupSequenceCount = 0;
   private animationCountdown = 120;
   private riderFrame = false;
   private lastPointerMoveAt = 0;
+  private flow = 0;
+  private combo = 0;
+  private lastFlowActionAt = 0;
+  private draftCyclist?: Phaser.GameObjects.Sprite;
+  private domestiques: Phaser.GameObjects.Sprite[] = [];
+  private draftLane = 1;
+  private draftLaneCountdown = 0;
+  private draftGraceRemaining = 0;
+  private draftAcquisitionRemaining = 0;
+  private draftTimeRemaining = 0;
+  private drafting = false;
+  private droppedFromDraft = false;
 
   constructor() {
     super("ride");
@@ -88,11 +121,11 @@ export class GameScene extends Phaser.Scene {
     });
     this.conditionText.setText(
       `${
-        windPenalty > 0
-          ? snapshot.stats.windMitigation > 0
-            ? `HEADWIND ← ${Math.round(windPenalty * 100)}% → ${Math.round(snapshot.stats.effectiveWindPenalty * 100)}%`
-            : `HEADWIND ← ${Math.round(windPenalty * 100)}%`
-          : "CALM"
+    windPenalty > 0
+      ? snapshot.stats.windMitigation > 0
+        ? `HEADWIND ${Math.round(windPenalty * 100)}% · AFTER AERO ${Math.round(snapshot.stats.effectiveWindPenalty * 100)}%`
+        : `HEADWIND ${Math.round(windPenalty * 100)}%`
+      : "CALM"
       }  |  ${
         gradient > 0
           ? `CLIMB ↗ ${(gradient * 100).toFixed(1)}%`
@@ -107,27 +140,36 @@ export class GameScene extends Phaser.Scene {
       response,
     );
     this.rider.setVelocityY(0);
+    this.syncDomestiques(snapshot.upgrades.domestique ?? 0);
+    this.updateDomestiques(delta);
 
     this.updateRoadObjects(this.pickups, scrollSpeed);
     this.updateRoadObjects(this.hazards, scrollSpeed);
+    this.updateFlow(delta);
+    this.updateDraft(delta, snapshot.stage);
+    this.updateSpeedFeedback(
+      delta,
+      scrollSpeed,
+      snapshot.stats.speedKmh,
+      gradient,
+    );
 
-    this.pickupCountdown -= delta;
-    if (this.pickupCountdown <= 0) {
-      this.spawnPickup();
-      this.pickupCountdown = Phaser.Math.Between(1_900, 3_200);
-    }
-
-    this.hazardCountdown -= delta;
-    if (this.hazardCountdown <= 0) {
-      this.spawnPothole();
-      this.hazardCountdown = Phaser.Math.Between(2_400, 4_000);
+    this.encounterCountdown -= delta;
+    if (this.encounterCountdown <= 0 && !this.draftCyclist) {
+      const encounter =
+        this.encounterCount === 1
+          ? "draft"
+          : chooseEncounter(snapshot.stageDefinition);
+      this.startEncounter(encounter);
+      this.encounterCount += 1;
+      this.encounterCountdown = Phaser.Math.Between(8_500, 12_000);
     }
 
     this.animationCountdown -= delta;
     if (this.animationCountdown <= 0) {
       this.riderFrame = !this.riderFrame;
       this.rider.setTexture(this.riderFrame ? "rider-b" : "rider-a");
-      this.animationCountdown = 120;
+      this.animationCountdown = Math.max(55, 180 - snapshot.stats.speedKmh * 4);
     }
 
     this.rider.setData("safeCruise", !isActive);
@@ -161,6 +203,18 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(WIDTH / 2, 348, WIDTH, 24, 0x3f8b52);
     this.add.rectangle(WIDTH / 2, 176, WIDTH, 2, 0xd7d2b5);
     this.add.rectangle(WIDTH / 2, 338, WIDTH, 2, 0xd7d2b5);
+    this.roadParticles = Array.from({ length: 14 }, (_, index) =>
+      this.add
+        .rectangle(
+          (index * 53) % WIDTH,
+          188 + (index % 3) * 52,
+          3 + (index % 4),
+          2,
+          0xf5f0df,
+          0.2,
+        )
+        .setDepth(3),
+    );
 
     [222, 274].forEach((y) => {
       this.laneMarkers.push(
@@ -188,6 +242,34 @@ export class GameScene extends Phaser.Scene {
         strokeThickness: 3,
       })
       .setDepth(20);
+    this.encounterText = this.add
+      .text(WIDTH / 2, 42, "", {
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: "#f1cf4b",
+        stroke: "#26323a",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(25);
+    this.add
+      .rectangle(626, 17, 106, 8, 0x26323a, 0.75)
+      .setOrigin(1, 0.5)
+      .setDepth(20);
+    this.flowBar = this.add
+      .rectangle(522, 17, 0, 4, 0xf1cf4b)
+      .setOrigin(0, 0.5)
+      .setDepth(21);
+    this.flowText = this.add
+      .text(626, 27, "FLOW x1.0", {
+        fontFamily: "monospace",
+        fontSize: "9px",
+        color: "#fff8d8",
+        stroke: "#26323a",
+        strokeThickness: 3,
+      })
+      .setOrigin(1, 0)
+      .setDepth(21);
   }
 
   private createRider(): void {
@@ -196,24 +278,36 @@ export class GameScene extends Phaser.Scene {
     this.rider.body?.setSize(24, 24);
   }
 
-  private spawnPickup(): void {
-    const type = Math.random() < 0.52 ? "sweat" : "cash";
-    const lane = Phaser.Math.Between(0, 2);
+  private spawnPickup(
+    type: "sweat" | "cash" = Math.random() < 0.52 ? "sweat" : "cash",
+    lane = Phaser.Math.Between(0, 2),
+    x = WIDTH + 24,
+    sequenceId?: number,
+    sequenceIndex?: number,
+  ): void {
     const texture = type === "sweat" ? "bag-sweat" : "bag-cash";
-    const object = this.physics.add.image(WIDTH + 24, LANE_Y[lane], texture) as RoadObject;
+    const object = this.physics.add.image(
+      x,
+      LANE_Y[lane],
+      texture,
+    ) as RoadObject;
     object.eventType = type;
+    object.sequenceId = sequenceId;
+    object.sequenceIndex = sequenceIndex;
     object.setDepth(8);
     this.pickups.add(object);
 
     const fanY = lane === 0 ? 164 : 346;
-    const fan = this.add.image(WIDTH + 24, fanY, "fan").setDepth(6);
+    const fan = this.add.image(x, fanY, "fan").setDepth(6);
     object.companion = fan;
   }
 
-  private spawnPothole(): void {
-    const lane = Phaser.Math.Between(0, 2);
+  private spawnPothole(
+    lane = Phaser.Math.Between(0, 2),
+    x = WIDTH + 24,
+  ): void {
     const pothole = this.physics.add.image(
-      WIDTH + 24,
+      x,
       LANE_Y[lane] + 8,
       "pothole",
     ) as RoadObject;
@@ -229,9 +323,32 @@ export class GameScene extends Phaser.Scene {
   ): void {
     group.getChildren().forEach((child) => {
       const object = child as RoadObject;
+      if (object.sequenceFailed) return;
+
       object.setVelocityX(-scrollSpeed);
       if (object.companion) {
         object.companion.x = object.x;
+      }
+      if (
+        object.eventType === "pothole" &&
+        !object.getData("passedRider") &&
+        object.x <= this.rider.x
+      ) {
+        object.setData("passedRider", true);
+        const gap = Math.abs(object.y - this.rider.y);
+        const activelySteering = this.time.now - this.lastPointerMoveAt < 5_000;
+        if (activelySteering && gap >= 24 && gap <= 78) {
+          this.rewardFlow(15, "NEAR MISS");
+        }
+      }
+      if (
+        group === this.pickups &&
+        object.sequenceId !== undefined &&
+        object.sequenceIndex !== undefined &&
+        hasPickupPassedRider(object.x, this.rider.x)
+      ) {
+        this.failPickupSequence(object);
+        return;
       }
       if (object.x < -36) {
         object.companion?.destroy();
@@ -241,16 +358,70 @@ export class GameScene extends Phaser.Scene {
   }
 
   private collect(object: RoadObject): void {
-    if (!object.active || object.eventType === "pothole") return;
-    const amount = gameStore.collectBag(object.eventType ?? "cash");
+    if (
+      !object.active ||
+      object.sequenceFailed ||
+      object.eventType === "pothole"
+    ) {
+      return;
+    }
+    const multiplier = flowMultiplier(this.flow);
+    const amount = gameStore.collectBag(
+      object.eventType ?? "cash",
+      multiplier,
+    );
+    this.rewardFlow(10, `COMBO ${this.combo + 1}`);
     this.floatText(
       object.x,
       object.y - 16,
-      `+${amount}${object.eventType === "sweat" ? "S" : "€"}`,
+      `+${amount}${object.eventType === "sweat" ? "S" : "$"}`,
       object.eventType === "sweat" ? "#71f5cc" : "#ffe26f",
     );
     object.companion?.destroy();
     object.destroy();
+  }
+
+  private failPickupSequence(missedPickup: RoadObject): void {
+    const sequenceId = missedPickup.sequenceId;
+    const missedIndex = missedPickup.sequenceIndex;
+    if (sequenceId === undefined || missedIndex === undefined) return;
+
+    missedPickup.companion?.destroy();
+    missedPickup.destroy();
+
+    this.pickups.getChildren().forEach((child) => {
+      const pickup = child as RoadObject;
+      if (
+        !isRemainingSequencePickup(
+          pickup.sequenceId,
+          pickup.sequenceIndex,
+          sequenceId,
+          missedIndex,
+        )
+      ) {
+        return;
+      }
+
+      pickup.sequenceFailed = true;
+      pickup.setVelocityX(0);
+      if (pickup.body) pickup.body.enable = false;
+      pickup.setTint(0xff8d7d);
+      pickup.companion?.setTint(0xff8d7d);
+
+      this.tweens.add({
+        targets: pickup.companion ? [pickup, pickup.companion] : [pickup],
+        alpha: 0.15,
+        duration: 120,
+        yoyo: true,
+        repeat: 2,
+        onComplete: () => {
+          pickup.companion?.destroy();
+          pickup.destroy();
+        },
+      });
+    });
+
+    this.showEncounter("SEQUENCE MISSED — BONUSES LOST", 1_200);
   }
 
   private hitHazard(object: RoadObject): void {
@@ -262,11 +433,296 @@ export class GameScene extends Phaser.Scene {
     }
 
     const lost = gameStore.hitPothole();
-    this.floatText(object.x, object.y - 18, `-${lost}€`, "#ff8d7d");
+    this.flow = 0;
+    this.combo = 0;
+    this.lastFlowActionAt = this.time.now;
+    this.floatText(object.x, object.y - 18, `-$${lost}`, "#ff8d7d");
     this.cameras.main.shake(120, 0.008);
     this.rider.setTint(0xff9b91);
     this.time.delayedCall(240, () => this.rider.clearTint());
     object.destroy();
+  }
+
+  private startEncounter(encounter: RideEncounter): void {
+    this.showEncounter(encounterLabel[encounter]);
+    const startX = WIDTH + 60;
+    const sequenceId = this.pickupSequenceCount;
+    this.pickupSequenceCount += 1;
+    const spawnSequencePickup = (
+      type: "sweat" | "cash",
+      lane: number,
+      x: number,
+      index: number,
+    ) => this.spawnPickup(type, lane, x, sequenceId, index);
+
+    switch (encounter) {
+      case "bonus-line": {
+        const lane = Phaser.Math.Between(0, 2);
+        for (let index = 0; index < 4; index += 1) {
+          spawnSequencePickup(
+            index % 2 === 0 ? "cash" : "sweat",
+            lane,
+            startX + index * 92,
+            index,
+          );
+        }
+        this.spawnPothole((lane + 1) % 3, startX + 145);
+        this.spawnPothole((lane + 2) % 3, startX + 330);
+        break;
+      }
+      case "slalom": {
+        [0, 1, 2, 1, 0].forEach((lane, index) => {
+          this.spawnPothole(lane, startX + index * 82);
+          spawnSequencePickup(
+            "cash",
+            (lane + 1) % 3,
+            startX + index * 82 + 40,
+            index,
+          );
+        });
+        break;
+      }
+      case "fan-corridor":
+        for (let index = 0; index < 6; index += 1) {
+          spawnSequencePickup(
+            "cash",
+            index % 3,
+            startX + index * 70,
+            index,
+          );
+        }
+        break;
+      case "feed-zone": {
+        const lane = Phaser.Math.Between(0, 2);
+        for (let index = 0; index < 6; index += 1) {
+          spawnSequencePickup(
+            "sweat",
+            lane,
+            startX + index * 72,
+            index,
+          );
+        }
+        break;
+      }
+      case "sprint":
+        for (let index = 0; index < 7; index += 1) {
+          const lane = index % 2 === 0 ? 1 : Phaser.Math.Between(0, 2);
+          spawnSequencePickup("cash", lane, startX + index * 68, index);
+          if (index === 2 || index === 5) {
+            this.spawnPothole((lane + 1) % 3, startX + index * 68 + 30);
+          }
+        }
+        break;
+      case "hairpins":
+        [0, 2, 0, 2, 1].forEach((lane, index) => {
+          this.spawnPothole(lane, startX + index * 84);
+          spawnSequencePickup(
+            "sweat",
+            lane === 0 ? 2 : 0,
+            startX + index * 84 + 42,
+            index,
+          );
+        });
+        break;
+      case "draft":
+        this.spawnDraftCyclist();
+        break;
+    }
+  }
+
+  private showEncounter(label: string, duration = 2_200): void {
+    this.encounterText.setText(label).setAlpha(1);
+    this.time.delayedCall(duration, () => {
+      if (this.encounterText.text === label) {
+        this.encounterText.setAlpha(0);
+      }
+    });
+  }
+
+  private rewardFlow(amount: number, label: string): void {
+    this.flow = addFlow(this.flow, amount);
+    this.combo += 1;
+    this.lastFlowActionAt = this.time.now;
+    this.floatText(this.rider.x + 12, this.rider.y - 24, label, "#f1cf4b");
+  }
+
+  private updateFlow(delta: number): void {
+    if (this.time.now - this.lastFlowActionAt > 2_500 && !this.drafting) {
+      this.flow = decayFlow(this.flow, delta / 1_000);
+      if (this.flow === 0) this.combo = 0;
+    }
+    const multiplier = flowMultiplier(this.flow);
+    this.flowBar.width = this.flow;
+    const draftTimer = this.drafting
+      ? ` · DRAFT ${Math.ceil(this.draftTimeRemaining)}s`
+      : "";
+    this.flowText.setText(
+      `FLOW x${multiplier.toFixed(1)}${this.combo > 1 ? ` · ${this.combo}` : ""}${draftTimer}`,
+    );
+  }
+
+  private spawnDraftCyclist(): void {
+    if (this.draftCyclist) return;
+    this.draftLane = Phaser.Math.Between(0, 2);
+    this.draftCyclist = this.add
+      .sprite(-42, LANE_Y[this.draftLane], "draft-rider")
+      .setDepth(11);
+    this.draftLaneCountdown = Phaser.Math.Between(2_700, 4_200);
+    this.draftAcquisitionRemaining = 3_200;
+    this.draftTimeRemaining = 0;
+    this.draftGraceRemaining = 0.9;
+    this.drafting = false;
+    this.droppedFromDraft = false;
+    gameStore.setTemporaryDraftBonus(0);
+  }
+
+  private updateDraft(delta: number, stage: number): void {
+    const cyclist = this.draftCyclist;
+    if (!cyclist) {
+      gameStore.setTemporaryDraftBonus(0);
+      return;
+    }
+
+    const deltaSeconds = delta / 1_000;
+    const rules = draftRulesForStage(stage);
+    cyclist.y = Phaser.Math.Linear(
+      cyclist.y,
+      LANE_Y[this.draftLane],
+      1 - Math.exp(-delta / 180),
+    );
+
+    if (this.droppedFromDraft) {
+      cyclist.x += 220 * deltaSeconds;
+      if (cyclist.x > WIDTH + 50) {
+        cyclist.destroy();
+        this.draftCyclist = undefined;
+        this.encounterCountdown = Phaser.Math.Between(4_000, 6_500);
+      }
+      return;
+    }
+
+    const targetX = outsideDraftTargetX(this.domestiques.length);
+    if (cyclist.x < targetX) {
+      cyclist.x += 72 * deltaSeconds;
+    } else {
+      cyclist.x = Math.min(targetX, cyclist.x + 3 * deltaSeconds);
+    }
+    if (cyclist.x < targetX - 12) return;
+
+    const aligned =
+      Math.abs(this.rider.y - cyclist.y) < rules.laneTolerancePx;
+    if (!this.drafting) {
+      this.draftAcquisitionRemaining -= delta;
+      if (aligned) {
+        this.drafting = true;
+        this.draftGraceRemaining = rules.reactionSeconds;
+        this.draftTimeRemaining = rules.durationSeconds;
+        gameStore.setTemporaryDraftBonus(0.12);
+        this.showEncounter(
+          `IN THE DRAFT · +12% SPEED · ${rules.durationSeconds}s`,
+          1_600,
+        );
+        this.rewardFlow(12, "DRAFT");
+      } else if (this.draftAcquisitionRemaining <= 0) {
+        this.dropDraft();
+      }
+      return;
+    }
+
+    this.draftTimeRemaining -= deltaSeconds;
+    if (this.draftTimeRemaining <= 0) {
+      this.finishDraft();
+      return;
+    }
+
+    this.draftLaneCountdown -= delta;
+    if (this.draftLaneCountdown <= 0) {
+      const direction =
+        this.draftLane === 0
+          ? 1
+          : this.draftLane === 2
+            ? -1
+            : Math.random() < 0.5
+              ? -1
+              : 1;
+      this.draftLane += direction;
+      this.draftLaneCountdown = Phaser.Math.Between(2_500, 4_000);
+      this.draftGraceRemaining = rules.reactionSeconds;
+      this.showEncounter("FOLLOW THE WHEEL!", 900);
+    }
+
+    if (aligned) {
+      this.draftGraceRemaining = rules.reactionSeconds;
+      gameStore.setTemporaryDraftBonus(0.12);
+      this.flow = addFlow(this.flow, deltaSeconds * 2.5);
+      this.lastFlowActionAt = this.time.now;
+    } else {
+      this.draftGraceRemaining -= deltaSeconds;
+      if (this.draftGraceRemaining <= 0) {
+        this.dropDraft();
+      }
+    }
+  }
+
+  private dropDraft(): void {
+    this.drafting = false;
+    this.droppedFromDraft = true;
+    gameStore.setTemporaryDraftBonus(0);
+    this.showEncounter("DROPPED!", 1_300);
+  }
+
+  private finishDraft(): void {
+    this.drafting = false;
+    this.droppedFromDraft = true;
+    gameStore.setTemporaryDraftBonus(0);
+    this.showEncounter("RIDER ACCELERATES AWAY", 1_500);
+  }
+
+  private syncDomestiques(level: number): void {
+    const targetCount = Math.max(0, Math.min(3, Math.floor(level)));
+    while (this.domestiques.length < targetCount) {
+      const rider = this.add
+        .sprite(
+          domestiqueFormationX(targetCount)[this.domestiques.length],
+          this.rider.y,
+          "domestique-rider",
+        )
+        .setDepth(10);
+      this.domestiques.push(rider);
+    }
+    while (this.domestiques.length > targetCount) {
+      this.domestiques.pop()?.destroy();
+    }
+  }
+
+  private updateDomestiques(delta: number): void {
+    const positions = domestiqueFormationX(this.domestiques.length);
+    const targetY = LANE_Y[this.targetLane];
+    const response = 1 - Math.exp(-delta / 165);
+    this.domestiques.forEach((rider, index) => {
+      rider.x = positions[index];
+      rider.y = Phaser.Math.Linear(rider.y, targetY, response);
+    });
+  }
+
+  private updateSpeedFeedback(
+    delta: number,
+    scrollSpeed: number,
+    speedKmh: number,
+    gradient: number,
+  ): void {
+    const intensity = Phaser.Math.Clamp((speedKmh - 8) / 30, 0.12, 1);
+    this.roadParticles.forEach((particle, index) => {
+      particle.x -= scrollSpeed * (1.3 + intensity) * (delta / 1_000);
+      particle.setAlpha(0.08 + intensity * 0.38);
+      if (particle.x < -10) {
+        particle.x = WIDTH + index * 7;
+      }
+    });
+    this.rider.setAngle(-gradient * 75);
+    if (speedKmh > 32 && Math.random() < delta / 2_000) {
+      this.cameras.main.shake(65, 0.0015);
+    }
   }
 
   private floatText(x: number, y: number, label: string, color: string): void {
@@ -327,6 +783,32 @@ export class GameScene extends Phaser.Scene {
       g.fillStyle(0xef6f51).fillRect(17, 7, 7, 10);
       g.fillStyle(0xf2b28c).fillCircle(21, 5, 4);
       g.fillStyle(0x26323a).fillRect(16, 1, 10, 3);
+      g.lineStyle(3, 0x26323a).lineBetween(20, 16, 27, 22);
+    });
+    texture("draft-rider", 38, 34, (g) => {
+      g.fillStyle(0x26323a).fillCircle(9, 25, 8).fillCircle(29, 25, 8);
+      g.fillStyle(0x8ed7e8).fillCircle(9, 25, 5).fillCircle(29, 25, 5);
+      g.lineStyle(3, 0x71f5cc)
+        .lineBetween(9, 25, 19, 16)
+        .lineBetween(19, 16, 29, 25)
+        .lineBetween(9, 25, 23, 25)
+        .lineBetween(19, 16, 23, 25);
+      g.fillStyle(0x4f7cac).fillRect(17, 7, 7, 10);
+      g.fillStyle(0xf2b28c).fillCircle(21, 5, 4);
+      g.fillStyle(0xf5f0df).fillRect(16, 1, 10, 3);
+      g.lineStyle(3, 0x26323a).lineBetween(20, 16, 14, 23);
+    });
+    texture("domestique-rider", 38, 34, (g) => {
+      g.fillStyle(0x26323a).fillCircle(9, 25, 8).fillCircle(29, 25, 8);
+      g.fillStyle(0x8ed7e8).fillCircle(9, 25, 5).fillCircle(29, 25, 5);
+      g.lineStyle(3, 0xf1cf4b)
+        .lineBetween(9, 25, 19, 16)
+        .lineBetween(19, 16, 29, 25)
+        .lineBetween(9, 25, 23, 25)
+        .lineBetween(19, 16, 23, 25);
+      g.fillStyle(0x8ee36b).fillRect(17, 7, 7, 10);
+      g.fillStyle(0xf2b28c).fillCircle(21, 5, 4);
+      g.fillStyle(0xf5f0df).fillRect(16, 1, 10, 3);
       g.lineStyle(3, 0x26323a).lineBetween(20, 16, 27, 22);
     });
     texture("bag-sweat", 18, 18, (g) => {

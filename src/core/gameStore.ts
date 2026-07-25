@@ -147,6 +147,7 @@ export class GameStore {
   private lastEmitAt = 0;
   private sweatGenerationRemainder = 0;
   private cashGenerationRemainder = 0;
+  private temporaryDraftBonus = 0;
 
   constructor(options: GameStoreOptions = {}) {
     this.storage =
@@ -226,11 +227,12 @@ export class GameStore {
     }
   }
 
-  collectBag(type: "sweat" | "cash"): number {
-    const amount =
+  collectBag(type: "sweat" | "cash", multiplier = 1): number {
+    const baseAmount =
       type === "sweat"
         ? 8 + this.state.stage * 4
         : 10 + this.state.stage * 6;
+    const amount = Math.max(1, Math.round(baseAmount * multiplier));
     if (type === "sweat") {
       this.state.sweat += amount;
     } else {
@@ -269,6 +271,7 @@ export class GameStore {
     this.state = initialState(this.now());
     this.sweatGenerationRemainder = 0;
     this.cashGenerationRemainder = 0;
+    this.temporaryDraftBonus = 0;
     this.save();
     this.notice("Career reset — back to the local circuit", "neutral");
     this.emit();
@@ -316,10 +319,14 @@ export class GameStore {
       };
     }
     if (this.state[upgrade.currency] < cost) {
+      const missing = Math.ceil(cost - this.state[upgrade.currency]);
       return {
         ...status,
         available: false,
-        reason: `Need ${Math.ceil(cost - this.state[upgrade.currency])} more`,
+        reason:
+          upgrade.currency === "cash"
+            ? `Need $${missing} more`
+            : `Need ${missing} more Sweat`,
       };
     }
     return { ...status, available: true };
@@ -327,6 +334,10 @@ export class GameStore {
 
   isBranchUnlocked(branch: Branch): boolean {
     return branch !== "team" || this.state.stage >= 3;
+  }
+
+  setTemporaryDraftBonus(bonus: number): void {
+    this.temporaryDraftBonus = Math.max(0, Math.min(0.25, bonus));
   }
 
   private currentStage(): StageDefinition {
@@ -366,7 +377,11 @@ export class GameStore {
       0.5,
       sockWindMitigation + helmetWindMitigation + wheelWindMitigation,
     );
-    const effectiveWindPenalty = stage.windPenalty * (1 - windMitigation);
+    const draftWindMitigation = this.temporaryDraftBonus > 0 ? 0.45 : 0;
+    const effectiveWindPenalty =
+      stage.windPenalty *
+      (1 - windMitigation) *
+      (1 - draftWindMitigation);
 
     const flatSpeed =
       12 +
@@ -380,7 +395,8 @@ export class GameStore {
       aeroLevels * 0.28;
     const gradientPenalty = Math.max(0.42, 1 - stage.gradient * 6.2);
     const windMultiplier = 1 - effectiveWindPenalty;
-    const draftMultiplier = 1 + domestiques * 0.08;
+    const draftMultiplier =
+      1 + domestiques * 0.08 + this.temporaryDraftBonus;
     const speedKmh =
       flatSpeed * gradientPenalty * windMultiplier * draftMultiplier;
 

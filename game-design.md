@@ -120,10 +120,10 @@ An illustrative early-game cost sequence could be:
 
 ```text
 Rider endurance:   100 → 180 → 325 → 585 Sweat
-Aero socks:        €30 → €90 → €270 → €810
-Road bike:         €500
-Carbon frame:      €2,500
-First teammate:    €8,000, plus the Stage 3 requirement
+Aero socks:        $30 → $90 → $270 → $810
+Road bike:         $500
+Carbon frame:      $2,500
+First teammate:    $8,000, plus the Stage 3 requirement
 ```
 
 The exact numbers will be tuned through playtesting. Their relative shape is
@@ -188,6 +188,55 @@ all displayed balances use integers only.
 Bonuses can chain together. For example, a gel increases power on the final
 part of a climb, reaching the summit activates a large descent multiplier, and
 joining a peloton afterward preserves that momentum.
+
+### Directed Ride Encounters
+
+Road objects are delivered as readable 10–20 second sequences rather than an
+endless stream of unrelated random spawns. The Ride Director selects from:
+
+- A bonus line with a clear high-value lane
+- A broken-road slalom pairing potholes with risky Cash
+- A Cash-heavy fan corridor
+- A Sweat-heavy feed zone
+- A short sprint segment
+- Hairpin patterns on climbing stages
+- A drafting rider encounter
+
+These patterns let the player read the road, choose a line, and execute it using
+mouse-only steering. Each pickup pattern is a single sequence: missing one
+pickup immediately invalidates every remaining pickup in that sequence. The
+lost pickups flash three times and disappear so the failed chain is obvious.
+
+### Flow
+
+Consecutive pickups and actively steered near-misses build temporary Flow.
+Every 20 Flow raises roadside rewards by 0.2x, up to a 2x multiplier. Flow
+decays after a short quiet period and a collision resets it. Flow is never
+saved or spent, so it remains a ride multiplier rather than a third currency.
+
+### Temporary Drafting
+
+A faster rider enters from the left, overtakes the player, and settles just
+ahead of the entire team. Staying in the same lane behind their wheel activates
+a temporary speed bonus and additional shelter from headwind.
+
+The other rider periodically changes lanes. The player has a short reaction
+window to follow. Missing the move breaks the draft immediately; the other
+rider accelerates toward the right edge and disappears. Drafting can continue
+for at most 15 seconds. At the end of that window, the other rider accelerates
+toward the right edge and disappears even if every move was followed.
+
+Drafting becomes less forgiving as the campaign advances. Stage 1 allows a
+wide spatial tolerance and a 1.5-second reaction window. Both values shrink on
+every stage until Stage 6 allows only a 12-pixel alignment tolerance and roughly
+0.4 seconds to follow a lane change.
+
+### Perceived Speed
+
+The ride view reinforces progression through faster wheel cadence, denser road
+particles, stronger parallax, climb-specific rider tilt, wind streaks, floating
+combo feedback, and subtle high-speed camera vibration. Collisions retain a
+stronger shake so hazards feel materially different from normal speed.
 
 ## Challenges
 
@@ -485,6 +534,12 @@ Drafting provides a strong multiplicative efficiency bonus on fast, flat
 roads. Its effect decreases on steep climbs because speeds are lower.
 Teammates remain useful in the mountains by pacing the leader, carrying
 nutrition, and delivering the leader fresh to the foot of the climb.
+
+Purchased domestiques are always visible in a line ahead of the player. One,
+two, or three riders appear as their corresponding levels are purchased. The
+whole formation changes lanes whenever the player changes lanes. Temporary
+outside riders must overtake every visible domestique before settling at the
+front of the group.
 
 Support staff can become a later extension of this branch:
 

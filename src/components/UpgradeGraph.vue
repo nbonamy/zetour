@@ -68,9 +68,16 @@ const selected = computed(() =>
 const selectedVisibility = computed<NodeVisibility>(() =>
   selected.value ? visibility(selected.value) : "hidden",
 );
-const selectedStatus = computed(() =>
-  selected.value ? gameStore.purchaseStatus(selected.value) : undefined,
-);
+const selectedStatus = computed(() => {
+  const upgrade = selected.value;
+  if (!upgrade) return undefined;
+  const snapshot = props.snapshot;
+  void snapshot.stage;
+  void snapshot.sweat;
+  void snapshot.cash;
+  void snapshot.upgrades[upgrade.id];
+  return gameStore.purchaseStatus(upgrade);
+});
 const nextLevelName = computed(() => {
   if (!selected.value) return "";
   return (
@@ -85,6 +92,9 @@ const installedLevelName = computed(() => {
     `Level ${level(selected.value)}`
   );
 });
+
+const formatCost = (upgrade: UpgradeDefinition, cost: number): string =>
+  upgrade.currency === "cash" ? `$${cost}` : `${cost} Sweat`;
 
 watch(
   () => props.snapshot.upgrades,
@@ -300,6 +310,9 @@ onMounted(centerViewport);
           <div v-if="level(selected) < selected.maxLevel">
             <dt>Next level</dt>
             <dd>{{ nextLevelName }}</dd>
+            <dd class="next-level-cost">
+              {{ formatCost(selected, selectedStatus?.cost ?? 0) }}
+            </dd>
           </div>
           <div>
             <dt>Level</dt>
@@ -317,10 +330,7 @@ onMounted(centerViewport);
             Fully upgraded
           </template>
           <template v-else-if="selectedStatus?.available">
-            Upgrade ·
-            {{ selected.currency === "cash" ? "€" : ""
-            }}{{ selectedStatus.cost
-            }}{{ selected.currency === "sweat" ? " Sweat" : "" }}
+            Upgrade · {{ formatCost(selected, selectedStatus.cost) }}
           </template>
           <template v-else>
             {{ selectedStatus?.reason }}
