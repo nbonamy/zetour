@@ -1,4 +1,8 @@
-import type { StageDefinition } from "../core/gameStore";
+import type {
+  PowerUpType,
+  StageDefinition,
+} from "../core/gameStore";
+import { RANDOM_RIDER_DRAFT_DURATION_SECONDS } from "../core/drafting";
 
 const ROAD_VISUAL_RISE_PER_GRADIENT = 720;
 
@@ -18,13 +22,47 @@ export interface DraftRules {
   durationSeconds: number;
 }
 
+export type LootType = "sweat" | "cash";
+
+export interface LootMix {
+  sweat: number;
+  cash: number;
+}
+
+export const roadPowerUpChoices: readonly PowerUpType[] = [
+  "super-draft",
+  "lucky-bidon",
+  "jump",
+];
+
+export const lootMixForStage = (stage: number): LootMix => {
+  const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
+  const sweat = [0.8, 0.65, 0.5, 0.35, 0.2][normalizedStage - 1];
+  return {
+    sweat,
+    cash: [0.2, 0.35, 0.5, 0.65, 0.8][normalizedStage - 1],
+  };
+};
+
+export const lootSequenceForStage = (
+  stage: number,
+  count: number,
+  random: () => number = Math.random,
+): LootType[] => {
+  const safeCount = Math.max(0, Math.floor(count));
+  const sweatChance = lootMixForStage(stage).sweat;
+  return Array.from({ length: safeCount }, () =>
+    random() < sweatChance ? "sweat" : "cash",
+  );
+};
+
 export const draftRulesForStage = (stage: number): DraftRules => {
   const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
   const difficulty = (normalizedStage - 1) / 4;
   return {
     laneTolerancePx: Math.round(42 - difficulty * 30),
     reactionSeconds: 1.5 - difficulty * 1.1,
-    durationSeconds: 15,
+    durationSeconds: RANDOM_RIDER_DRAFT_DURATION_SECONDS,
   };
 };
 

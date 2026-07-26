@@ -14,9 +14,9 @@ it never controls forward motion.
 The first campaign is a deliberately compressed journey across France. It
 starts with a fast Paris–Bordeaux run, crosses the Massif Central, rewards the
 climb with a high-speed descent into Provence, turns north into the Mistral,
-and finishes on Alpe d'Huez. Map distances are compressed for pacing, but the
-places, terrain rhythm, wind direction, and famous final climb remain
-recognizable.
+and finishes on Alpe d'Huez. Simulation distances are compressed for pacing,
+while the HUD maps progress onto the declared real-route distances. The places,
+terrain rhythm, wind direction, and famous final climb remain recognizable.
 
 ## Mini Task List
 
@@ -27,38 +27,51 @@ recognizable.
   roadside rewards generate Cash.
 - [x] Credit every pickup immediately and make potholes drop a percentage of
   current Cash.
+- [x] Shift roadside loot from 80% Sweat in Sector 1 to 80% Cash in Sector 5.
 - [x] Build readable multi-lane encounters: bonus lines, fan corridors, feed
   zones, slaloms, sprints, hairpins, potholes, and chain-failure feedback.
 - [x] Add random-rider drafting plus visible domestique formations and
   stage-dependent draft tolerance.
+- [x] Award roughly 100 Sweat for following the temporary random rider through
+  the full 15-second draft.
 - [x] Build one paused, scrollable career graph with Rider, Nutrition,
   Equipment, Bike, and Team branches.
 - [x] Unlock Equipment in Sector 2, Bike in Sector 3, and Team in Sector 5.
+- [x] Expand Sector 1 to fourteen Rider and Nutrition purchases worth 1,035
+  Sweat before later-sector gates take over.
 - [x] Make tires one progressive upgrade: reinforced, performance, then
   tubeless.
 - [x] Include progressive frames, shifting, brakes, wheels, aero socks,
   helmets, skinsuits, nutrition, fitness, and teammates.
 - [x] Build the five-sector France route from Paris to Alpe d'Huez.
-- [x] Show real city checkpoints while compressing distance for game pacing.
+- [x] Show real city checkpoints and per-sector route distances of 580, 370,
+  380, 220, and 65 km while keeping internal simulation lengths compressed.
 - [x] Give every sector a smooth, changing gradient profile instead of one
   fixed slope.
+- [x] Join sector profiles at matching gradients so terrain never jumps at a
+  checkpoint.
 - [x] Make the descent physically tilt downward and create a large speed
   payoff.
 - [x] Make Avignon–Grenoble a visible Mistral battle mitigated by aero gear.
-- [x] Use a drop as the Sweat icon in the HUD, workshop, pickups, and feedback.
-- [x] Add Super Draft and Super Power as a two-lane pickup choice.
-- [x] Limit power-ups to one reserve slot and activate them with `Space`.
+- [x] Keep icon-only `💧` and `$` balance counters in the HUD and workshop.
+- [x] Add Super Draft, Lucky Bidon, and Jump as a three-lane pickup choice.
+- [x] Limit power-ups to one reserve slot, replace it with the latest pickup,
+  and activate it with `Space`.
 - [x] Show active power-up countdowns, effects, and rider feedback.
+- [x] Animate the player, random riders, and domestiques as they pedal.
 - [x] Give each sector a distinct modern atmosphere with speed-linked scrolling
   and sharper rider art.
 - [x] Keep the desktop masthead and controls inside the ride frame, enlarge
   speed, distance, and notices, and keep tuning ranges out of the live HUD.
+- [x] Keep current and target sector distance on one unbroken baseline.
 - [x] Draw the mini profile from accumulated elevation so it never looks like a
   descent while the road is still climbing.
 - [x] Add a persistent fastest-sector record and live seconds-ahead/behind
   leaderboard.
-- [x] Loop back to Paris after Alpe d'Huez while preserving upgrades, unlocks,
-  and records.
+- [x] Stop at Alpe d'Huez, show a final leaderboard, and make **Ride again**
+  reset the entire career.
+- [x] Make both restart actions clear the live road world: fans, bags, potholes,
+  pickup power-ups, draft riders, domestiques, Flow, and encounter state.
 - [ ] Playtest sector duration, power-up frequency, and final-climb economy,
   then rebalance from actual ride data.
 
@@ -180,6 +193,12 @@ important: Equipment offers frequent small purchases, Rider upgrades provide
 reliable progress, Bike nodes are exciting milestones, and Team upgrades are
 rare multipliers.
 
+Sector 1 deliberately exposes the first three Endurance, Sustained Power, and
+Hydration levels; the first two Technique and Fueling levels; and the first
+Body Composition level. That creates fourteen early choices costing 1,035 Sweat
+in total instead of an abrupt eight-purchase, 350-Sweat ceiling. Higher levels
+remain gated so the first flat sector cannot erase the later climbing challenge.
+
 ## Road View and Steering
 
 The rider remains near the left side of the screen while the road and scenery
@@ -213,21 +232,37 @@ through a bag collects its reward:
 - Rare bags provide component discounts or permanent equipment.
 - Coffee stops provide an unusually powerful recovery bonus.
 
+The roadside mix follows what progression needs at each point in the race:
+
+| Sector | Sweat loot | Cash loot |
+| --- | ---: | ---: |
+| 1 | 80% | 20% |
+| 2 | 65% | 35% |
+| 3 | 50% | 50% |
+| 4 | 35% | 65% |
+| 5 | 20% | 80% |
+
+Every bag is rolled independently against its sector probability. Sector 1
+therefore averages 80% Sweat over time, but one five-bag pack may contain five
+Sweat, four Sweat and one Cash, or even the rare five Cash.
+
 ### Collectible Power-ups
 
-Power-up gates present two large pickups in different lanes, forcing a quick
-choice rather than giving both:
+Power-up gates present one large pickup in each of the three lanes, forcing a
+quick choice:
 
 - **Super Draft** gives 10 seconds of +50% speed and blocks 90% of headwind.
-- **Super Power** gives 7 seconds of +75% speed and doubles Sweat generation.
+- **Lucky Bidon** gives 7 seconds of pickup magnetism, collecting every Sweat
+  and Cash bag across all lanes at its normal value.
+- **Jump** lifts the rider over potholes for 1.2 seconds.
 
-Only one power-up can be held in reserve. Collecting another while the reserve
-is full does not replace or stack it. Pressing `Space` or using the reserve
+Only one power-up can be held in reserve. Collecting another always replaces
+the held item rather than stacking it. Pressing `Space` or using the reserve
 button activates it; an active power-up has a visible countdown and aura around
 the rider. The reserve may be refilled while a power-up is active, but the next
-one cannot be activated until the current effect ends. This creates useful
-decisions: save Super Draft for the Mistral, save Super Power for Alpe d'Huez,
-or burn either one on the descent for an absurd burst of speed.
+one cannot be activated until the current effect ends. This creates three
+different decisions: save Super Draft for wind, keep Lucky Bidon for a rich fan
+corridor, or hold Jump for broken road.
 
 ### Hazards and Lost Units
 
@@ -265,7 +300,7 @@ endless stream of unrelated random spawns. The Ride Director selects from:
 - A Sweat-heavy feed zone
 - A short sprint segment
 - Hairpin patterns on climbing sectors
-- A two-lane Super Draft versus Super Power choice
+- A three-lane Super Draft, Lucky Bidon, or Jump choice
 - A drafting rider encounter
 
 These patterns let the player read the road, choose a line, and execute it using
@@ -284,8 +319,10 @@ saved or spent, so it remains a ride multiplier rather than a third currency.
 
 A faster rider enters from the left, overtakes the player, and settles just
 ahead of the entire team. Staying in the same lane behind their wheel activates
-a temporary 50% speed bonus and additional shelter from headwind. A countdown
-directly above the rider displays the remaining time.
+a temporary 50% speed bonus, additional shelter from headwind, and a Sweat
+bonus paid continuously at a rate that reaches roughly 100 over the full
+15-second draft. A countdown directly above the rider displays the remaining
+time.
 
 The other rider periodically changes lanes. The player has a short reaction
 window to follow. Missing the move breaks the draft immediately; the other
@@ -297,6 +334,10 @@ Drafting becomes less forgiving as the campaign advances. Sector 1 allows a
 wide spatial tolerance and a 1.5-second reaction window. Both values shrink on
 every sector until Sector 5 allows only a 12-pixel alignment tolerance and roughly
 0.4 seconds to follow a lane change.
+
+Domestiques and Super Draft improve speed or shelter only. Neither multiplies
+Sweat generation; that reward belongs exclusively to following the temporary
+random rider.
 
 ### Perceived Speed
 
@@ -369,20 +410,22 @@ both raw and effective wind whenever mitigation is active.
 
 ## Campaign Progression
 
-The campaign uses recognizable checkpoints, but the playable distances are
-compressed to keep the full route inside one satisfying session.
+The campaign uses recognizable checkpoints. Each sector maps internal progress
+proportionally onto its declared route distance, while simulation geometry
+remains compressed enough to keep the full route inside one satisfying session.
 
-| Sector | Route | Main challenge | Major unlock |
-| --- | --- | --- | --- |
-| 1 | Paris → Bordeaux | Calm Atlantic run and pure speed | Rider and Nutrition branches |
-| 2 | Bordeaux → Clermont-Ferrand | Gentle Massif Central climb | Equipment branch |
-| 3 | Clermont-Ferrand → Avignon | 4% descent and high-speed control | Bike branch |
-| 4 | Avignon → Grenoble | Northbound Rhône valley against the Mistral | Advanced components |
-| 5 | Grenoble → Alpe d'Huez via Bourg-d'Oisans | 21 bends at 7.9% | Team branch and Tour completion |
+| Sector | Route | Display distance | Main challenge | Major unlock |
+| --- | --- | ---: | --- | --- |
+| 1 | Paris → Bordeaux | 580 km | Calm Atlantic run and pure speed | Rider and Nutrition branches |
+| 2 | Bordeaux → Clermont-Ferrand | 370 km | Gentle Massif Central climb | Equipment branch |
+| 3 | Clermont-Ferrand → Avignon | 380 km | 4% descent and high-speed control | Bike branch |
+| 4 | Avignon → Grenoble | 220 km | Northbound Rhône valley against the Mistral | Advanced components |
+| 5 | Grenoble → Alpe d'Huez via Bourg-d'Oisans | 65 km | 21 bends at 7.9% | Team branch and Tour completion |
 
-Completing Alpe d'Huez starts the next numbered Tour back in Paris. Permanent
-upgrades, branch unlocks, resources, and sector records stay intact, so the next
-lap is a faster time-trial rather than a reset.
+Completing Alpe d'Huez freezes the ride and opens a final leaderboard with every
+sector time and the total race time. **Ride again** is deliberately a clean
+restart: it returns to Paris and clears balances, upgrades, branch unlocks,
+distance, sector records, and held or active power-ups.
 
 ### Sector Records
 
@@ -393,8 +436,8 @@ delta instead of a misleading estimate from current speed.
 
 Finishing a sector stores the attempt locally when it is a personal best. Once
 the personal best beats the course record, that faster split curve becomes the
-new live target. Reset Career deliberately erases these records with the rest of
-the save.
+new live target. Restart race and Ride again deliberately erase these records
+with the rest of the save.
 
 ### Route Grounding
 
@@ -423,9 +466,9 @@ Cycling Career — unlocked by default
 ```
 
 The graph is not visible during normal riding. The player deliberately opens
-the Career Workshop with the on-screen button or keyboard shortcut. Doing so
-pauses road movement, hazards, pickups, and resource generation; closing the
-Workshop resumes the ride.
+the Career Workshop with the on-screen button or `W`. Doing so pauses road
+movement, hazards, pickups, and resource generation; closing the Workshop
+resumes the ride.
 
 The Workshop is one compact two-dimensional honeycomb, not five separate
 menus. Cycling Career sits at its center and the Rider, Nutrition, Bike,

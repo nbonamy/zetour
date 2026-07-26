@@ -15,16 +15,64 @@ import {
   formatDraftTimer,
   hasPickupPassedRider,
   isRemainingSequencePickup,
+  lootMixForStage,
+  lootSequenceForStage,
   moveLane,
   nextEncounter,
   outsideDraftTargetX,
   roadAngleDegrees,
   roadOffsetAtX,
+  roadPowerUpChoices,
   roadScrollSpeed,
   roadVisualRise,
 } from "../../src/game/rideSystems";
 
 describe("active ride systems", () => {
+  it("rolls every bag independently using the stage loot probability", () => {
+    expect(stages.map((stage) => lootMixForStage(stage.number))).toEqual([
+      { sweat: 0.8, cash: 0.2 },
+      { sweat: 0.65, cash: 0.35 },
+      { sweat: 0.5, cash: 0.5 },
+      { sweat: 0.35, cash: 0.65 },
+      { sweat: 0.2, cash: 0.8 },
+    ]);
+
+    stages.forEach(({ number }) => {
+      expect(lootSequenceForStage(number, 5, () => 0)).toEqual(
+        Array(5).fill("sweat"),
+      );
+      expect(lootSequenceForStage(number, 5, () => 0.99)).toEqual(
+        Array(5).fill("cash"),
+      );
+
+      const { sweat: sweatChance } = lootMixForStage(number);
+      const boundaryRolls = [sweatChance - 0.001, sweatChance];
+      let boundaryIndex = 0;
+      expect(
+        lootSequenceForStage(
+          number,
+          2,
+          () => boundaryRolls[boundaryIndex++],
+        ),
+      ).toEqual(["sweat", "cash"]);
+    });
+
+    const rolls = [0.1, 0.79, 0.8, 0.95, 0.2];
+    let rollIndex = 0;
+    expect(
+      lootSequenceForStage(1, 5, () => rolls[rollIndex++]),
+    ).toEqual(["sweat", "sweat", "cash", "cash", "sweat"]);
+  });
+
+  it("offers one distinct power-up in each lane", () => {
+    expect(roadPowerUpChoices).toEqual([
+      "super-draft",
+      "lucky-bidon",
+      "jump",
+    ]);
+    expect(new Set(roadPowerUpChoices).size).toBe(3);
+  });
+
   it("builds Flow into a capped reward multiplier", () => {
     expect(flowMultiplier(0)).toBe(1);
     expect(flowMultiplier(20)).toBe(1.2);

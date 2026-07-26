@@ -5,6 +5,7 @@
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
   font-synthesis: none;
+  font-variant-numeric: tabular-nums;
   text-rendering: optimizeLegibility;
 }
 
@@ -67,17 +68,18 @@ h1 {
 
 .resource-strip {
   display: flex;
-  gap: 8px;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: end;
+  gap: 8px;
 }
 
 .resource {
   display: flex;
+  min-width: 92px;
   align-items: center;
-  min-width: 126px;
-  gap: 10px;
-  padding: 9px 12px;
+  gap: 9px;
+  padding: 8px 11px;
   border: 1px solid rgba(38, 50, 58, 0.18);
   border-radius: 12px;
   box-shadow: 0 8px 22px rgba(38, 50, 58, 0.1);
@@ -95,21 +97,11 @@ h1 {
   display: grid;
   width: 28px;
   height: 28px;
+  flex: 0 0 28px;
   place-items: center;
-  border: 0;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.5);
   font-weight: 900;
-}
-
-.resource small,
-.resource strong {
-  display: block;
-}
-
-.resource small {
-  font-size: 10px;
-  text-transform: uppercase;
 }
 
 .resource strong {
@@ -239,7 +231,10 @@ h1 {
 .stage-metrics {
   display: grid;
   width: min(540px, 58%);
-  grid-template-columns: repeat(4, minmax(100px, 1fr));
+  grid-template-columns:
+    minmax(100px, 0.9fr)
+    minmax(145px, 1.25fr)
+    repeat(2, minmax(100px, 1fr));
   gap: 8px;
 }
 
@@ -270,7 +265,13 @@ h1 {
 
 .ride-metric-primary strong {
   font-size: 21px;
-  font-variant-numeric: tabular-nums;
+}
+
+.ride-metric-distance strong {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
 }
 
 .ride-metric strong em {
@@ -381,7 +382,6 @@ h1 {
 .active-power-up b {
   min-width: 34px;
   color: #f1cf4b;
-  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
@@ -446,7 +446,6 @@ h1 {
 
 .leaderboard-times strong {
   font-size: 15px;
-  font-variant-numeric: tabular-nums;
 }
 
 .leaderboard-delta {
@@ -454,7 +453,6 @@ h1 {
   padding: 6px 10px 7px;
   color: #f1cf4b;
   font-size: 10px;
-  font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -622,11 +620,16 @@ kbd {
   display: flex;
   gap: 8px;
   font-family: monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .workshop-resources span {
+  display: inline-flex;
+  min-width: 76px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 7px 9px;
   border: 1px solid #8c8878;
   background: #e8dfc3;
@@ -662,6 +665,133 @@ kbd {
   border: 3px solid #26323a;
   background: #f5f0df;
   box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.4);
+}
+
+.race-results-overlay {
+  z-index: 110;
+}
+
+.race-results-window {
+  width: min(720px, 100%);
+  max-height: min(820px, 100%);
+  overflow: auto;
+  padding: 28px;
+  border: 3px solid #26323a;
+  border-radius: 18px;
+  background: #f5f0df;
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.42);
+}
+
+.race-results-window > .eyebrow {
+  color: #278f7b;
+}
+
+.race-results-window h2 {
+  margin: 5px 0 18px;
+  font-size: clamp(28px, 5vw, 48px);
+  letter-spacing: -0.04em;
+}
+
+.race-results-window h3 {
+  margin: 24px 0 10px;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.race-result-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.race-result-summary > span,
+.race-result-summary > b {
+  display: grid;
+  min-height: 66px;
+  align-content: center;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid rgba(38, 50, 58, 0.18);
+  border-radius: 10px;
+  background: #e8dfc3;
+}
+
+.race-result-summary small,
+.race-result-list small {
+  color: #687278;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.race-result-summary strong {
+  font-size: 22px;
+}
+
+.race-result-summary > b {
+  background: #ffb2a4;
+  color: #8b4035;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.race-result-summary > b.ahead {
+  background: #99ead8;
+  color: #176b5b;
+}
+
+.race-result-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.race-result-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 12px;
+  border: 1px solid rgba(38, 50, 58, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.race-result-list li > span {
+  display: grid;
+  gap: 2px;
+}
+
+.race-result-list li > span:last-child {
+  justify-items: end;
+}
+
+.race-result-list b {
+  font-size: 15px;
+}
+
+.race-restart {
+  width: 100%;
+  margin-top: 20px;
+  padding: 13px 18px;
+  border: 2px solid #26323a;
+  border-radius: 10px;
+  background: #f1cf4b;
+  color: #26323a;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.race-restart:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 16px rgba(38, 50, 58, 0.18);
 }
 
 .reset-dialog .eyebrow {
@@ -1297,7 +1427,10 @@ kbd {
 }
 
 .detail-buy {
+  display: grid;
   width: 100%;
+  min-height: 38px;
+  place-items: center;
   padding: 9px 7px;
   border: 2px solid #26323a;
   background: #f1cf4b;
@@ -1305,6 +1438,8 @@ kbd {
   font-family: monospace;
   font-size: 11px;
   font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -1373,7 +1508,10 @@ kbd {
 
   .resource {
     min-width: 0;
-    padding: 7px;
+  }
+
+  .reset-trigger {
+    grid-column: 1 / -1;
   }
 
   .leaderboard-hud {
@@ -1392,18 +1530,6 @@ kbd {
 
   .leaderboard-times strong {
     font-size: 12px;
-  }
-
-  .reset-trigger {
-    grid-column: 1 / -1;
-  }
-
-  .resource-icon {
-    display: none;
-  }
-
-  .resource strong {
-    font-size: 15px;
   }
 
   .stage-card,
@@ -1442,7 +1568,25 @@ kbd {
   }
 
   .workshop-resources {
-    display: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .race-results-window {
+    max-height: 100%;
+    padding: 18px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .race-result-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .race-result-summary > b {
+    grid-column: 1 / -1;
+    min-height: 42px;
   }
 
   .workshop-close {

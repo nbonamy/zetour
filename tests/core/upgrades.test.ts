@@ -153,4 +153,35 @@ describe("upgrade tree", () => {
     expect(store.purchase(upgrade("fueling"))).toBe(true);
     expect(store.getSnapshot().sweat).toBe(35);
   });
+
+  it("offers a substantial Rider and Nutrition runway in Sector 1", () => {
+    const { store } = createTestStore({ stage: 1, sweat: 5_000 });
+    const sweatUpgrades = [
+      upgrade("endurance"),
+      upgrade("power"),
+      upgrade("technique"),
+      upgrade("body-composition"),
+      upgrade("hydration"),
+      upgrade("fueling"),
+    ];
+
+    let purchased = true;
+    while (purchased) {
+      purchased = false;
+      for (const definition of sweatUpgrades) {
+        if (store.purchase(definition)) purchased = true;
+      }
+    }
+
+    const state = store.getSnapshot();
+    expect(state.upgrades).toMatchObject({
+      endurance: 3,
+      power: 3,
+      technique: 2,
+      "body-composition": 1,
+      hydration: 3,
+      fueling: 2,
+    });
+    expect(state.sweat).toBe(3_965);
+  });
 });

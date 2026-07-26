@@ -4,17 +4,21 @@ import { upgradeCost, upgrades } from "../../src/core/upgrades";
 import { createTestStore } from "../helpers/createTestStore";
 
 describe("economy balance", () => {
-  it("makes Cash bags materially more valuable than Sweat bags", () => {
-    for (let stage = 1; stage <= 5; stage += 1) {
-      const sweat = bagRewardForStage("sweat", stage);
-      const cash = bagRewardForStage("cash", stage);
-
-      expect(cash / sweat).toBeGreaterThanOrEqual(2.5);
-    }
+  it("keeps Sweat bags meaningful while Cash remains the larger reward", () => {
+    expect(
+      [1, 2, 3, 4, 5].map((stage) =>
+        bagRewardForStage("sweat", stage),
+      ),
+    ).toEqual([8, 13, 18, 24, 30]);
+    expect(
+      [1, 2, 3, 4, 5].map((stage) =>
+        bagRewardForStage("cash", stage),
+      ),
+    ).toEqual([18, 26, 34, 42, 50]);
   });
 
   it("applies Flow after calculating the stage reward", () => {
-    expect(bagRewardForStage("sweat", 1, 1.6)).toBe(10);
+    expect(bagRewardForStage("sweat", 1, 1.6)).toBe(13);
     expect(bagRewardForStage("cash", 1, 1.6)).toBe(29);
   });
 

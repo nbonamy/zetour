@@ -5,9 +5,12 @@ import {
 } from "../helpers/createTestStore";
 import {
   buildElevationProfile,
+  displayStageDistanceKm,
+  displayTourDistanceKm,
   elevationAtProgress,
   gradientAtProgress,
   gradientSpeedMultiplier,
+  powerUpDefinitions,
   stages,
   terrainSpeedMultiplier,
 } from "../../src/core/gameStore";
@@ -32,9 +35,9 @@ describe("riding economy", () => {
     const cashReward = store.collectBag("cash");
     const state = store.getSnapshot();
 
-    expect(sweatReward).toBe(6);
+    expect(sweatReward).toBe(8);
     expect(cashReward).toBe(18);
-    expect(state.sweat).toBe(6);
+    expect(state.sweat).toBe(8);
     expect(state.cash).toBe(18);
   });
 
@@ -112,6 +115,27 @@ describe("riding economy", () => {
 });
 
 describe("stage and offline progression", () => {
+  it("uses true route distances for display without changing ride progression", () => {
+    expect(stages[0].distanceM).toBe(800);
+    expect(stages.map(({ routeDistanceKm }) => routeDistanceKm)).toEqual([
+      580,
+      370,
+      380,
+      220,
+      65,
+    ]);
+    expect(displayStageDistanceKm(stages[0], 400)).toBe(290);
+    expect(displayTourDistanceKm(2, 525)).toBe(765);
+    expect(displayTourDistanceKm(5, 1_800)).toBe(1_615);
+
+    const { store, advance } = createTestStore({
+      stageDistanceM: 799,
+    });
+    advance(1);
+
+    expect(store.getSnapshot().stage).toBe(2);
+  });
+
   it("reaches the climbing sector after the Paris to Bordeaux opener", () => {
     const { store, advance } = createTestStore();
 
@@ -138,24 +162,65 @@ describe("stage and offline progression", () => {
     expect(state.cash).toBeGreaterThanOrEqual(50);
   });
 
-  it("starts another Tour after Alpe without relocking career branches", () => {
+  it("ends on Alpe and resets the whole career for a fresh ride", () => {
     const { store, advance } = createTestStore({
       stage: 5,
       highestStage: 5,
-      tourNumber: 1,
+      tourNumber: 3,
+      sweat: 12_345,
+      cash: 678,
+      distanceM: 5_000,
       stageDistanceM: 1_799,
       sectorElapsedSeconds: 500,
+      reservedPowerUp: "lucky-bidon",
+      upgrades: {
+        power: 3,
+        endurance: 2,
+        fueling: 1,
+        domestique: 1,
+      },
+      raceStageTimes: {
+        "1": 120,
+        "2": 180,
+        "3": 80,
+        "4": 160,
+      },
     });
 
     advance(1);
 
-    const state = store.getSnapshot();
-    expect(state.stage).toBe(1);
-    expect(state.tourNumber).toBe(2);
-    expect(state.highestStage).toBe(5);
-    expect(state.sectorElapsedSeconds).toBeLessThan(1);
+    let state = store.getSnapshot();
+    expect(state.raceFinished).toBe(true);
+    expect(state.stage).toBe(5);
+    expect(state.stageProgress).toBe(1);
+    expect(state.tourNumber).toBe(3);
+    expect(state.raceResults?.rows).toHaveLength(5);
+    expect(state.raceResults?.totalSeconds).toBeGreaterThan(1_000);
     expect(state.sectorRecords["5"]?.totalSeconds).toBeGreaterThan(0);
-    expect(store.isBranchUnlocked("team")).toBe(true);
+
+    const finishedDistance = state.distanceM;
+    const finishedRaceRevision = state.raceRevision;
+    advance(10);
+    expect(store.getSnapshot().distanceM).toBe(finishedDistance);
+
+    store.restartRace();
+    state = store.getSnapshot();
+    expect(state.raceFinished).toBe(false);
+    expect(state.raceRevision).toBe(finishedRaceRevision + 1);
+    expect(state.stage).toBe(1);
+    expect(state.tourNumber).toBe(1);
+    expect(state.highestStage).toBe(1);
+    expect(state.sweat).toBe(0);
+    expect(state.cash).toBe(0);
+    expect(state.distanceM).toBe(0);
+    expect(state.stageDistanceM).toBe(0);
+    expect(state.sectorElapsedSeconds).toBe(0);
+    expect(state.raceStageTimes).toEqual({});
+    expect(state.sectorRecords).toEqual({});
+    expect(state.reservedPowerUp).toBeNull();
+    expect(state.activePowerUp).toBeNull();
+    expect(state.upgrades).toEqual({});
+    expect(store.isBranchUnlocked("team")).toBe(false);
   });
 
   it("migrates old Stage 6 saves to the new five-sector finale", () => {
@@ -168,19 +233,18 @@ describe("stage and offline progression", () => {
     expect(state.stageDefinition.finish).toBe("Alpe d'Huez");
   });
 
-  it("moves a completed legacy finale into the next Tour", () => {
+  it("migrates a completed legacy finale into the race results", () => {
     const { store } = createTestStore({
       stage: 5,
       stageDistanceM: stages[4].distanceM,
     });
 
     const state = store.getSnapshot();
-    expect(state.stage).toBe(1);
-    expect(state.tourNumber).toBe(2);
+    expect(state.raceFinished).toBe(true);
+    expect(state.stage).toBe(5);
+    expect(state.tourNumber).toBe(1);
     expect(state.highestStage).toBe(5);
-    expect(state.stageDistanceM).toBe(0);
-    expect(state.sectorElapsedSeconds).toBe(0);
-    expect(state.currentSectorSplits).toEqual([0]);
+    expect(state.stageDistanceM).toBe(stages[4].distanceM);
   });
 
   it("awards safe offline Sweat and Cash without simulating collisions", () => {
@@ -203,6 +267,8 @@ describe("stage and offline progression", () => {
       stage: 4,
       highestStage: 5,
       tourNumber: 3,
+      raceFinished: true,
+      raceStageTimes: { "1": 100 },
       sectorElapsedSeconds: 123,
       currentSectorSplits: [0, 5, 10],
       sectorRecords: {
@@ -211,13 +277,15 @@ describe("stage and offline progression", () => {
           splits: [0, 50, 100],
         },
       },
-      reservedPowerUp: "super-power",
+      reservedPowerUp: "jump",
       upgrades: { "road-bike": 1, tires: 2, endurance: 3 },
     });
 
+    const previousRaceRevision = store.getSnapshot().raceRevision;
     store.resetCareer();
 
     const state = store.getSnapshot();
+    expect(state.raceRevision).toBe(previousRaceRevision + 1);
     expect(state.stage).toBe(1);
     expect(state.stageDefinition.start).toBe("Paris");
     expect(state.sweat).toBe(0);
@@ -226,6 +294,8 @@ describe("stage and offline progression", () => {
     expect(state.stageDistanceM).toBe(0);
     expect(state.highestStage).toBe(1);
     expect(state.tourNumber).toBe(1);
+    expect(state.raceFinished).toBe(false);
+    expect(state.raceStageTimes).toEqual({});
     expect(state.sectorElapsedSeconds).toBe(0);
     expect(state.currentSectorSplits).toEqual([0]);
     expect(state.sectorRecords).toEqual({});
@@ -319,13 +389,22 @@ describe("stage and offline progression", () => {
       );
     });
 
-    expect(gradientAtProgress(stages[4], 0)).toBeCloseTo(0.06);
+    expect(gradientAtProgress(stages[4], 0)).toBe(0);
     expect(gradientAtProgress(stages[4], 1)).toBeCloseTo(0.079);
     const alpeAverage =
       Array.from({ length: 1_001 }, (_, index) =>
         gradientAtProgress(stages[4], index / 1_000),
       ).reduce((sum, gradient) => sum + gradient, 0) / 1_001;
     expect(alpeAverage).toBeCloseTo(0.079, 2);
+  });
+
+  it("joins adjacent sectors without an abrupt gradient jump", () => {
+    stages.slice(0, -1).forEach((stage, index) => {
+      expect(gradientAtProgress(stage, 1)).toBeCloseTo(
+        gradientAtProgress(stages[index + 1], 0),
+        8,
+      );
+    });
   });
 
   it("builds elevation profiles from accumulated grade rather than plotting grade", () => {
@@ -405,7 +484,7 @@ describe("stage and offline progression", () => {
       {
         start: "Grenoble",
         finish: "Alpe d'Huez",
-        gradientRange: [0.06, 0.12],
+        gradientRange: [0, 0.12],
         windPenalty: 0,
       },
     ]);
@@ -432,15 +511,39 @@ describe("stage and offline progression", () => {
 
     store.setTemporaryDraftBonus(0.5);
     const drafting = store.getSnapshot();
+    const baseDraftingSweatPerSecond =
+      (0.08 + drafting.stats.speedKmh / 250) *
+      drafting.stageDefinition.sweatYield;
 
     expect(drafting.stats.draftMultiplier).toBe(1.5);
+    expect(solo.stats.sweatMultiplier).toBe(1);
+    expect(drafting.stats.sweatPerSecond).toBeCloseTo(
+      baseDraftingSweatPerSecond + 100 / 15,
+    );
+    expect(drafting.stats.sweatMultiplier).toBeCloseTo(
+      drafting.stats.sweatPerSecond / baseDraftingSweatPerSecond,
+    );
+    expect(drafting.stats.cashPerSecond).toBeCloseTo(
+      (drafting.stats.speedKmh / 3_600) *
+        drafting.stageDefinition.cashPerKm,
+    );
     expect(drafting.stats.speedKmh).toBeGreaterThan(solo.stats.speedKmh);
     expect(drafting.stats.effectiveWindPenalty).toBeLessThan(
       solo.stats.effectiveWindPenalty,
     );
   });
 
-  it("applies the exact domestique drafting multipliers", () => {
+  it("awards roughly 100 Sweat for a full random-rider draft", () => {
+    const { store, advance } = createTestStore();
+
+    store.setTemporaryDraftBonus(0.5);
+    advance(15);
+
+    expect(store.getSnapshot().sweat).toBeGreaterThanOrEqual(100);
+    expect(store.getSnapshot().sweat).toBeLessThanOrEqual(104);
+  });
+
+  it("applies domestique speed bonuses without multiplying Sweat", () => {
     const one = createTestStore({
       upgrades: { domestique: 1 },
     }).store.getSnapshot();
@@ -454,12 +557,20 @@ describe("stage and offline progression", () => {
     expect(one.stats.draftMultiplier).toBe(1.2);
     expect(two.stats.draftMultiplier).toBe(1.3);
     expect(three.stats.draftMultiplier).toBe(1.4);
+    expect(one.stats.sweatMultiplier).toBe(1);
+    expect(two.stats.sweatMultiplier).toBe(1);
+    expect(three.stats.sweatMultiplier).toBe(1);
   });
 
   it("uses hydration to preserve Flow and body composition to climb faster", () => {
-    const base = createTestStore({ stage: 5 }).store.getSnapshot();
+    const climbDistance = stages[4].distanceM * 0.25;
+    const base = createTestStore({
+      stage: 5,
+      stageDistanceM: climbDistance,
+    }).store.getSnapshot();
     const prepared = createTestStore({
       stage: 5,
+      stageDistanceM: climbDistance,
       upgrades: { hydration: 5, "body-composition": 5 },
     }).store.getSnapshot();
 
@@ -471,12 +582,12 @@ describe("stage and offline progression", () => {
 });
 
 describe("power-up reserve", () => {
-  it("stores exactly one collected power-up", () => {
+  it("replaces the reserved power-up with the latest pickup", () => {
     const { store } = createTestStore();
 
     expect(store.collectPowerUp("super-draft")).toBe(true);
-    expect(store.collectPowerUp("super-power")).toBe(false);
-    expect(store.getSnapshot().reservedPowerUp).toBe("super-draft");
+    expect(store.collectPowerUp("jump")).toBe(true);
+    expect(store.getSnapshot().reservedPowerUp).toBe("jump");
   });
 
   it("activates Super Draft for ten seconds with speed and wind shelter", () => {
@@ -490,6 +601,7 @@ describe("power-up reserve", () => {
     expect(boosted.reservedPowerUp).toBeNull();
     expect(boosted.activePowerUp?.type).toBe("super-draft");
     expect(boosted.stats.draftMultiplier).toBe(1.5);
+    expect(boosted.stats.sweatMultiplier).toBe(1);
     expect(boosted.stats.speedKmh).toBeGreaterThan(solo.stats.speedKmh * 1.8);
     expect(boosted.stats.effectiveWindPenalty).toBeLessThan(0.03);
 
@@ -497,18 +609,31 @@ describe("power-up reserve", () => {
     expect(store.getSnapshot().activePowerUp).toBeNull();
   });
 
-  it("makes Super Power explosive and doubles effort rewards", () => {
-    const { store } = createTestStore();
-    const base = store.getSnapshot();
+  it("activates a short Jump without changing rider speed", () => {
+    const { store, advance } = createTestStore();
+    const baseSpeed = store.getSnapshot().stats.speedKmh;
 
-    store.collectPowerUp("super-power");
+    expect(powerUpDefinitions.jump.potholeImmunity).toBe(true);
+    store.collectPowerUp("jump");
     store.activateReservedPowerUp();
-    const boosted = store.getSnapshot();
 
-    expect(boosted.stats.speedKmh).toBeCloseTo(base.stats.speedKmh * 1.75);
-    expect(boosted.stats.sweatPerSecond).toBeGreaterThan(
-      base.stats.sweatPerSecond * 2,
-    );
+    expect(store.getSnapshot().activePowerUp?.type).toBe("jump");
+    expect(store.getSnapshot().stats.speedKmh).toBe(baseSpeed);
+
+    advance(1.25);
+    expect(store.getSnapshot().activePowerUp).toBeNull();
+  });
+
+  it("makes Lucky Bidon attract pickups without changing bag value", () => {
+    const { store } = createTestStore();
+
+    expect(powerUpDefinitions["lucky-bidon"].pickupMagnet).toBe(true);
+    store.collectPowerUp("lucky-bidon");
+    store.activateReservedPowerUp();
+    const reward = store.collectBag("cash");
+
+    expect(store.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
+    expect(reward).toBe(18);
   });
 
   it("keeps a reserved power-up while another one is active", () => {
@@ -516,10 +641,11 @@ describe("power-up reserve", () => {
 
     store.collectPowerUp("super-draft");
     store.activateReservedPowerUp();
-    store.collectPowerUp("super-power");
+    store.collectPowerUp("jump");
+    store.collectPowerUp("lucky-bidon");
 
     expect(store.activateReservedPowerUp()).toBe(false);
     expect(store.getSnapshot().activePowerUp?.type).toBe("super-draft");
-    expect(store.getSnapshot().reservedPowerUp).toBe("super-power");
+    expect(store.getSnapshot().reservedPowerUp).toBe("lucky-bidon");
   });
 });

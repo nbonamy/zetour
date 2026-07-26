@@ -30,6 +30,8 @@ const savedState = (overrides: Partial<SaveState>): SaveState => ({
   stage: 1,
   highestStage: 1,
   tourNumber: 1,
+  raceFinished: false,
+  raceStageTimes: {},
   sectorElapsedSeconds: 0,
   currentSectorSplits: [0],
   sectorRecords: {},

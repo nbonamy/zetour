@@ -148,7 +148,7 @@ export const upgrades: UpgradeDefinition[] = [
     costScale: 2,
     maxLevel: 6,
     costs: [20, 45, 100, 225, 500, 1_100],
-    requiredStages: [1, 1, 2, 3, 4, 5],
+    requiredStages: [1, 1, 1, 3, 4, 5],
     levelNames: [
       "Aerobic base I",
       "Aerobic base II",
@@ -170,7 +170,7 @@ export const upgrades: UpgradeDefinition[] = [
     costScale: 2,
     maxLevel: 6,
     costs: [35, 75, 165, 360, 800, 1_750],
-    requiredStages: [1, 1, 2, 3, 4, 5],
+    requiredStages: [1, 1, 1, 3, 4, 5],
     levelNames: [
       "Tempo power I",
       "Tempo power II",
@@ -192,7 +192,7 @@ export const upgrades: UpgradeDefinition[] = [
     costScale: 2.4,
     maxLevel: 4,
     costs: [50, 120, 300, 750],
-    requiredStages: [1, 2, 3, 4],
+    requiredStages: [1, 1, 3, 4],
     levelNames: [
       "Cornering basics",
       "Fast line changes",
@@ -212,7 +212,7 @@ export const upgrades: UpgradeDefinition[] = [
     costScale: 2.5,
     maxLevel: 5,
     costs: [60, 150, 375, 940, 2_350],
-    requiredStages: [2, 2, 3, 4, 5],
+    requiredStages: [1, 2, 3, 4, 5],
     levelNames: [
       "Healthy habits",
       "Lean endurance build",
@@ -234,7 +234,7 @@ export const upgrades: UpgradeDefinition[] = [
     costScale: 2.4,
     maxLevel: 5,
     costs: [25, 60, 145, 350, 850],
-    requiredStages: [1, 1, 2, 3, 4],
+    requiredStages: [1, 1, 1, 3, 4],
     levelNames: [
       "Carry a bidon",
       "Electrolyte mix",
@@ -255,7 +255,7 @@ export const upgrades: UpgradeDefinition[] = [
     costScale: 2.4,
     maxLevel: 5,
     costs: [40, 95, 225, 540, 1_300],
-    requiredStages: [1, 2, 2, 3, 4],
+    requiredStages: [1, 1, 2, 3, 4],
     levelNames: [
       "Banana",
       "Energy bar",

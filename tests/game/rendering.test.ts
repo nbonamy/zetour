@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   CYCLIST_LANE_OFFSET_Y,
+  cyclistFrameTexture,
   RIDE_RENDER_SCALE,
   RIDE_WORLD_HEIGHT,
   RIDE_WORLD_WIDTH,
@@ -8,10 +9,30 @@ import {
   cyclistLaneY,
   roadHazardLaneY,
   rideRenderSize,
+  jumpHeightAt,
   syncRoadBodyPosition,
 } from "../../src/game/rendering";
 
 describe("ride rendering", () => {
+  it("gives every cyclist role two alternating pedal frames", () => {
+    expect(cyclistFrameTexture("player", false)).toBe("rider-a");
+    expect(cyclistFrameTexture("player", true)).toBe("rider-b");
+    expect(cyclistFrameTexture("draft", false)).toBe("draft-rider-a");
+    expect(cyclistFrameTexture("draft", true)).toBe("draft-rider-b");
+    expect(cyclistFrameTexture("domestique", false)).toBe(
+      "domestique-rider-a",
+    );
+    expect(cyclistFrameTexture("domestique", true)).toBe(
+      "domestique-rider-b",
+    );
+  });
+
+  it("uses a smooth jump arc that starts and ends on the road", () => {
+    expect(jumpHeightAt(1.2, 1.2)).toBeCloseTo(0);
+    expect(jumpHeightAt(0.6, 1.2)).toBeCloseTo(26);
+    expect(jumpHeightAt(0, 1.2)).toBeCloseTo(0);
+  });
+
   it("renders the logical ride world at double resolution", () => {
     expect(RIDE_RENDER_SCALE).toBe(2);
     expect(RIDE_WORLD_WIDTH).toBe(640);
