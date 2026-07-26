@@ -1,19 +1,66 @@
-# Biker Inc. — Game Design
+# Ze Tour — Game Design
 
 ## Concept
 
-Biker Inc. is an incremental cycling game. The rider moves forward
+Ze Tour is an incremental cycling game. The rider moves forward
 automatically without clicking or manual pedalling. Riding generates resources,
 resources buy permanent improvements, and those improvements allow the rider
 to overcome progressively harder roads.
 
-During active play, the player can move the rider between road lanes by moving
-the mouse. Steering is used to collect bonuses and avoid hazards; it never
-controls forward motion.
+During active play, the player can move the rider between road lanes with the
+Up and Down arrow keys. Steering is used to collect bonuses and avoid hazards;
+it never controls forward motion.
 
-The first campaign begins on a flat local circuit and gradually introduces
-wind, rolling terrain, longer climbs, and mountain passes. Its final challenge
-is the ascent of Alpe d'Huez.
+The first campaign is a deliberately compressed journey across France. It
+starts with a fast Paris–Bordeaux run, crosses the Massif Central, rewards the
+climb with a high-speed descent into Provence, turns north into the Mistral,
+and finishes on Alpe d'Huez. Map distances are compressed for pacing, but the
+places, terrain rhythm, wind direction, and famous final climb remain
+recognizable.
+
+## Mini Task List
+
+- [x] Rename the game and browser page to **Ze Tour**.
+- [x] Keep riding autonomous, with arrow-key lane steering as the optional
+  active layer.
+- [x] Use exactly two currencies: riding generates Sweat, while sponsorship and
+  roadside rewards generate Cash.
+- [x] Credit every pickup immediately and make potholes drop a percentage of
+  current Cash.
+- [x] Build readable multi-lane encounters: bonus lines, fan corridors, feed
+  zones, slaloms, sprints, hairpins, potholes, and chain-failure feedback.
+- [x] Add random-rider drafting plus visible domestique formations and
+  stage-dependent draft tolerance.
+- [x] Build one paused, scrollable career graph with Rider, Nutrition,
+  Equipment, Bike, and Team branches.
+- [x] Unlock Equipment in Sector 2, Bike in Sector 3, and Team in Sector 5.
+- [x] Make tires one progressive upgrade: reinforced, performance, then
+  tubeless.
+- [x] Include progressive frames, shifting, brakes, wheels, aero socks,
+  helmets, skinsuits, nutrition, fitness, and teammates.
+- [x] Build the five-sector France route from Paris to Alpe d'Huez.
+- [x] Show real city checkpoints while compressing distance for game pacing.
+- [x] Give every sector a smooth, changing gradient profile instead of one
+  fixed slope.
+- [x] Make the descent physically tilt downward and create a large speed
+  payoff.
+- [x] Make Avignon–Grenoble a visible Mistral battle mitigated by aero gear.
+- [x] Use a drop as the Sweat icon in the HUD, workshop, pickups, and feedback.
+- [x] Add Super Draft and Super Power as a two-lane pickup choice.
+- [x] Limit power-ups to one reserve slot and activate them with `Space`.
+- [x] Show active power-up countdowns, effects, and rider feedback.
+- [x] Give each sector a distinct modern atmosphere with speed-linked scrolling
+  and sharper rider art.
+- [x] Keep the desktop masthead and controls inside the ride frame, enlarge
+  speed, distance, and notices, and keep tuning ranges out of the live HUD.
+- [x] Draw the mini profile from accumulated elevation so it never looks like a
+  descent while the road is still climbing.
+- [x] Add a persistent fastest-sector record and live seconds-ahead/behind
+  leaderboard.
+- [x] Loop back to Paris after Alpe d'Huez while preserving upgrades, unlocks,
+  and records.
+- [ ] Playtest sector duration, power-up frequency, and final-climb economy,
+  then rebalance from actual ride data.
 
 ## Core Loop
 
@@ -24,8 +71,8 @@ is the ascent of Alpe d'Huez.
 4. Sweat and Cash buy permanent nodes in their respective progression branches.
 5. These upgrades improve speed, endurance, handling, and power-to-weight
    ratio.
-6. The player attempts a harder stage.
-7. Completing the stage unlocks new roads and new branches of the progression
+6. The player attempts a harder Tour sector.
+7. Completing the sector unlocks new roads and new branches of the progression
    tree.
 8. If the rider fails, they return to a completed road, keep earning resources,
    improve their setup, and try again.
@@ -34,11 +81,12 @@ The player's role is strategic: choose what to improve and when to attempt the
 next challenge. The player never pedals or clicks for resources, but can
 optionally steer to improve the ride's return.
 
-The opening is intentionally slow: the fixed starter bike travels at about
-12 km/h, making it feel obviously inadequate. Stages 1 and 2 focus on improving
-the rider through training and nutrition. Equipment opens at Stage 2. The Bike
-branch opens at Stage 3, when accumulated sponsor Cash puts the first Workshop
-Road Bike within reach and creates a large immediate speed jump.
+The fixed starter bike travels at a believable 18 km/h on Sector 1's flat,
+windless road, even before the rider has learned any skills. The first two
+sectors focus on improving the rider through training and nutrition. Equipment
+opens at Sector 2. The Bike branch opens at Sector 3, when accumulated sponsor Cash puts
+the first Workshop Road Bike within reach and creates a large immediate speed
+jump.
 
 ## Buying Units
 
@@ -123,8 +171,8 @@ An illustrative early-game cost sequence could be:
 Rider endurance:   20 → 45 → 100 → 225 → 500 → 1,100 Sweat
 Hydration:         25 → 60 → 145 → 350 → 850 Sweat
 Aero socks:        $25 → $55 → $121 → $266
-Road bike:         $60, plus the Stage 3 requirement
-First teammate:    $350, plus the Stage 5 requirement
+Road bike:         $60, plus the Sector 3 requirement
+First teammate:    $350, plus the Sector 5 requirement
 ```
 
 The exact numbers will be tuned through playtesting. Their relative shape is
@@ -137,8 +185,8 @@ rare multipliers.
 The rider remains near the left side of the screen while the road and scenery
 scroll from right to left. The road is divided into multiple visible lanes.
 
-Moving the mouse vertically selects a target lane. The rider changes lanes
-smoothly rather than snapping instantly, and no click is required. Handling,
+Pressing the Up and Down arrow keys selects a target lane. The rider changes
+lanes smoothly rather than snapping instantly, and no click is required. Handling,
 tires, road surface, and current speed affect how quickly and safely the rider
 can move.
 
@@ -164,6 +212,22 @@ through a bag collects its reward:
 - Toolboxes repair wear or prevent a mechanical problem.
 - Rare bags provide component discounts or permanent equipment.
 - Coffee stops provide an unusually powerful recovery bonus.
+
+### Collectible Power-ups
+
+Power-up gates present two large pickups in different lanes, forcing a quick
+choice rather than giving both:
+
+- **Super Draft** gives 10 seconds of +50% speed and blocks 90% of headwind.
+- **Super Power** gives 7 seconds of +75% speed and doubles Sweat generation.
+
+Only one power-up can be held in reserve. Collecting another while the reserve
+is full does not replace or stack it. Pressing `Space` or using the reserve
+button activates it; an active power-up has a visible countdown and aura around
+the rider. The reserve may be refilled while a power-up is active, but the next
+one cannot be activated until the current effect ends. This creates useful
+decisions: save Super Draft for the Mistral, save Super Power for Alpe d'Huez,
+or burn either one on the descent for an absurd burst of speed.
 
 ### Hazards and Lost Units
 
@@ -200,11 +264,12 @@ endless stream of unrelated random spawns. The Ride Director selects from:
 - A Cash-heavy fan corridor
 - A Sweat-heavy feed zone
 - A short sprint segment
-- Hairpin patterns on climbing stages
+- Hairpin patterns on climbing sectors
+- A two-lane Super Draft versus Super Power choice
 - A drafting rider encounter
 
 These patterns let the player read the road, choose a line, and execute it using
-mouse-only steering. Each pickup pattern is a single sequence: missing one
+arrow-key steering. Each pickup pattern is a single sequence: missing one
 pickup immediately invalidates every remaining pickup in that sequence. The
 lost pickups flash three times and disappear so the failed chain is obvious.
 
@@ -228,9 +293,9 @@ rider accelerates toward the right edge and disappears. Drafting can continue
 for at most 15 seconds. At the end of that window, the other rider accelerates
 toward the right edge and disappears even if every move was followed.
 
-Drafting becomes less forgiving as the campaign advances. Stage 1 allows a
+Drafting becomes less forgiving as the campaign advances. Sector 1 allows a
 wide spatial tolerance and a 1.5-second reaction window. Both values shrink on
-every stage until Stage 6 allows only a 12-pixel alignment tolerance and roughly
+every sector until Sector 5 allows only a 12-pixel alignment tolerance and roughly
 0.4 seconds to follow a lane change.
 
 ### Perceived Speed
@@ -249,38 +314,54 @@ Terrain and conditions determine whether a setup is strong enough:
 - Headwinds reward aerodynamics and drafting.
 - Gravel, mud, cobbles, and rough roads increase rolling resistance and
   mechanical risk.
-- Long stages accumulate fatigue and reward endurance, nutrition, and team
+- Long sectors accumulate fatigue and reward endurance, nutrition, and team
   support.
 
-Each major stage has a cutoff time and acts as a boss challenge. The player
+Each major sector can eventually gain a cutoff time and act as a boss challenge. The player
 chooses when to attempt it. Failure does not remove purchased improvements; the
 rider returns to training and continues accumulating resources.
 
-Speed carries between stages as the output of the same rider and build, then
-the new stage conditions modify it. A build travelling at 20 km/h on the flat
-local circuit enters the flat but windy Stage 2 at roughly 15 km/h:
+Speed carries between sectors as the output of the same rider and build, then
+the new road conditions modify it. A build travelling at roughly 20 km/h on the
+calm Paris–Bordeaux road reaches about 14.5 km/h when it turns north into the
+28% Mistral penalty:
 
 ```text
-20 km/h × 75% headwind factor = 15 km/h
+20.2 km/h × 72% headwind factor ≈ 14.5 km/h
 ```
 
 The reason for the slowdown must be visible. Wind is represented by animated
-streaks moving against the rider and a HUD percentage. Gradient is represented
-by uphill road chevrons and the current grade percentage. Calm and flat stages
-say so explicitly rather than hiding a neutral modifier.
+streaks moving against the rider and a HUD percentage. Gradient physically
+inclines the asphalt, verges, lane markings, road objects, and every rider while
+the HUD shows the current grade percentage. Negative gradients physically tilt
+the complete road downhill and multiply speed. Calm and flat sectors say so
+explicitly rather than hiding a neutral modifier.
 
-Wind and gradient are introduced separately before they are combined:
+The five-sector rhythm deliberately alternates pressure and release:
 
 ```text
-Stage 1: flat, calm
-Stage 2: flat, strong headwind
-Stage 3: small slope, calm
-Stage 4: medium slope, calm
-Stage 5: medium slope, headwind
-Stage 6: high Alpe d'Huez slope, headwind
+Sector 1: flat and calm
+Sector 2: gentle 2.5% climb
+Sector 3: fast 4% descent
+Sector 4: flat road into a strong Mistral
+Sector 5: 7.9% Alpe d'Huez finale
 ```
 
-The raw headwind is a property of the stage, while equipment reduces its
+Those labels describe bands, not constants. Each sector interpolates smoothly
+between curated profile points so the road and speed change continuously:
+
+```text
+Flat:       -2% to +2%
+Easy climb:  0% to +5%
+Descent:    -5% to 0%
+Hard climb: +6% to +12%
+```
+
+The live grade, a moving marker on the mini profile, and the physical road angle
+all report the same value. Full tuning ranges stay in this design document
+rather than cluttering the live HUD.
+
+The raw headwind is a property of the sector, while equipment reduces its
 effective speed penalty. Aero Socks begin helping at their Aero tier, the Aero
 Helmet begins helping at its Aero Road tier, and Wheels begin helping at the
 Carbon tier. Higher tiers improve the mitigation further. The HUD displays
@@ -288,18 +369,44 @@ both raw and effective wind whenever mitigation is active.
 
 ## Campaign Progression
 
-| Stage | Main challenge | What it teaches | Major unlock |
-| --- | --- | --- | --- |
-| 1. Local circuit | Flat, safe, short | Rider training and nutrition | Rider and Nutrition branches |
-| 2. Windy open road | Flat with strong headwind | Power, handling, and aerodynamics | Equipment branch |
-| 3. Rolling countryside | Small slope, no wind | Spending accumulated sponsor Cash | Bike branch |
-| 4. First categorized climb | Medium slope, no wind | Power-to-weight ratio | Advanced components |
-| 5. Mountain pass | Medium slope with headwind | Drafting and combined optimization | Team branch |
-| 6. Alpe d'Huez | High slope with headwind | Complete build optimization | Next campaign |
+The campaign uses recognizable checkpoints, but the playable distances are
+compressed to keep the full route inside one satisfying session.
 
-Completing Alpe d'Huez finishes the first campaign. It can unlock a new season
-with a permanent career bonus and new campaigns based on gravel, cobbles,
-ultra-distance riding, or another mountain range.
+| Sector | Route | Main challenge | Major unlock |
+| --- | --- | --- | --- |
+| 1 | Paris → Bordeaux | Calm Atlantic run and pure speed | Rider and Nutrition branches |
+| 2 | Bordeaux → Clermont-Ferrand | Gentle Massif Central climb | Equipment branch |
+| 3 | Clermont-Ferrand → Avignon | 4% descent and high-speed control | Bike branch |
+| 4 | Avignon → Grenoble | Northbound Rhône valley against the Mistral | Advanced components |
+| 5 | Grenoble → Alpe d'Huez via Bourg-d'Oisans | 21 bends at 7.9% | Team branch and Tour completion |
+
+Completing Alpe d'Huez starts the next numbered Tour back in Paris. Permanent
+upgrades, branch unlocks, resources, and sector records stay intact, so the next
+lap is a faster time-trial rather than a reset.
+
+### Sector Records
+
+Every sector has a deterministic course record made from its exact gradient and
+wind profile. The ride HUD compares elapsed time with the record at regular
+distance splits, so the player sees a stable seconds-ahead or seconds-behind
+delta instead of a misleading estimate from current speed.
+
+Finishing a sector stores the attempt locally when it is a personal best. Once
+the personal best beats the course record, that faster split curve becomes the
+new live target. Reset Career deliberately erases these records with the rest of
+the save.
+
+### Route Grounding
+
+- [La Scandibérique](https://www.francevelotourisme.com/itineraire/la-scandiberique-eurovelo-3)
+  provides a real cycling spine through both Paris and Bordeaux.
+- [Météo-France](https://meteofrance.com/actualites-et-dossiers/comprendre-la-meteo/le-mistral-vent-regional)
+  describes the Mistral as a northerly wind in the Rhône valley, making the
+  northbound Avignon–Grenoble sector a coherent headwind challenge.
+- [Oisans Tourisme](https://en.oisans.com/equipement/alpe-dhuez-la-montee-mythique/)
+  records the Alpe d'Huez climb from Bourg-d'Oisans as 13.8 km at 7.9%, with
+  the famous 21 bends. Ze Tour compresses its distance but preserves that
+  identity and average profile.
 
 ## Permanent Progression Tree
 
@@ -310,9 +417,9 @@ default. Five branches grow directly from that root:
 Cycling Career — unlocked by default
 ├── Rider — unlocked by default
 ├── Nutrition — unlocked by default
-├── Bike — visible but locked until Stage 3
-├── Equipment — visible but locked until Stage 2
-└── Team — visible but locked until Stage 5
+├── Bike — visible but locked until Sector 3
+├── Equipment — visible but locked until Sector 2
+└── Team — visible but locked until Sector 5
 ```
 
 The graph is not visible during normal riding. The player deliberately opens
@@ -320,13 +427,17 @@ the Career Workshop with the on-screen button or keyboard shortcut. Doing so
 pauses road movement, hazards, pickups, and resource generation; closing the
 Workshop resumes the ride.
 
-The Workshop is one large two-dimensional canvas, not four separate menus.
-Cycling Career sits at its center and the Rider, Nutrition, Bike, Equipment,
-and Team branches expand outward. The canvas is larger than the viewport and
-can be explored by dragging, scrolling, or using a trackpad. It opens centered
-on the Career node.
+The Workshop is one compact two-dimensional honeycomb, not five separate
+menus. Cycling Career sits at its center and the Rider, Nutrition, Bike,
+Equipment, and Team hexes touch it edge-to-edge. Upgrade hexes continue the
+same axial grid without connector lines. Every cell uses a 1:1 bounding box;
+positions are derived from one cell size with axial coordinates rather than
+hand-tuned pixel offsets. A slightly larger uniform grid pitch leaves a narrow,
+consistent gutter between every neighboring hex. The canvas remains draggable
+and scrollable as future seasons expand it, and opens centered on the Career
+node.
 
-Progressive discovery keeps the large graph readable:
+Progressive discovery keeps the honeycomb readable:
 
 - The center and five branch roots are visible from the start.
 - The first available upgrade in each unlocked branch is visible.
@@ -351,9 +462,9 @@ strictly superior option.
 
 ### Bike and Components
 
-The Bike branch is visible but locked through Stages 1 and 2. Its root node is
+The Bike branch is visible but locked through Sectors 1 and 2. Its root node is
 the basic, non-upgradeable starter bike, which is owned by default. Sponsor
-Cash continues accumulating while the rider trains, so reaching Stage 3 puts
+Cash continues accumulating while the rider trains, so reaching Sector 3 puts
 the upgradeable road bike within reach.
 
 ```text
@@ -386,7 +497,7 @@ Bike branch
 ```
 
 The initial road bike unlocks component replacement, but advanced component
-tiers remain gated by stages. This preserves the excitement of unlocking a new
+tiers remain gated by sectors. This preserves the excitement of unlocking a new
 system instead of merely buying a larger number. A component family is one
 graph node with named internal levels: upgrading Tires changes that same node
 from Reinforced to Performance to Tubeless rather than creating three separate
@@ -404,11 +515,11 @@ Each component family has a distinct purpose:
 
 Specializations create meaningful choices. A lightweight climbing setup should
 dominate on steep grades, while an aerodynamic setup should be stronger on
-flat, windy stages. There should not be one universally optimal build.
+flat, windy sectors. There should not be one universally optimal build.
 
 ### Equipment: Apparel and Accessories
 
-The Equipment branch is independent from the Bike branch and opens at Stage 2.
+The Equipment branch is independent from the Bike branch and opens in Sector 2.
 Its root node is the rider's basic recreational kit. Every family contains
 multiple levels, starting with ordinary equipment and ending with specialized
 professional gear. Advanced levels can still require stage victories.
@@ -520,12 +631,12 @@ increase sustainable speed.
 
 ### Team and Support
 
-The Team branch is visible from the beginning but remains locked until Stage 5.
+The Team branch is visible from the beginning but remains locked until Sector 5.
 Unlocking it reveals the first purchasable node: Hire First
 Domestique. Additional riders create a drafting train and provide support:
 
 ```text
-Team branch — locked until Stage 5
+Team branch — locked until Sector 5
 └── Solo rider
     └── Hire first domestique
         ├── Two-rider paceline
@@ -572,6 +683,10 @@ The rider's speed is derived from a small set of readable statistics:
 Road gradient, surface, wind, and weather modify those statistics. The
 simulation should be believable enough that equipment choices make intuitive
 sense, but simple enough that the player can understand why an upgrade helps.
+Gradient uses an escalating curve rather than a linear penalty: an unupgraded
+18 km/h rider falls to roughly 10.5 km/h at 5% and 5 km/h at 10%. Rider
+body-composition upgrades reduce the effective gradient before that curve is
+applied.
 
 The progression must always connect visible growth to a new capability:
 

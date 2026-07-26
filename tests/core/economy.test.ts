@@ -5,7 +5,7 @@ import { createTestStore } from "../helpers/createTestStore";
 
 describe("economy balance", () => {
   it("makes Cash bags materially more valuable than Sweat bags", () => {
-    for (let stage = 1; stage <= 6; stage += 1) {
+    for (let stage = 1; stage <= 5; stage += 1) {
       const sweat = bagRewardForStage("sweat", stage);
       const cash = bagRewardForStage("cash", stage);
 
@@ -23,10 +23,11 @@ describe("economy balance", () => {
     const sweatPerMinute = stats.sweatPerSecond * 60;
     const cashPerMinute = stats.cashPerSecond * 60;
 
-    expect(sweatPerMinute).toBeGreaterThanOrEqual(6);
-    expect(sweatPerMinute).toBeLessThanOrEqual(10);
-    expect(cashPerMinute).toBeGreaterThanOrEqual(6);
-    expect(cashPerMinute).toBeLessThanOrEqual(10);
+    expect(sweatPerMinute).toBeGreaterThanOrEqual(8);
+    expect(sweatPerMinute).toBeLessThanOrEqual(11);
+    expect(cashPerMinute).toBeGreaterThanOrEqual(8);
+    expect(cashPerMinute).toBeLessThanOrEqual(11);
+    expect(cashPerMinute / sweatPerMinute).toBeLessThanOrEqual(1.25);
   });
 
   it("keeps total Sweat and Cash spending capacity comparable", () => {

@@ -1,5 +1,7 @@
 import type { StageDefinition } from "../core/gameStore";
 
+const ROAD_VISUAL_RISE_PER_GRADIENT = 720;
+
 export type RideEncounter =
   | "bonus-line"
   | "slalom"
@@ -7,6 +9,7 @@ export type RideEncounter =
   | "feed-zone"
   | "sprint"
   | "hairpins"
+  | "power-up"
   | "draft";
 
 export interface DraftRules {
@@ -16,8 +19,8 @@ export interface DraftRules {
 }
 
 export const draftRulesForStage = (stage: number): DraftRules => {
-  const normalizedStage = Math.max(1, Math.min(6, Math.round(stage)));
-  const difficulty = (normalizedStage - 1) / 5;
+  const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
+  const difficulty = (normalizedStage - 1) / 4;
   return {
     laneTolerancePx: Math.round(42 - difficulty * 30),
     reactionSeconds: 1.5 - difficulty * 1.1,
@@ -36,6 +39,72 @@ export const outsideDraftTargetX = (domestiqueCount: number): number =>
 
 export const formatDraftTimer = (seconds: number): string =>
   `${Math.max(0, Math.ceil(seconds))}s`;
+
+export const roadScrollSpeed = (speedKmh: number): number =>
+  Math.max(32, speedKmh * 5.2);
+
+export const advanceRoadObjectX = (
+  currentX: number,
+  scrollSpeed: number,
+  deltaMs: number,
+): number =>
+  currentX -
+  Math.max(0, scrollSpeed) * (Math.max(0, deltaMs) / 1_000);
+
+export const advanceLoopingRoadMarkerX = (
+  currentX: number,
+  scrollSpeed: number,
+  deltaMs: number,
+  minimumX: number,
+  maximumX: number,
+): number => {
+  const span = maximumX - minimumX;
+  if (span <= 0) return currentX;
+
+  const nextX = advanceRoadObjectX(currentX, scrollSpeed, deltaMs);
+  return ((((nextX - minimumX) % span) + span) % span) + minimumX;
+};
+
+export const fanFrameAt = (
+  timeMs: number,
+  phaseOffsetMs = 0,
+): "fan-a" | "fan-b" =>
+  Math.floor((Math.max(0, timeMs) + phaseOffsetMs) / 260) % 2 === 0
+    ? "fan-a"
+    : "fan-b";
+
+export const encounterStartX = (
+  encounter: RideEncounter,
+  worldWidth = 640,
+): number => (encounter === "bonus-line" ? worldWidth - 80 : worldWidth + 60);
+
+export const roadVisualRise = (gradient: number): number =>
+  Math.max(
+    -72,
+    Math.min(72, gradient * ROAD_VISUAL_RISE_PER_GRADIENT),
+  );
+
+export const roadOffsetAtX = (
+  x: number,
+  gradient: number,
+  anchorX = 112,
+  width = 640,
+): number => {
+  const distanceFromAnchor = x - anchorX;
+  return distanceFromAnchor === 0
+    ? 0
+    : -roadVisualRise(gradient) * (distanceFromAnchor / width);
+};
+
+export const roadAngleDegrees = (gradient: number, width = 640): number =>
+  (Math.atan2(-roadVisualRise(gradient), width) * 180) / Math.PI;
+
+export const moveLane = (
+  currentLane: number,
+  direction: -1 | 1,
+  laneCount = 3,
+): number =>
+  Math.max(0, Math.min(laneCount - 1, Math.round(currentLane) + direction));
 
 export const hasPickupPassedRider = (
   pickupX: number,
@@ -60,6 +129,7 @@ export const encounterLabel: Record<RideEncounter, string> = {
   "feed-zone": "FEED ZONE",
   sprint: "SPRINT SEGMENT",
   hairpins: "HAIRPINS",
+  "power-up": "POWER-UP — PICK ONE",
   draft: "RIDER AHEAD — CATCH THE DRAFT",
 };
 
@@ -72,9 +142,12 @@ export const availableEncounters = (
     "fan-corridor",
     "feed-zone",
     "sprint",
+    "power-up",
     "draft",
   ];
-  if (stage.gradient > 0) encounters.push("hairpins");
+  if (stage.terrain === "climb" || stage.terrain === "summit") {
+    encounters.push("hairpins");
+  }
   return encounters;
 };
 
@@ -84,6 +157,17 @@ export const chooseEncounter = (
 ): RideEncounter => {
   const choices = availableEncounters(stage);
   return choices[Math.min(choices.length - 1, Math.floor(random() * choices.length))];
+};
+
+export const nextEncounter = (
+  stage: StageDefinition,
+  encounterCount: number,
+  random: () => number = Math.random,
+): RideEncounter => {
+  if (encounterCount === 0) return "bonus-line";
+  if (encounterCount === 1) return "draft";
+  if (encounterCount === 2) return "power-up";
+  return chooseEncounter(stage, random);
 };
 
 export const clampFlow = (flow: number): number =>

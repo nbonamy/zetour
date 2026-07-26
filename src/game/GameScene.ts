@@ -1,54 +1,98 @@
 import Phaser from "phaser";
-import { gameStore } from "../core/gameStore";
+import {
+  gameStore,
+  type GameSnapshot,
+  type PowerUpType,
+} from "../core/gameStore";
 import { RANDOM_RIDER_DRAFT_BONUS } from "../core/drafting";
 import {
   addFlow,
-  chooseEncounter,
+  advanceLoopingRoadMarkerX,
+  advanceRoadObjectX,
   decayFlow,
   domestiqueFormationX,
   draftRulesForStage,
   encounterLabel,
+  encounterStartX,
+  fanFrameAt,
   flowMultiplier,
   formatDraftTimer,
   hasPickupPassedRider,
   isRemainingSequencePickup,
+  moveLane,
+  nextEncounter,
   outsideDraftTargetX,
+  roadAngleDegrees,
+  roadOffsetAtX,
+  roadScrollSpeed,
   type RideEncounter,
 } from "./rideSystems";
+import {
+  RIDE_RENDER_SCALE,
+  RIDE_WORLD_HEIGHT,
+  RIDE_WORLD_WIDTH,
+  ROAD_HAZARD_LANE_OFFSET_Y,
+  cyclistLaneY,
+  roadHazardLaneY,
+  syncRoadBodyPosition,
+} from "./rendering";
 
 type RoadObject = Phaser.Physics.Arcade.Image & {
-  eventType?: "sweat" | "cash" | "pothole";
+  eventType?: "sweat" | "cash" | "pothole" | PowerUpType;
   companion?: Phaser.GameObjects.Image;
   sequenceId?: number;
   sequenceIndex?: number;
   sequenceFailed?: boolean;
+  powerUpChoiceId?: number;
+  roadLane?: number;
+  roadYOffset?: number;
+  companionBaseY?: number;
+  companionFrameOffset?: number;
 };
 
-const WIDTH = 640;
-const HEIGHT = 360;
+const WIDTH = RIDE_WORLD_WIDTH;
+const HEIGHT = RIDE_WORLD_HEIGHT;
 const LANE_Y = [196, 248, 300];
+const CANVAS_FONT = "Inter, Arial, sans-serif";
+const CYCLIST_WIDTH = 56;
+const CYCLIST_HEIGHT = 48;
+const CYCLIST_TEXTURE_SCALE = 3;
+const ROAD_TOP_Y = 178;
+const ROAD_BOTTOM_Y = 338;
+const VERGE_TOP_Y = 164;
+const FAN_WIDTH = 16;
+const FAN_HEIGHT = 22;
+const FAN_TEXTURE_SCALE = 3;
+const ROAD_MARKER_SPACING = 64;
+const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
+const ROAD_MARKER_MAX_X =
+  Math.ceil((WIDTH + ROAD_MARKER_SPACING) / ROAD_MARKER_SPACING) *
+  ROAD_MARKER_SPACING;
 
 export class GameScene extends Phaser.Scene {
   private rider!: Phaser.Physics.Arcade.Sprite;
+  private powerUpAura!: Phaser.GameObjects.Ellipse;
   private pickups!: Phaser.Physics.Arcade.Group;
   private hazards!: Phaser.Physics.Arcade.Group;
+  private sky!: Phaser.GameObjects.Rectangle;
+  private sun!: Phaser.GameObjects.Arc;
   private mountain!: Phaser.GameObjects.TileSprite;
   private fields!: Phaser.GameObjects.TileSprite;
-  private gradeMarkers!: Phaser.GameObjects.TileSprite;
-  private conditionText!: Phaser.GameObjects.Text;
+  private roadGraphics!: Phaser.GameObjects.Graphics;
   private encounterText!: Phaser.GameObjects.Text;
   private flowText!: Phaser.GameObjects.Text;
   private flowBar!: Phaser.GameObjects.Rectangle;
   private windStreaks: Phaser.GameObjects.Rectangle[] = [];
   private roadParticles: Phaser.GameObjects.Rectangle[] = [];
-  private laneMarkers: Phaser.GameObjects.TileSprite[] = [];
+  private laneMarkers: Phaser.GameObjects.Rectangle[] = [];
+  private roadGradient = 0;
   private targetLane = 1;
   private encounterCountdown = 1_200;
   private encounterCount = 0;
   private pickupSequenceCount = 0;
   private animationCountdown = 120;
   private riderFrame = false;
-  private lastPointerMoveAt = 0;
+  private lastSteerAt = 0;
   private flow = 0;
   private combo = 0;
   private lastFlowActionAt = 0;
@@ -62,12 +106,16 @@ export class GameScene extends Phaser.Scene {
   private draftTimeRemaining = 0;
   private drafting = false;
   private droppedFromDraft = false;
+  private sceneryStage = 0;
 
   constructor() {
     super("ride");
   }
 
   create(): void {
+    this.cameras.main
+      .setZoom(RIDE_RENDER_SCALE)
+      .centerOn(WIDTH / 2, HEIGHT / 2);
     this.createTextures();
     this.createWorld();
     this.createRider();
@@ -86,34 +134,30 @@ export class GameScene extends Phaser.Scene {
       (_rider, object) => this.hitHazard(object as RoadObject),
     );
 
-    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-      const y = Phaser.Math.Clamp(pointer.y, LANE_Y[0], LANE_Y[2]);
-      this.targetLane = LANE_Y.reduce(
-        (best, laneY, index) =>
-          Math.abs(laneY - y) < Math.abs(LANE_Y[best] - y) ? index : best,
-        0,
-      );
-      this.lastPointerMoveAt = this.time.now;
-    });
+    this.input.keyboard?.addCapture(["UP", "DOWN"]);
+    this.input.keyboard?.on(
+      "keydown-UP",
+      (event: KeyboardEvent) => this.steerWithKeyboard(-1, event),
+    );
+    this.input.keyboard?.on(
+      "keydown-DOWN",
+      (event: KeyboardEvent) => this.steerWithKeyboard(1, event),
+    );
   }
 
   update(_time: number, delta: number): void {
+    this.cameras.main.centerOn(WIDTH / 2, HEIGHT / 2);
     gameStore.tick(delta / 1_000);
     const snapshot = gameStore.getSnapshot();
-    const scrollSpeed = 58 + snapshot.stats.speedKmh * 1.9;
-    const isActive = this.time.now - this.lastPointerMoveAt < 5_000;
+    const scrollSpeed = roadScrollSpeed(snapshot.stats.speedKmh);
     const windPenalty = snapshot.stageDefinition.windPenalty;
-    const gradient = snapshot.stageDefinition.gradient;
+    const gradient = snapshot.currentGradient;
 
+    this.updateStageScenery(snapshot.stageDefinition);
     this.mountain.tilePositionX += scrollSpeed * delta * 0.00014;
     this.fields.tilePositionX += scrollSpeed * delta * 0.00035;
-    this.gradeMarkers.tilePositionX += scrollSpeed * delta * 0.001;
-    this.gradeMarkers.setAlpha(
-      gradient > 0 ? Math.min(0.75, 0.15 + gradient * 7) : 0,
-    );
-    this.laneMarkers.forEach((marker) => {
-      marker.tilePositionX += scrollSpeed * delta * 0.001;
-    });
+    this.updateRoadIncline(gradient);
+    this.updateLaneMarkers(scrollSpeed, delta);
     this.windStreaks.forEach((streak, index) => {
       streak.setVisible(windPenalty > 0);
       streak.setAlpha(Math.min(0.8, 0.2 + windPenalty * 2.5));
@@ -122,32 +166,18 @@ export class GameScene extends Phaser.Scene {
         streak.x = WIDTH + 30 + index * 13;
       }
     });
-    this.conditionText.setText(
-      `${
-    windPenalty > 0
-      ? snapshot.stats.windMitigation > 0
-        ? `HEADWIND ${Math.round(windPenalty * 100)}% · AFTER AERO ${Math.round(snapshot.stats.effectiveWindPenalty * 100)}%`
-        : `HEADWIND ${Math.round(windPenalty * 100)}%`
-      : "CALM"
-      }  |  ${
-        gradient > 0
-          ? `CLIMB ↗ ${(gradient * 100).toFixed(1)}%`
-          : "FLAT"
-      }`,
-    );
-
     const response = 1 - Math.exp(-delta / (210 / snapshot.stats.handling));
     this.rider.y = Phaser.Math.Linear(
       this.rider.y,
-      LANE_Y[this.targetLane],
+      cyclistLaneY(LANE_Y[this.targetLane]),
       response,
     );
-    this.rider.setVelocityY(0);
+    syncRoadBodyPosition(this.rider.body);
     this.syncDomestiques(snapshot.upgrades.domestique ?? 0);
     this.updateDomestiques(delta);
 
-    this.updateRoadObjects(this.pickups, scrollSpeed);
-    this.updateRoadObjects(this.hazards, scrollSpeed);
+    this.updateRoadObjects(this.pickups, scrollSpeed, delta);
+    this.updateRoadObjects(this.hazards, scrollSpeed, delta);
     this.updateFlow(delta, snapshot.stats.flowDecayPerSecond);
     this.updateDraft(delta, snapshot.stage);
     this.updateSpeedFeedback(
@@ -156,13 +186,14 @@ export class GameScene extends Phaser.Scene {
       snapshot.stats.speedKmh,
       gradient,
     );
+    this.updatePowerUpFeedback(snapshot.activePowerUp);
 
     this.encounterCountdown -= delta;
     if (this.encounterCountdown <= 0 && !this.draftCyclist) {
-      const encounter =
-        this.encounterCount === 1
-          ? "draft"
-          : chooseEncounter(snapshot.stageDefinition);
+      const encounter = nextEncounter(
+        snapshot.stageDefinition,
+        this.encounterCount,
+      );
       this.startEncounter(encounter);
       this.encounterCount += 1;
       this.encounterCountdown = Phaser.Math.Between(8_500, 12_000);
@@ -174,13 +205,17 @@ export class GameScene extends Phaser.Scene {
       this.rider.setTexture(this.riderFrame ? "rider-b" : "rider-a");
       this.animationCountdown = Math.max(55, 180 - snapshot.stats.speedKmh * 4);
     }
-
-    this.rider.setData("safeCruise", !isActive);
   }
 
   private createWorld(): void {
-    this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x8ed7e8);
-    this.add.circle(545, 58, 28, 0xffe390);
+    this.sky = this.add.rectangle(
+      WIDTH / 2,
+      HEIGHT / 2,
+      WIDTH,
+      HEIGHT,
+      0x8ed7e8,
+    );
+    this.sun = this.add.circle(545, 58, 28, 0xffe390);
     this.windStreaks = Array.from({ length: 9 }, (_, index) =>
       this.add
         .rectangle(
@@ -201,11 +236,7 @@ export class GameScene extends Phaser.Scene {
       .tileSprite(WIDTH / 2, 147, WIDTH, 56, "fields")
       .setOrigin(0.5);
 
-    this.add.rectangle(WIDTH / 2, 258, WIDTH, 186, 0x59636b);
-    this.add.rectangle(WIDTH / 2, 166, WIDTH, 12, 0x3f8b52);
-    this.add.rectangle(WIDTH / 2, 348, WIDTH, 24, 0x3f8b52);
-    this.add.rectangle(WIDTH / 2, 176, WIDTH, 2, 0xd7d2b5);
-    this.add.rectangle(WIDTH / 2, 338, WIDTH, 2, 0xd7d2b5);
+    this.roadGraphics = this.add.graphics().setDepth(2);
     this.roadParticles = Array.from({ length: 14 }, (_, index) =>
       this.add
         .rectangle(
@@ -216,38 +247,29 @@ export class GameScene extends Phaser.Scene {
           0xf5f0df,
           0.2,
         )
-        .setDepth(3),
+        .setDepth(4)
+        .setData("baseRoadY", 188 + (index % 3) * 52),
     );
 
     [222, 274].forEach((y) => {
-      this.laneMarkers.push(
-        this.add.tileSprite(WIDTH / 2, y, WIDTH, 3, "lane-dash"),
-      );
+      for (
+        let x = ROAD_MARKER_MIN_X;
+        x < ROAD_MARKER_MAX_X;
+        x += ROAD_MARKER_SPACING
+      ) {
+        this.laneMarkers.push(
+          this.add
+            .rectangle(x, y, 30, 3, 0xe8e0c9)
+            .setDepth(3)
+            .setData("baseRoadY", y),
+        );
+      }
     });
-    this.gradeMarkers = this.add
-      .tileSprite(WIDTH / 2, 248, WIDTH, 16, "climb-chevron")
-      .setDepth(3)
-      .setAlpha(0);
+    this.updateRoadIncline(0, true);
 
-    this.add
-      .text(12, 338, "MOVE THE MOUSE UP / DOWN — NO CLICKING", {
-        fontFamily: "monospace",
-        fontSize: "10px",
-        color: "#fff8d8",
-      })
-      .setDepth(20);
-    this.conditionText = this.add
-      .text(12, 12, "CALM  |  FLAT", {
-        fontFamily: "monospace",
-        fontSize: "11px",
-        color: "#fff8d8",
-        stroke: "#26323a",
-        strokeThickness: 3,
-      })
-      .setDepth(20);
     this.encounterText = this.add
       .text(WIDTH / 2, 42, "", {
-        fontFamily: "monospace",
+        fontFamily: CANVAS_FONT,
         fontSize: "12px",
         color: "#f1cf4b",
         stroke: "#26323a",
@@ -265,7 +287,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(21);
     this.flowText = this.add
       .text(626, 27, "FLOW x1.0", {
-        fontFamily: "monospace",
+        fontFamily: CANVAS_FONT,
         fontSize: "9px",
         color: "#fff8d8",
         stroke: "#26323a",
@@ -275,10 +297,173 @@ export class GameScene extends Phaser.Scene {
       .setDepth(21);
   }
 
+  private updateStageScenery(stage: GameSnapshot["stageDefinition"]): void {
+    if (this.sceneryStage === stage.number) return;
+    this.sceneryStage = stage.number;
+
+    const palettes = {
+      1: {
+        sky: 0xa5dfeb,
+        sun: 0xffe39a,
+        mountains: 0xc8ded4,
+        mountainAlpha: 0.28,
+        fields: 0x8bcf72,
+      },
+      2: {
+        sky: 0x96d4e4,
+        sun: 0xffdc83,
+        mountains: 0x96b4aa,
+        mountainAlpha: 0.68,
+        fields: 0x75b65b,
+      },
+      3: {
+        sky: 0xf4c58b,
+        sun: 0xffd05d,
+        mountains: 0xb79882,
+        mountainAlpha: 0.58,
+        fields: 0xc29c58,
+      },
+      4: {
+        sky: 0xb9d5dc,
+        sun: 0xffe4a6,
+        mountains: 0x9fb1ae,
+        mountainAlpha: 0.45,
+        fields: 0x84ad68,
+      },
+      5: {
+        sky: 0x81c7df,
+        sun: 0xffdf7e,
+        mountains: 0xffffff,
+        mountainAlpha: 1,
+        fields: 0x5f9d54,
+      },
+    } as const;
+    const palette = palettes[stage.number as keyof typeof palettes] ?? palettes[1];
+
+    this.sky.setFillStyle(palette.sky);
+    this.sun.setFillStyle(palette.sun);
+    this.mountain
+      .setTint(palette.mountains)
+      .setAlpha(palette.mountainAlpha);
+    this.fields.setTint(palette.fields);
+    this.showEncounter(
+      `${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`,
+      2_400,
+    );
+  }
+
   private createRider(): void {
-    this.rider = this.physics.add.sprite(112, LANE_Y[1], "rider-a");
-    this.rider.setDepth(10);
-    this.rider.body?.setSize(24, 24);
+    this.powerUpAura = this.add
+      .ellipse(112, cyclistLaneY(LANE_Y[1]), 68, 38, 0x71f5cc, 0.12)
+      .setStrokeStyle(3, 0x71f5cc, 0.8)
+      .setDepth(9)
+      .setVisible(false);
+    this.rider = this.physics.add.sprite(
+      112,
+      cyclistLaneY(LANE_Y[1]),
+      "rider-a",
+    );
+    this.rider.setDisplaySize(CYCLIST_WIDTH, CYCLIST_HEIGHT).setDepth(10);
+    this.rider.body?.setSize(
+      24 * CYCLIST_TEXTURE_SCALE,
+      24 * CYCLIST_TEXTURE_SCALE,
+    );
+  }
+
+  private steerWithKeyboard(
+    direction: -1 | 1,
+    event: KeyboardEvent,
+  ): void {
+    if (event.repeat) return;
+    event.preventDefault();
+    this.targetLane = moveLane(this.targetLane, direction, LANE_Y.length);
+    this.lastSteerAt = this.time.now;
+  }
+
+  private updateRoadIncline(gradient: number, force = false): void {
+    if (!force && Math.abs(this.roadGradient - gradient) < 0.0001) return;
+    this.roadGradient = gradient;
+
+    const leftOffset = roadOffsetAtX(0, gradient);
+    const rightOffset = roadOffsetAtX(WIDTH, gradient);
+    const point = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
+
+    this.roadGraphics
+      .clear()
+      .fillStyle(0x3f8b52)
+      .fillPoints(
+        [
+          point(0, VERGE_TOP_Y + leftOffset),
+          point(WIDTH, VERGE_TOP_Y + rightOffset),
+          point(WIDTH, ROAD_TOP_Y + rightOffset),
+          point(0, ROAD_TOP_Y + leftOffset),
+        ],
+        true,
+      )
+      .fillStyle(0x59636b)
+      .fillPoints(
+        [
+          point(0, ROAD_TOP_Y + leftOffset),
+          point(WIDTH, ROAD_TOP_Y + rightOffset),
+          point(WIDTH, ROAD_BOTTOM_Y + rightOffset),
+          point(0, ROAD_BOTTOM_Y + leftOffset),
+        ],
+        true,
+      )
+      .fillStyle(0x3f8b52)
+      .fillPoints(
+        [
+          point(0, ROAD_BOTTOM_Y + leftOffset),
+          point(WIDTH, ROAD_BOTTOM_Y + rightOffset),
+          point(WIDTH, HEIGHT),
+          point(0, HEIGHT),
+        ],
+        true,
+      )
+      .lineStyle(2, 0xd7d2b5)
+      .lineBetween(
+        0,
+        ROAD_TOP_Y + leftOffset,
+        WIDTH,
+        ROAD_TOP_Y + rightOffset,
+      )
+      .lineBetween(
+        0,
+        ROAD_BOTTOM_Y + leftOffset,
+        WIDTH,
+        ROAD_BOTTOM_Y + rightOffset,
+      );
+
+    const angle = roadAngleDegrees(gradient);
+    this.laneMarkers.forEach((marker) => {
+      marker
+        .setY(
+          Number(marker.getData("baseRoadY")) +
+            roadOffsetAtX(marker.x, gradient),
+        )
+        .setAngle(angle);
+    });
+  }
+
+  private updateLaneMarkers(scrollSpeed: number, delta: number): void {
+    this.laneMarkers.forEach((marker) => {
+      marker.setX(
+        advanceLoopingRoadMarkerX(
+          marker.x,
+          scrollSpeed,
+          delta,
+          ROAD_MARKER_MIN_X,
+          ROAD_MARKER_MAX_X,
+        ),
+      );
+      marker.setY(
+        this.roadY(Number(marker.getData("baseRoadY")), marker.x),
+      );
+    });
+  }
+
+  private roadY(baseY: number, x: number): number {
+    return baseY + roadOffsetAtX(x, this.roadGradient);
   }
 
   private spawnPickup(
@@ -291,18 +476,55 @@ export class GameScene extends Phaser.Scene {
     const texture = type === "sweat" ? "bag-sweat" : "bag-cash";
     const object = this.physics.add.image(
       x,
-      LANE_Y[lane],
+      this.roadY(LANE_Y[lane], x),
       texture,
     ) as RoadObject;
     object.eventType = type;
     object.sequenceId = sequenceId;
     object.sequenceIndex = sequenceIndex;
+    object.roadLane = lane;
+    object.roadYOffset = 0;
     object.setDepth(8);
     this.pickups.add(object);
 
-    const fanY = lane === 0 ? 164 : 346;
-    const fan = this.add.image(x, fanY, "fan").setDepth(6);
+    const fanAboveRoad = lane === 0;
+    const fanY = fanAboveRoad ? ROAD_TOP_Y - 2 : ROAD_BOTTOM_Y + 2;
+    const fan = this.add
+      .image(x, this.roadY(fanY, x), "fan-a")
+      .setDisplaySize(FAN_WIDTH, FAN_HEIGHT)
+      .setOrigin(0.5, fanAboveRoad ? 1 : 0)
+      .setDepth(6);
     object.companion = fan;
+    object.companionBaseY = fanY;
+    object.companionFrameOffset = (sequenceIndex ?? lane) * 130;
+  }
+
+  private spawnPowerUp(
+    type: PowerUpType,
+    lane: number,
+    x: number,
+    choiceId: number,
+  ): void {
+    const object = this.physics.add.image(
+      x,
+      this.roadY(LANE_Y[lane], x),
+      `power-${type}`,
+    ) as RoadObject;
+    object.eventType = type;
+    object.powerUpChoiceId = choiceId;
+    object.roadLane = lane;
+    object.roadYOffset = 0;
+    object.setDisplaySize(30, 30).setDepth(12);
+    object.body?.setSize(26, 26);
+    this.pickups.add(object);
+    this.tweens.add({
+      targets: object,
+      scale: 1.16,
+      alpha: 0.78,
+      duration: 360,
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
   private spawnPothole(
@@ -311,26 +533,49 @@ export class GameScene extends Phaser.Scene {
   ): void {
     const pothole = this.physics.add.image(
       x,
-      LANE_Y[lane] + 8,
+      this.roadY(roadHazardLaneY(LANE_Y[lane]), x),
       "pothole",
     ) as RoadObject;
     pothole.eventType = "pothole";
-    pothole.setDepth(4);
-    pothole.body?.setSize(28, 10);
+    pothole.roadLane = lane;
+    pothole.roadYOffset = ROAD_HAZARD_LANE_OFFSET_Y;
+    pothole.setDepth(9);
+    pothole.body?.setSize(38, 12);
     this.hazards.add(pothole);
   }
 
   private updateRoadObjects(
     group: Phaser.Physics.Arcade.Group,
     scrollSpeed: number,
+    delta: number,
   ): void {
     group.getChildren().forEach((child) => {
       const object = child as RoadObject;
       if (object.sequenceFailed) return;
 
-      object.setVelocityX(-scrollSpeed);
+      object.setVelocity(0, 0);
+      object.setX(advanceRoadObjectX(object.x, scrollSpeed, delta));
+      if (object.roadLane !== undefined) {
+        object.setY(
+          this.roadY(
+            LANE_Y[object.roadLane] + (object.roadYOffset ?? 0),
+            object.x,
+          ),
+        );
+        syncRoadBodyPosition(object.body);
+      }
+      if (object.eventType === "pothole") {
+        object.setAngle(roadAngleDegrees(this.roadGradient));
+      }
       if (object.companion) {
         object.companion.x = object.x;
+        object.companion.y = this.roadY(
+          object.companionBaseY ?? object.companion.y,
+          object.x,
+        );
+        object.companion.setTexture(
+          fanFrameAt(this.time.now, object.companionFrameOffset),
+        );
       }
       if (
         object.eventType === "pothole" &&
@@ -339,7 +584,7 @@ export class GameScene extends Phaser.Scene {
       ) {
         object.setData("passedRider", true);
         const gap = Math.abs(object.y - this.rider.y);
-        const activelySteering = this.time.now - this.lastPointerMoveAt < 5_000;
+        const activelySteering = this.time.now - this.lastSteerAt < 5_000;
         if (activelySteering && gap >= 24 && gap <= 78) {
           this.rewardFlow(15, "NEAR MISS");
         }
@@ -368,20 +613,54 @@ export class GameScene extends Phaser.Scene {
     ) {
       return;
     }
+    if (
+      object.eventType === "super-draft" ||
+      object.eventType === "super-power"
+    ) {
+      const stored = gameStore.collectPowerUp(object.eventType);
+      if (stored) {
+        this.rewardFlow(15, "POWER-UP");
+        this.floatText(
+          object.x,
+          object.y - 18,
+          object.eventType === "super-draft"
+            ? "SUPER DRAFT RESERVED"
+            : "SUPER POWER RESERVED",
+          object.eventType === "super-draft" ? "#71f5cc" : "#ffe26f",
+        );
+      } else {
+        this.floatText(object.x, object.y - 18, "RESERVE FULL", "#fff8d8");
+      }
+      this.clearPowerUpChoice(object.powerUpChoiceId);
+      return;
+    }
     const multiplier = flowMultiplier(this.flow);
+    const bagType = object.eventType === "sweat" ? "sweat" : "cash";
     const amount = gameStore.collectBag(
-      object.eventType ?? "cash",
+      bagType,
       multiplier,
     );
     this.rewardFlow(10, `COMBO ${this.combo + 1}`);
     this.floatText(
       object.x,
       object.y - 16,
-      `+${amount}${object.eventType === "sweat" ? "S" : "$"}`,
-      object.eventType === "sweat" ? "#71f5cc" : "#ffe26f",
+      bagType === "sweat" ? `+${amount}💧` : `+$${amount}`,
+      bagType === "sweat" ? "#71f5cc" : "#ffe26f",
     );
     object.companion?.destroy();
     object.destroy();
+  }
+
+  private clearPowerUpChoice(choiceId: number | undefined): void {
+    this.pickups.getChildren().forEach((child) => {
+      const pickup = child as RoadObject;
+      if (
+        choiceId !== undefined &&
+        pickup.powerUpChoiceId === choiceId
+      ) {
+        pickup.destroy();
+      }
+    });
   }
 
   private failPickupSequence(missedPickup: RoadObject): void {
@@ -406,7 +685,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       pickup.sequenceFailed = true;
-      pickup.setVelocityX(0);
+      pickup.setVelocity(0, 0);
       if (pickup.body) pickup.body.enable = false;
       pickup.setTint(0xff8d7d);
       pickup.companion?.setTint(0xff8d7d);
@@ -429,11 +708,6 @@ export class GameScene extends Phaser.Scene {
 
   private hitHazard(object: RoadObject): void {
     if (!object.active) return;
-    const safeCruise = Boolean(this.rider.getData("safeCruise"));
-    if (safeCruise) {
-      object.destroy();
-      return;
-    }
 
     const lost = gameStore.hitPothole();
     this.flow = 0;
@@ -448,7 +722,7 @@ export class GameScene extends Phaser.Scene {
 
   private startEncounter(encounter: RideEncounter): void {
     this.showEncounter(encounterLabel[encounter]);
-    const startX = WIDTH + 60;
+    const startX = encounterStartX(encounter, WIDTH);
     const sequenceId = this.pickupSequenceCount;
     this.pickupSequenceCount += 1;
     const spawnSequencePickup = (
@@ -527,6 +801,10 @@ export class GameScene extends Phaser.Scene {
           );
         });
         break;
+      case "power-up":
+        this.spawnPowerUp("super-draft", 0, startX, sequenceId);
+        this.spawnPowerUp("super-power", 2, startX, sequenceId);
+        break;
       case "draft":
         this.spawnDraftCyclist();
         break;
@@ -534,7 +812,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showEncounter(label: string, duration = 2_200): void {
-    this.encounterText.setText(label).setAlpha(1);
+    this.encounterText
+      .setPosition(WIDTH / 2, 42)
+      .setText(label)
+      .setAlpha(1);
     this.time.delayedCall(duration, () => {
       if (this.encounterText.text === label) {
         this.encounterText.setAlpha(0);
@@ -568,16 +849,26 @@ export class GameScene extends Phaser.Scene {
     if (this.draftCyclist) return;
     this.draftLane = Phaser.Math.Between(0, 2);
     this.draftCyclist = this.add
-      .sprite(-42, LANE_Y[this.draftLane], "draft-rider")
+      .sprite(
+        -42,
+        this.roadY(cyclistLaneY(LANE_Y[this.draftLane]), -42),
+        "draft-rider",
+      )
+      .setDisplaySize(CYCLIST_WIDTH, CYCLIST_HEIGHT)
       .setDepth(11);
     this.draftTimerText = this.add
-      .text(-42, LANE_Y[this.draftLane] - 27, "CATCH", {
-        fontFamily: "monospace",
+      .text(
+        -42,
+        this.roadY(LANE_Y[this.draftLane], -42) - 27,
+        "CATCH",
+        {
+        fontFamily: CANVAS_FONT,
         fontSize: "10px",
         color: "#fff8d8",
         backgroundColor: "#26323a",
         padding: { x: 4, y: 2 },
-      })
+        },
+      )
       .setOrigin(0.5)
       .setDepth(15);
     this.draftLaneCountdown = Phaser.Math.Between(2_700, 4_200);
@@ -600,9 +891,10 @@ export class GameScene extends Phaser.Scene {
     const rules = draftRulesForStage(stage);
     cyclist.y = Phaser.Math.Linear(
       cyclist.y,
-      LANE_Y[this.draftLane],
+      this.roadY(cyclistLaneY(LANE_Y[this.draftLane]), cyclist.x),
       1 - Math.exp(-delta / 180),
     );
+    cyclist.setAngle(roadAngleDegrees(this.roadGradient));
     this.positionDraftTimer(cyclist);
 
     if (this.droppedFromDraft) {
@@ -712,9 +1004,13 @@ export class GameScene extends Phaser.Scene {
       const rider = this.add
         .sprite(
           domestiqueFormationX(targetCount)[this.domestiques.length],
-          this.rider.y,
+          this.roadY(
+            this.rider.y,
+            domestiqueFormationX(targetCount)[this.domestiques.length],
+          ),
           "domestique-rider",
         )
+        .setDisplaySize(CYCLIST_WIDTH, CYCLIST_HEIGHT)
         .setDepth(10);
       this.domestiques.push(rider);
     }
@@ -725,11 +1021,15 @@ export class GameScene extends Phaser.Scene {
 
   private updateDomestiques(delta: number): void {
     const positions = domestiqueFormationX(this.domestiques.length);
-    const targetY = LANE_Y[this.targetLane];
     const response = 1 - Math.exp(-delta / 165);
     this.domestiques.forEach((rider, index) => {
       rider.x = positions[index];
-      rider.y = Phaser.Math.Linear(rider.y, targetY, response);
+      rider.y = Phaser.Math.Linear(
+        rider.y,
+        this.roadY(cyclistLaneY(LANE_Y[this.targetLane]), rider.x),
+        response,
+      );
+      rider.setAngle(roadAngleDegrees(this.roadGradient));
     });
   }
 
@@ -746,17 +1046,41 @@ export class GameScene extends Phaser.Scene {
       if (particle.x < -10) {
         particle.x = WIDTH + index * 7;
       }
+      particle.y = this.roadY(
+        Number(particle.getData("baseRoadY")),
+        particle.x,
+      );
+      particle.setAngle(roadAngleDegrees(gradient));
     });
-    this.rider.setAngle(-gradient * 75);
+    this.rider.setAngle(roadAngleDegrees(gradient));
     if (speedKmh > 32 && Math.random() < delta / 2_000) {
       this.cameras.main.shake(65, 0.0015);
     }
   }
 
+  private updatePowerUpFeedback(
+    activePowerUp: GameSnapshot["activePowerUp"],
+  ): void {
+    if (!activePowerUp) {
+      this.powerUpAura.setVisible(false);
+      return;
+    }
+
+    const color =
+      activePowerUp.type === "super-draft" ? 0x71f5cc : 0xf1cf4b;
+    this.powerUpAura
+      .setVisible(true)
+      .setPosition(this.rider.x - 2, this.rider.y)
+      .setAngle(this.rider.angle)
+      .setFillStyle(color, 0.1)
+      .setStrokeStyle(3, color, 0.65 + Math.sin(this.time.now / 90) * 0.2)
+      .setScale(1 + Math.sin(this.time.now / 120) * 0.06);
+  }
+
   private floatText(x: number, y: number, label: string, color: string): void {
     const text = this.add
       .text(x, y, label, {
-        fontFamily: "monospace",
+        fontFamily: CANVAS_FONT,
         fontSize: "14px",
         color,
         stroke: "#26323a",
@@ -773,6 +1097,209 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private createCyclistTexture(
+    key: string,
+    jerseyColor: string,
+    bikeColor: string,
+    alternatePedal = false,
+  ): void {
+    if (this.textures.exists(key)) return;
+
+    const texture = this.textures.createCanvas(
+      key,
+      CYCLIST_WIDTH * CYCLIST_TEXTURE_SCALE,
+      CYCLIST_HEIGHT * CYCLIST_TEXTURE_SCALE,
+    );
+    if (!texture) {
+      throw new Error(`Unable to create cyclist texture: ${key}`);
+    }
+    const context = texture.context;
+    context.scale(CYCLIST_TEXTURE_SCALE, CYCLIST_TEXTURE_SCALE);
+    context.lineCap = "round";
+    context.lineJoin = "round";
+
+    const line = (
+      color: string,
+      width: number,
+      points: Array<[number, number]>,
+    ): void => {
+      context.beginPath();
+      context.strokeStyle = color;
+      context.lineWidth = width;
+      context.moveTo(points[0][0], points[0][1]);
+      points.slice(1).forEach(([x, y]) => context.lineTo(x, y));
+      context.stroke();
+    };
+
+    const wheel = (x: number): void => {
+      context.beginPath();
+      context.strokeStyle = "#17232a";
+      context.lineWidth = 3;
+      context.arc(x, 37, 10, 0, Math.PI * 2);
+      context.stroke();
+      context.beginPath();
+      context.strokeStyle = "#dce9e8";
+      context.lineWidth = 1.25;
+      context.arc(x, 37, 7, 0, Math.PI * 2);
+      context.stroke();
+      context.strokeStyle = "rgba(220, 233, 232, 0.58)";
+      context.lineWidth = 0.75;
+      for (let spoke = 0; spoke < 8; spoke += 1) {
+        const angle = (spoke * Math.PI) / 4;
+        line("rgba(220, 233, 232, 0.58)", 0.75, [
+          [x, 37],
+          [x + Math.cos(angle) * 6.5, 37 + Math.sin(angle) * 6.5],
+        ]);
+      }
+    };
+
+    context.fillStyle = "rgba(16, 27, 32, 0.22)";
+    context.beginPath();
+    context.ellipse(28, 46, 25, 2, 0, 0, Math.PI * 2);
+    context.fill();
+    wheel(12);
+    wheel(44);
+
+    line(bikeColor, 2.7, [
+      [12, 37],
+      [25, 23],
+      [29, 37],
+      [12, 37],
+      [31, 37],
+      [40, 22],
+      [44, 37],
+      [29, 37],
+      [25, 23],
+      [39, 23],
+    ]);
+    line("#17232a", 1.8, [
+      [22, 21],
+      [28, 21],
+    ]);
+    line("#17232a", 1.8, [
+      [38, 21],
+      [43, 19],
+    ]);
+    context.beginPath();
+    context.fillStyle = "#f4d35e";
+    context.arc(29, 37, 2.8, 0, Math.PI * 2);
+    context.fill();
+
+    const frontKnee: [number, number] = alternatePedal ? [20, 30] : [33, 29];
+    const frontFoot: [number, number] = alternatePedal ? [24, 38] : [36, 37];
+    const rearKnee: [number, number] = alternatePedal ? [33, 29] : [20, 30];
+    const rearFoot: [number, number] = alternatePedal ? [36, 37] : [24, 38];
+    line("#26323a", 3.2, [
+      [26, 21],
+      rearKnee,
+      rearFoot,
+    ]);
+    line("#f1a27d", 2.6, [
+      [26, 20],
+      frontKnee,
+      frontFoot,
+    ]);
+
+    context.beginPath();
+    context.fillStyle = "#26323a";
+    context.moveTo(23, 18);
+    context.lineTo(31, 17);
+    context.lineTo(30, 24);
+    context.lineTo(24, 24);
+    context.closePath();
+    context.fill();
+
+    context.beginPath();
+    context.fillStyle = jerseyColor;
+    context.moveTo(24, 10);
+    context.quadraticCurveTo(31, 10, 36, 16);
+    context.lineTo(31, 22);
+    context.lineTo(24, 19);
+    context.closePath();
+    context.fill();
+    line("#f1a27d", 2.8, [
+      [32, 13],
+      [38, 17],
+      [41, 22],
+    ]);
+
+    context.beginPath();
+    context.fillStyle = "#f2b28c";
+    context.arc(30, 7, 4.3, 0, Math.PI * 2);
+    context.fill();
+    context.beginPath();
+    context.fillStyle = "#26323a";
+    context.moveTo(25, 6);
+    context.quadraticCurveTo(29, 0.5, 36, 5);
+    context.lineTo(35, 7);
+    context.lineTo(26, 7);
+    context.closePath();
+    context.fill();
+    line("#f5f0df", 1.1, [
+      [27, 5],
+      [33, 5],
+    ]);
+
+    texture.refresh();
+  }
+
+  private createFanTexture(key: string, raisedArm: boolean): void {
+    if (this.textures.exists(key)) return;
+
+    const texture = this.textures.createCanvas(
+      key,
+      FAN_WIDTH * FAN_TEXTURE_SCALE,
+      FAN_HEIGHT * FAN_TEXTURE_SCALE,
+    );
+    if (!texture) {
+      throw new Error(`Unable to create fan texture: ${key}`);
+    }
+
+    const context = texture.context;
+    context.scale(FAN_TEXTURE_SCALE, FAN_TEXTURE_SCALE);
+    context.lineCap = "round";
+    context.lineJoin = "round";
+
+    context.fillStyle = "rgba(19, 31, 36, 0.3)";
+    context.beginPath();
+    context.ellipse(8, 20.5, 7, 1.3, 0, 0, Math.PI * 2);
+    context.fill();
+
+    context.strokeStyle = "#26323a";
+    context.lineWidth = 2.4;
+    context.beginPath();
+    context.moveTo(6, 14);
+    context.lineTo(5, 20);
+    context.moveTo(10, 14);
+    context.lineTo(11, 20);
+    context.stroke();
+
+    context.fillStyle = "#4f7cac";
+    context.beginPath();
+    context.roundRect(4, 7, 8, 9, 2);
+    context.fill();
+
+    context.strokeStyle = "#f2b28c";
+    context.lineWidth = 2.2;
+    context.beginPath();
+    context.moveTo(5, 9);
+    context.lineTo(raisedArm ? 1.5 : 0.5, raisedArm ? 3 : 10);
+    context.moveTo(11, 9);
+    context.lineTo(raisedArm ? 15 : 15.5, raisedArm ? 1.5 : 10);
+    context.stroke();
+
+    context.fillStyle = "#f2b28c";
+    context.beginPath();
+    context.arc(8, 4, 3.5, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#26323a";
+    context.beginPath();
+    context.arc(8, 3, 3.5, Math.PI, Math.PI * 2);
+    context.fill();
+
+    texture.refresh();
+  }
+
   private createTextures(): void {
     const texture = (
       key: string,
@@ -787,89 +1314,58 @@ export class GameScene extends Phaser.Scene {
       graphics.destroy();
     };
 
-    texture("rider-a", 38, 34, (g) => {
-      g.fillStyle(0x26323a).fillCircle(9, 25, 8).fillCircle(29, 25, 8);
-      g.fillStyle(0x8ed7e8).fillCircle(9, 25, 5).fillCircle(29, 25, 5);
-      g.lineStyle(3, 0xf1cf4b)
-        .lineBetween(9, 25, 19, 16)
-        .lineBetween(19, 16, 29, 25)
-        .lineBetween(9, 25, 23, 25)
-        .lineBetween(19, 16, 23, 25);
-      g.fillStyle(0xef6f51).fillRect(17, 7, 7, 10);
-      g.fillStyle(0xf2b28c).fillCircle(21, 5, 4);
-      g.fillStyle(0x26323a).fillRect(16, 1, 10, 3);
-      g.lineStyle(3, 0x26323a).lineBetween(20, 16, 14, 23);
-    });
-    texture("rider-b", 38, 34, (g) => {
-      g.fillStyle(0x26323a).fillCircle(9, 25, 8).fillCircle(29, 25, 8);
-      g.fillStyle(0x8ed7e8).fillCircle(9, 25, 5).fillCircle(29, 25, 5);
-      g.lineStyle(3, 0xf1cf4b)
-        .lineBetween(9, 25, 19, 16)
-        .lineBetween(19, 16, 29, 25)
-        .lineBetween(9, 25, 23, 25)
-        .lineBetween(19, 16, 23, 25);
-      g.fillStyle(0xef6f51).fillRect(17, 7, 7, 10);
-      g.fillStyle(0xf2b28c).fillCircle(21, 5, 4);
-      g.fillStyle(0x26323a).fillRect(16, 1, 10, 3);
-      g.lineStyle(3, 0x26323a).lineBetween(20, 16, 27, 22);
-    });
-    texture("draft-rider", 38, 34, (g) => {
-      g.fillStyle(0x26323a).fillCircle(9, 25, 8).fillCircle(29, 25, 8);
-      g.fillStyle(0x8ed7e8).fillCircle(9, 25, 5).fillCircle(29, 25, 5);
-      g.lineStyle(3, 0x71f5cc)
-        .lineBetween(9, 25, 19, 16)
-        .lineBetween(19, 16, 29, 25)
-        .lineBetween(9, 25, 23, 25)
-        .lineBetween(19, 16, 23, 25);
-      g.fillStyle(0x4f7cac).fillRect(17, 7, 7, 10);
-      g.fillStyle(0xf2b28c).fillCircle(21, 5, 4);
-      g.fillStyle(0xf5f0df).fillRect(16, 1, 10, 3);
-      g.lineStyle(3, 0x26323a).lineBetween(20, 16, 14, 23);
-    });
-    texture("domestique-rider", 38, 34, (g) => {
-      g.fillStyle(0x26323a).fillCircle(9, 25, 8).fillCircle(29, 25, 8);
-      g.fillStyle(0x8ed7e8).fillCircle(9, 25, 5).fillCircle(29, 25, 5);
-      g.lineStyle(3, 0xf1cf4b)
-        .lineBetween(9, 25, 19, 16)
-        .lineBetween(19, 16, 29, 25)
-        .lineBetween(9, 25, 23, 25)
-        .lineBetween(19, 16, 23, 25);
-      g.fillStyle(0x8ee36b).fillRect(17, 7, 7, 10);
-      g.fillStyle(0xf2b28c).fillCircle(21, 5, 4);
-      g.fillStyle(0xf5f0df).fillRect(16, 1, 10, 3);
-      g.lineStyle(3, 0x26323a).lineBetween(20, 16, 27, 22);
-    });
+    this.createCyclistTexture("rider-a", "#ef6f51", "#f1cf4b");
+    this.createCyclistTexture("rider-b", "#ef6f51", "#f1cf4b", true);
+    this.createCyclistTexture("draft-rider", "#4f7cac", "#71f5cc");
+    this.createCyclistTexture(
+      "domestique-rider",
+      "#8ee36b",
+      "#f1cf4b",
+      true,
+    );
+    this.createFanTexture("fan-a", false);
+    this.createFanTexture("fan-b", true);
     texture("bag-sweat", 18, 18, (g) => {
+      g.fillStyle(0x26323a, 0.24).fillEllipse(9, 16, 14, 3);
       g.fillStyle(0x6fe3cb).fillRect(2, 4, 14, 12);
-      g.fillStyle(0xe9fff8).fillRect(7, 7, 4, 6);
+      g.fillStyle(0xe9fff8)
+        .fillTriangle(9, 5, 5.5, 10, 12.5, 10)
+        .fillCircle(9, 10, 3.5);
       g.fillStyle(0x26323a).fillRect(6, 1, 6, 4);
     });
     texture("bag-cash", 18, 18, (g) => {
+      g.fillStyle(0x26323a, 0.24).fillEllipse(9, 16, 14, 3);
       g.fillStyle(0xf1cf4b).fillRect(2, 4, 14, 12);
       g.fillStyle(0x26323a).fillRect(8, 7, 2, 6);
       g.fillStyle(0x26323a).fillRect(6, 9, 6, 2);
       g.fillStyle(0x26323a).fillRect(6, 1, 6, 4);
     });
-    texture("pothole", 32, 14, (g) => {
-      g.fillStyle(0x30383d).fillEllipse(16, 8, 30, 11);
-      g.fillStyle(0x1c2226).fillEllipse(16, 8, 21, 6);
-      g.fillStyle(0x7d8588).fillRect(4, 3, 4, 2).fillRect(23, 10, 5, 2);
+    texture("power-super-draft", 32, 32, (g) => {
+      g.fillStyle(0x162b32, 0.92).fillCircle(16, 16, 15);
+      g.lineStyle(2, 0x71f5cc, 1).strokeCircle(16, 16, 13);
+      g.lineStyle(3, 0x71f5cc, 1)
+        .lineBetween(6, 10, 21, 10)
+        .lineBetween(18, 6, 23, 10)
+        .lineBetween(18, 14, 23, 10)
+        .lineBetween(9, 21, 24, 21)
+        .lineBetween(21, 17, 26, 21)
+        .lineBetween(21, 25, 26, 21);
     });
-    texture("fan", 16, 24, (g) => {
-      g.fillStyle(0xf2b28c).fillCircle(8, 4, 4);
-      g.fillStyle(0x4f7cac).fillRect(4, 8, 8, 10);
-      g.fillStyle(0x26323a).fillRect(4, 18, 3, 6).fillRect(10, 18, 3, 6);
-      g.fillStyle(0xf2b28c).fillRect(12, 9, 4, 3);
+    texture("power-super-power", 32, 32, (g) => {
+      g.fillStyle(0x3a3117, 0.95).fillCircle(16, 16, 15);
+      g.lineStyle(2, 0xf1cf4b, 1).strokeCircle(16, 16, 13);
+      g.fillStyle(0xffe26f)
+        .fillTriangle(17, 4, 8, 18, 16, 17)
+        .fillTriangle(15, 15, 24, 14, 12, 28);
     });
-    texture("lane-dash", 64, 3, (g) => {
-      g.fillStyle(0xe8e0c9).fillRect(0, 0, 30, 3);
-    });
-    texture("climb-chevron", 64, 16, (g) => {
-      g.lineStyle(3, 0xf1cf4b, 0.9)
-        .lineBetween(5, 12, 13, 4)
-        .lineBetween(13, 4, 21, 12)
-        .lineBetween(37, 12, 45, 4)
-        .lineBetween(45, 4, 53, 12);
+    texture("pothole", 44, 20, (g) => {
+      g.fillStyle(0xe7d8b5).fillEllipse(22, 10, 43, 18);
+      g.fillStyle(0x39434a).fillEllipse(22, 10, 38, 14);
+      g.fillStyle(0x171d21).fillEllipse(22, 11, 28, 9);
+      g.lineStyle(2, 0xf19b58, 0.95)
+        .lineBetween(3, 5, 10, 8)
+        .lineBetween(35, 4, 30, 8)
+        .lineBetween(39, 14, 33, 12);
     });
     texture("mountains", 128, 110, (g) => {
       g.fillStyle(0x7099a1)

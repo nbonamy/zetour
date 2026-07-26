@@ -1,15 +1,19 @@
 import Phaser from "phaser";
 import { GameScene } from "./GameScene";
+import { rideRenderSize } from "./rendering";
 
-export const createGame = (parent: HTMLElement): Phaser.Game =>
-  new Phaser.Game({
+export const createGame = (parent: HTMLElement): Phaser.Game => {
+  const renderSize = rideRenderSize();
+  return new Phaser.Game({
     type: Phaser.AUTO,
     parent,
-    width: 640,
-    height: 360,
+    width: renderSize.width,
+    height: renderSize.height,
     backgroundColor: "#8ed7e8",
-    pixelArt: true,
-    roundPixels: true,
+    pixelArt: false,
+    roundPixels: false,
+    antialias: true,
+    antialiasGL: true,
     physics: {
       default: "arcade",
       arcade: {
@@ -23,3 +27,4 @@ export const createGame = (parent: HTMLElement): Phaser.Game =>
     },
     scene: [GameScene],
   });
+};

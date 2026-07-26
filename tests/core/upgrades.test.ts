@@ -131,7 +131,7 @@ describe("upgrade tree", () => {
     }).store;
 
     expect(stageThree.purchaseStatus(upgrade("frame")).reason).toBe(
-      "Unlocks at Stage 4",
+      "Unlocks in Sector 4",
     );
     expect(stageFour.purchaseStatus(upgrade("frame")).available).toBe(true);
   });
@@ -140,7 +140,7 @@ describe("upgrade tree", () => {
     const { store } = createTestStore({ cash: 1_000 });
 
     expect(store.purchaseStatus(upgrade("road-bike")).reason).toBe(
-      "Branch unlocks at Stage 3",
+      "Branch unlocks in Sector 3",
     );
     expect(store.purchase(upgrade("road-bike"))).toBe(false);
   });

@@ -21,7 +21,7 @@ vi.mock("phaser", () => ({
 import { createGame } from "../../src/game/createGame";
 
 describe("createGame", () => {
-  it("creates a fitted pixel-art Phaser game in the supplied host", () => {
+  it("creates a fitted, smoothly rendered Phaser game in the supplied host", () => {
     const parent = document.createElement("div");
 
     createGame(parent);
@@ -29,10 +29,11 @@ describe("createGame", () => {
     expect(mocks.Game).toHaveBeenCalledWith(
       expect.objectContaining({
         parent,
-        width: 640,
-        height: 360,
-        pixelArt: true,
-        roundPixels: true,
+        width: 1280,
+        height: 720,
+        pixelArt: false,
+        roundPixels: false,
+        antialias: true,
         scale: {
           mode: "FIT",
           autoCenter: "CENTER_BOTH",

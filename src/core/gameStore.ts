@@ -11,15 +11,107 @@ import {
   domestiqueDraftBonus,
   RANDOM_RIDER_DRAFT_BONUS,
 } from "./drafting";
+import {
+  captureReachedSplits,
+  completeTimeRecord,
+  createCourseRecord,
+  fastestRecord,
+  formatRaceTime,
+  recordDeltaStatus,
+  recordSecondsAtProgress,
+  TIME_TRIAL_SPLIT_COUNT,
+  type RecordDeltaStatus,
+  type SectorTimeRecord,
+} from "./timeTrial";
 
+// Keep the original key so the Ze Tour rename does not wipe existing careers.
 const SAVE_KEY = "biker-inc-save-v1";
 const SAVE_INTERVAL_MS = 5_000;
 const MAX_OFFLINE_SECONDS = 8 * 60 * 60;
+const BASE_FLAT_SPEED_KMH = 18;
+const GRADIENT_LINEAR_DRAG = 8.75;
+const GRADIENT_QUADRATIC_DRAG = 40.6;
+const DESCENT_SPEED_PER_GRADIENT = 16;
+const COURSE_RECORD_FLAT_SPEED_KMH = 26;
+
+export type PowerUpType = "super-draft" | "super-power";
+
+export interface PowerUpDefinition {
+  label: string;
+  icon: string;
+  description: string;
+  durationSeconds: number;
+  speedBonus: number;
+  sweatMultiplier: number;
+  windShelter: number;
+}
+
+export const powerUpDefinitions: Record<PowerUpType, PowerUpDefinition> = {
+  "super-draft": {
+    label: "Super Draft",
+    icon: "»",
+    description: "+50% speed · 90% wind shelter",
+    durationSeconds: 10,
+    speedBonus: 0.5,
+    sweatMultiplier: 1,
+    windShelter: 0.9,
+  },
+  "super-power": {
+    label: "Super Power",
+    icon: "⚡",
+    description: "+75% speed · 2× Sweat",
+    durationSeconds: 7,
+    speedBonus: 0.75,
+    sweatMultiplier: 2,
+    windShelter: 0,
+  },
+};
+
+export const gradientSpeedMultiplier = (
+  gradient: number,
+  bodyCompositionLevel = 0,
+): number => {
+  const safeGradient = Math.max(0, gradient);
+  const climbingEfficiency =
+    1 - Math.min(0.25, Math.max(0, bodyCompositionLevel) * 0.05);
+  const effectiveGradient = safeGradient * climbingEfficiency;
+
+  return Math.max(
+    0.18,
+    Math.exp(
+      -(
+        GRADIENT_LINEAR_DRAG * effectiveGradient +
+        GRADIENT_QUADRATIC_DRAG * effectiveGradient ** 2
+      ),
+    ),
+  );
+};
+
+export const terrainSpeedMultiplier = (
+  gradient: number,
+  bodyCompositionLevel = 0,
+  descentControlLevel = 0,
+): number => {
+  if (gradient >= 0) {
+    return gradientSpeedMultiplier(gradient, bodyCompositionLevel);
+  }
+
+  const descent = Math.min(0.08, Math.abs(gradient));
+  const controlBonus = Math.max(0, descentControlLevel) * 0.025;
+  return 1 + Math.min(1.2, descent * DESCENT_SPEED_PER_GRADIENT + controlBonus);
+};
+
+export type StageTerrain = "flat" | "climb" | "descent" | "wind" | "summit";
 
 export interface StageDefinition {
   number: number;
   name: string;
-  gradient: number;
+  start: string;
+  finish: string;
+  landmark: string;
+  terrain: StageTerrain;
+  gradientRange: readonly [number, number];
+  gradientProfile: readonly number[];
   windPenalty: number;
   distanceM: number;
   sweatYield: number;
@@ -29,59 +121,169 @@ export interface StageDefinition {
 export const stages: StageDefinition[] = [
   {
     number: 1,
-    name: "Local circuit",
-    gradient: 0,
+    name: "Atlantic run",
+    start: "Paris",
+    finish: "Bordeaux",
+    landmark: "Scandibérique · Atlantic plains",
+    terrain: "flat",
+    gradientRange: [-0.02, 0.02],
+    gradientProfile: [0, 0.012, -0.018, 0.006, -0.008, 0.018, 0],
     windPenalty: 0,
-    distanceM: 600,
+    distanceM: 800,
     sweatYield: 1,
-    cashPerKm: 34,
+    cashPerKm: 36,
   },
   {
     number: 2,
-    name: "Windy open road",
-    gradient: 0,
-    windPenalty: 0.25,
-    distanceM: 900,
-    sweatYield: 1.25,
-    cashPerKm: 40,
+    name: "Massif Central approach",
+    start: "Bordeaux",
+    finish: "Clermont-Ferrand",
+    landmark: "Périgord to Auvergne",
+    terrain: "climb",
+    gradientRange: [0, 0.05],
+    gradientProfile: [0.005, 0.018, 0.035, 0.012, 0.048, 0.028, 0.05],
+    windPenalty: 0,
+    distanceM: 1_050,
+    sweatYield: 1.55,
+    cashPerKm: 42,
   },
   {
     number: 3,
-    name: "Rolling countryside",
-    gradient: 0.02,
+    name: "Provence descent",
+    start: "Clermont-Ferrand",
+    finish: "Avignon",
+    landmark: "Massif Central to Rhône valley",
+    terrain: "descent",
+    gradientRange: [-0.05, 0],
+    gradientProfile: [-0.015, -0.035, -0.05, -0.022, -0.045, -0.012, 0],
     windPenalty: 0,
-    distanceM: 1_200,
-    sweatYield: 1.65,
-    cashPerKm: 45,
+    distanceM: 1_050,
+    sweatYield: 1.1,
+    cashPerKm: 55,
   },
   {
     number: 4,
-    name: "First categorized climb",
-    gradient: 0.045,
-    windPenalty: 0,
-    distanceM: 1_600,
-    sweatYield: 2.2,
-    cashPerKm: 52,
+    name: "Mistral corridor",
+    start: "Avignon",
+    finish: "Grenoble",
+    landmark: "Northbound through the Rhône valley",
+    terrain: "wind",
+    gradientRange: [-0.02, 0.02],
+    gradientProfile: [0, -0.012, 0.018, -0.02, 0.01, 0.004, 0],
+    windPenalty: 0.28,
+    distanceM: 1_250,
+    sweatYield: 1.75,
+    cashPerKm: 48,
   },
   {
     number: 5,
-    name: "Mountain pass",
-    gradient: 0.05,
-    windPenalty: 0.15,
-    distanceM: 2_200,
-    sweatYield: 3,
-    cashPerKm: 62,
-  },
-  {
-    number: 6,
-    name: "Alpe d'Huez",
-    gradient: 0.081,
-    windPenalty: 0.1,
-    distanceM: 3_000,
+    name: "21 bends finale",
+    start: "Grenoble",
+    finish: "Alpe d'Huez",
+    landmark: "via Bourg-d'Oisans · 21 bends",
+    terrain: "summit",
+    gradientRange: [0.06, 0.12],
+    gradientProfile: [0.06, 0.07, 0.09, 0.065, 0.12, 0.06, 0.08, 0.079],
+    windPenalty: 0,
+    distanceM: 1_800,
     sweatYield: 4,
-    cashPerKm: 80,
+    cashPerKm: 85,
   },
 ];
+
+export const gradientAtProgress = (
+  stage: StageDefinition,
+  progress: number,
+): number => {
+  const profile = stage.gradientProfile;
+  if (profile.length === 0) return 0;
+  if (profile.length === 1) return profile[0];
+
+  const safeProgress = Math.max(0, Math.min(1, progress));
+  const position = safeProgress * (profile.length - 1);
+  const index = Math.min(profile.length - 2, Math.floor(position));
+  const localProgress = position - index;
+  const smoothedProgress =
+    localProgress * localProgress * (3 - 2 * localProgress);
+
+  return (
+    profile[index] +
+    (profile[index + 1] - profile[index]) * smoothedProgress
+  );
+};
+
+export interface ElevationPoint {
+  progress: number;
+  elevationM: number;
+}
+
+export const buildElevationProfile = (
+  stage: StageDefinition,
+  segmentCount = 60,
+): ElevationPoint[] => {
+  const segments = Math.max(1, Math.floor(segmentCount));
+  const points: ElevationPoint[] = [{ progress: 0, elevationM: 0 }];
+  let elevationM = 0;
+  let previousGradient = gradientAtProgress(stage, 0);
+
+  for (let index = 1; index <= segments; index += 1) {
+    const progress = index / segments;
+    const gradient = gradientAtProgress(stage, progress);
+    const segmentDistanceM = stage.distanceM / segments;
+    elevationM +=
+      ((previousGradient + gradient) / 2) * segmentDistanceM;
+    points.push({ progress, elevationM });
+    previousGradient = gradient;
+  }
+
+  return points;
+};
+
+export const elevationAtProgress = (
+  stage: StageDefinition,
+  progress: number,
+): number => {
+  const safeProgress = Math.max(0, Math.min(1, progress));
+  if (safeProgress === 0) return 0;
+
+  const segments = 120;
+  const segmentProgress = safeProgress / segments;
+  const segmentDistanceM = stage.distanceM * segmentProgress;
+  let elevationM = 0;
+  let previousGradient = gradientAtProgress(stage, 0);
+
+  for (let index = 1; index <= segments; index += 1) {
+    const currentProgress = index * segmentProgress;
+    const gradient = gradientAtProgress(stage, currentProgress);
+    elevationM +=
+      ((previousGradient + gradient) / 2) * segmentDistanceM;
+    previousGradient = gradient;
+  }
+
+  return elevationM;
+};
+
+const courseRecordCache = new Map<number, SectorTimeRecord>();
+
+export const courseRecordForStage = (
+  stage: StageDefinition,
+): SectorTimeRecord => {
+  const cached = courseRecordCache.get(stage.number);
+  if (cached) return cached;
+
+  const record = createCourseRecord(stage.distanceM, (progress) => {
+    const terrainMultiplier = terrainSpeedMultiplier(
+      gradientAtProgress(stage, progress),
+    );
+    return (
+      COURSE_RECORD_FLAT_SPEED_KMH *
+      terrainMultiplier *
+      (1 - stage.windPenalty)
+    );
+  });
+  courseRecordCache.set(stage.number, record);
+  return record;
+};
 
 export interface SaveState {
   version: 1;
@@ -90,6 +292,12 @@ export interface SaveState {
   distanceM: number;
   stageDistanceM: number;
   stage: number;
+  highestStage: number;
+  tourNumber: number;
+  sectorElapsedSeconds: number;
+  currentSectorSplits: number[];
+  sectorRecords: Record<string, SectorTimeRecord>;
+  reservedPowerUp: PowerUpType | null;
   upgrades: Record<string, number>;
   lastSavedAt: number;
 }
@@ -104,12 +312,26 @@ export interface ComputedStats {
   windMitigation: number;
   effectiveWindPenalty: number;
   flowDecayPerSecond: number;
+  activeSpeedMultiplier: number;
 }
 
 export interface GameSnapshot extends SaveState {
   stats: ComputedStats;
   stageDefinition: StageDefinition;
   stageProgress: number;
+  currentGradient: number;
+  activePowerUp: {
+    type: PowerUpType;
+    remainingSeconds: number;
+  } | null;
+  leaderboard: {
+    elapsedSeconds: number;
+    recordTotalSeconds: number;
+    recordAtProgressSeconds: number;
+    deltaSeconds: number;
+    status: RecordDeltaStatus;
+    recordSource: "course" | "personal";
+  };
 }
 
 export interface PurchaseStatus {
@@ -133,6 +355,58 @@ interface GameStoreOptions {
 type Listener = (snapshot: GameSnapshot) => void;
 type NoticeListener = (message: string, tone: "good" | "bad" | "neutral") => void;
 
+const normalizedSectorRecords = (
+  value: unknown,
+): Record<string, SectorTimeRecord> => {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, candidate]) => {
+      if (!candidate || typeof candidate !== "object") return [];
+      const record = candidate as Partial<SectorTimeRecord>;
+      const totalSeconds = Number(record.totalSeconds);
+      const splits = Array.isArray(record.splits)
+        ? record.splits.map(Number)
+        : [];
+      if (
+        !Number.isFinite(totalSeconds) ||
+        totalSeconds <= 0 ||
+        splits.length < 2 ||
+        splits.some((split) => !Number.isFinite(split))
+      ) {
+        return [];
+      }
+      return [[key, completeTimeRecord(splits, totalSeconds)]];
+    }),
+  );
+};
+
+const migratedCurrentSplits = (
+  value: unknown,
+  progress: number,
+  elapsedSeconds: number,
+): number[] => {
+  if (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((split) => Number.isFinite(Number(split)))
+  ) {
+    return value
+      .slice(0, TIME_TRIAL_SPLIT_COUNT + 1)
+      .map((split) => Math.max(0, Number(split)));
+  }
+
+  const reachedSplits = Math.floor(
+    Math.max(0, Math.min(1, progress)) * TIME_TRIAL_SPLIT_COUNT,
+  );
+  if (reachedSplits === 0) return [0];
+  return Array.from({ length: reachedSplits + 1 }, (_, index) =>
+    index === 0
+      ? 0
+      : elapsedSeconds * ((index / TIME_TRIAL_SPLIT_COUNT) / progress),
+  );
+};
+
 const initialState = (now: number): SaveState => ({
   version: 1,
   sweat: 0,
@@ -140,6 +414,12 @@ const initialState = (now: number): SaveState => ({
   distanceM: 0,
   stageDistanceM: 0,
   stage: 1,
+  highestStage: 1,
+  tourNumber: 1,
+  sectorElapsedSeconds: 0,
+  currentSectorSplits: [0],
+  sectorRecords: {},
+  reservedPowerUp: null,
   upgrades: {},
   lastSavedAt: now,
 });
@@ -155,6 +435,8 @@ export class GameStore {
   private sweatGenerationRemainder = 0;
   private cashGenerationRemainder = 0;
   private temporaryDraftBonus = 0;
+  private activePowerUp: PowerUpType | null = null;
+  private activePowerUpRemaining = 0;
 
   constructor(options: GameStoreOptions = {}) {
     this.storage =
@@ -182,15 +464,54 @@ export class GameStore {
 
   getSnapshot(): GameSnapshot {
     const stageDefinition = this.currentStage();
+    const stageProgress = Math.min(
+      1,
+      this.state.stageDistanceM / stageDefinition.distanceM,
+    );
+    const currentGradient = gradientAtProgress(
+      stageDefinition,
+      stageProgress,
+    );
+    const personalRecord =
+      this.state.sectorRecords[String(stageDefinition.number)];
+    const fastest = fastestRecord(
+      courseRecordForStage(stageDefinition),
+      personalRecord,
+    );
+    const recordAtProgressSeconds = recordSecondsAtProgress(
+      fastest.record,
+      stageProgress,
+    );
+    const deltaSeconds =
+      this.state.sectorElapsedSeconds - recordAtProgressSeconds;
     return {
       ...this.state,
       upgrades: { ...this.state.upgrades },
-      stats: this.computeStats(),
-      stageDefinition,
-      stageProgress: Math.min(
-        1,
-        this.state.stageDistanceM / stageDefinition.distanceM,
+      currentSectorSplits: [...this.state.currentSectorSplits],
+      sectorRecords: Object.fromEntries(
+        Object.entries(this.state.sectorRecords).map(([key, record]) => [
+          key,
+          { ...record, splits: [...record.splits] },
+        ]),
       ),
+      stats: this.computeStats(currentGradient),
+      stageDefinition,
+      stageProgress,
+      currentGradient,
+      activePowerUp: this.activePowerUp
+        ? {
+            type: this.activePowerUp,
+            remainingSeconds: this.activePowerUpRemaining,
+          }
+        : null,
+      leaderboard: {
+        elapsedSeconds: this.state.sectorElapsedSeconds,
+        recordTotalSeconds: fastest.record.totalSeconds,
+        recordAtProgressSeconds,
+        deltaSeconds,
+        status: recordDeltaStatus(deltaSeconds),
+        recordSource: fastest.source,
+      },
     };
   }
 
@@ -198,6 +519,12 @@ export class GameStore {
     if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
 
     const safeDelta = Math.min(deltaSeconds, 0.25);
+    const stageDefinition = this.currentStage();
+    const previousProgress = Math.min(
+      1,
+      this.state.stageDistanceM / stageDefinition.distanceM,
+    );
+    const previousElapsedSeconds = this.state.sectorElapsedSeconds;
     const stats = this.computeStats();
     const distance = (stats.speedKmh / 3.6) * safeDelta;
     const sweatGenerated =
@@ -209,19 +536,26 @@ export class GameStore {
 
     this.state.distanceM += distance;
     this.state.stageDistanceM += distance;
+    this.state.sectorElapsedSeconds += safeDelta;
     this.state.sweat += wholeSweat;
     this.state.cash += wholeCash;
     this.sweatGenerationRemainder = sweatGenerated - wholeSweat;
     this.cashGenerationRemainder = cashGenerated - wholeCash;
+    this.advanceActivePowerUp(safeDelta);
+    const progress = Math.min(
+      1,
+      this.state.stageDistanceM / stageDefinition.distanceM,
+    );
+    this.state.currentSectorSplits = captureReachedSplits(
+      this.state.currentSectorSplits,
+      previousProgress,
+      progress,
+      previousElapsedSeconds,
+      this.state.sectorElapsedSeconds,
+    );
 
-    const stageDefinition = this.currentStage();
-    if (
-      this.state.stageDistanceM >= stageDefinition.distanceM &&
-      this.state.stage < stages.length
-    ) {
-      this.state.stage += 1;
-      this.state.stageDistanceM = 0;
-      this.notice(`Stage ${this.state.stage} unlocked`, "good");
+    if (this.state.stageDistanceM >= stageDefinition.distanceM) {
+      this.completeSector(stageDefinition);
     }
 
     const now = this.now();
@@ -278,9 +612,42 @@ export class GameStore {
     this.sweatGenerationRemainder = 0;
     this.cashGenerationRemainder = 0;
     this.temporaryDraftBonus = 0;
+    this.activePowerUp = null;
+    this.activePowerUpRemaining = 0;
     this.save();
-    this.notice("Career reset — back to the local circuit", "neutral");
+    this.notice("Tour reset — back to Paris", "neutral");
     this.emit();
+  }
+
+  collectPowerUp(type: PowerUpType): boolean {
+    if (this.state.reservedPowerUp) {
+      this.notice("Reserve full — use it first", "neutral");
+      return false;
+    }
+
+    this.state.reservedPowerUp = type;
+    this.save();
+    this.notice(`${powerUpDefinitions[type].label} added to reserve`, "good");
+    this.emit();
+    return true;
+  }
+
+  activateReservedPowerUp(): boolean {
+    const type = this.state.reservedPowerUp;
+    if (!type) return false;
+    if (this.activePowerUp) {
+      this.notice("A power-up is already active", "neutral");
+      return false;
+    }
+
+    const definition = powerUpDefinitions[type];
+    this.state.reservedPowerUp = null;
+    this.activePowerUp = type;
+    this.activePowerUpRemaining = definition.durationSeconds;
+    this.save();
+    this.notice(`${definition.label} activated!`, "good");
+    this.emit();
+    return true;
   }
 
   purchase(upgrade: UpgradeDefinition): boolean {
@@ -312,16 +679,16 @@ export class GameStore {
       return {
         ...status,
         available: false,
-        reason: `Branch unlocks at Stage ${branchUnlockStage}`,
+        reason: `Branch unlocks in Sector ${branchUnlockStage}`,
       };
     }
     const requiredStage =
       upgrade.requiredStages?.[level] ?? upgrade.requiredStage;
-    if (requiredStage && this.state.stage < requiredStage) {
+    if (requiredStage && this.state.highestStage < requiredStage) {
       return {
         ...status,
         available: false,
-        reason: `Unlocks at Stage ${requiredStage}`,
+        reason: `Unlocks in Sector ${requiredStage}`,
       };
     }
     if (upgrade.requires && (this.state.upgrades[upgrade.requires] ?? 0) === 0) {
@@ -347,7 +714,7 @@ export class GameStore {
   }
 
   isBranchUnlocked(branch: Branch): boolean {
-    return this.state.stage >= branchUnlockStages[branch];
+    return this.state.highestStage >= branchUnlockStages[branch];
   }
 
   setTemporaryDraftBonus(bonus: number): void {
@@ -357,15 +724,65 @@ export class GameStore {
     );
   }
 
+  private completeSector(stage: StageDefinition): void {
+    const attempt = completeTimeRecord(
+      this.state.currentSectorSplits,
+      this.state.sectorElapsedSeconds,
+    );
+    const recordKey = String(stage.number);
+    const previousPersonalRecord = this.state.sectorRecords[recordKey];
+    const isPersonalBest =
+      !previousPersonalRecord ||
+      attempt.totalSeconds < previousPersonalRecord.totalSeconds;
+    if (isPersonalBest && attempt.totalSeconds > 0) {
+      this.state.sectorRecords[recordKey] = attempt;
+    }
+
+    const beatCourseRecord =
+      attempt.totalSeconds < courseRecordForStage(stage).totalSeconds;
+    const timingLabel = beatCourseRecord
+      ? `NEW RECORD ${formatRaceTime(attempt.totalSeconds)}`
+      : isPersonalBest
+        ? `PERSONAL BEST ${formatRaceTime(attempt.totalSeconds)}`
+        : formatRaceTime(attempt.totalSeconds);
+
+    this.state.stageDistanceM = 0;
+    this.state.sectorElapsedSeconds = 0;
+    this.state.currentSectorSplits = [0];
+
+    if (this.state.stage < stages.length) {
+      this.state.stage += 1;
+      this.state.highestStage = Math.max(
+        this.state.highestStage,
+        this.state.stage,
+      );
+      const nextStage = this.currentStage();
+      this.notice(
+        `${timingLabel} · ${nextStage.start} → ${nextStage.finish}`,
+        "good",
+      );
+    } else {
+      this.state.tourNumber += 1;
+      this.state.stage = 1;
+      const nextStage = this.currentStage();
+      this.notice(
+        `${timingLabel} · Tour ${this.state.tourNumber} starts in ${nextStage.start}`,
+        "good",
+      );
+    }
+    this.save();
+  }
+
   private currentStage(): StageDefinition {
-    return stages[Math.min(this.state.stage, stages.length) - 1];
+    const index = Math.max(0, Math.min(this.state.stage, stages.length) - 1);
+    return stages[index];
   }
 
   private level(id: string): number {
     return this.state.upgrades[id] ?? 0;
   }
 
-  private computeStats(): ComputedStats {
+  private computeStats(currentGradient = this.currentGradient()): ComputedStats {
     const stage = this.currentStage();
     const power = this.level("power");
     const endurance = this.level("endurance");
@@ -397,14 +814,30 @@ export class GameStore {
       0.5,
       sockWindMitigation + helmetWindMitigation + wheelWindMitigation,
     );
-    const draftWindMitigation = this.temporaryDraftBonus > 0 ? 0.45 : 0;
+    const activeDefinition = this.activePowerUp
+      ? powerUpDefinitions[this.activePowerUp]
+      : null;
+    const superDraftBonus =
+      this.activePowerUp === "super-draft"
+        ? (activeDefinition?.speedBonus ?? 0)
+        : 0;
+    const temporaryDraftBonus = Math.max(
+      this.temporaryDraftBonus,
+      superDraftBonus,
+    );
+    const draftWindMitigation =
+      this.activePowerUp === "super-draft"
+        ? (activeDefinition?.windShelter ?? 0)
+        : this.temporaryDraftBonus > 0
+          ? 0.45
+          : 0;
     const effectiveWindPenalty =
       stage.windPenalty *
       (1 - windMitigation) *
       (1 - draftWindMitigation);
 
     const flatSpeed =
-      12 +
+      BASE_FLAT_SPEED_KMH +
       power * 1.8 +
       endurance * 0.4 +
       fueling * 0.55 +
@@ -415,21 +848,31 @@ export class GameStore {
       shifting * 0.65 +
       wheels * 1.15 +
       aeroLevels * 0.28;
-    const climbingEfficiency = 1 - Math.min(0.25, bodyComposition * 0.05);
-    const gradientPenalty = Math.max(
-      0.42,
-      1 - stage.gradient * 6.2 * climbingEfficiency,
+    const terrainMultiplier = terrainSpeedMultiplier(
+      currentGradient,
+      bodyComposition,
+      technique + brakes,
     );
     const windMultiplier = 1 - effectiveWindPenalty;
     const draftMultiplier =
-      1 + domestiqueDraftBonus(domestiques) + this.temporaryDraftBonus;
+      1 + domestiqueDraftBonus(domestiques) + temporaryDraftBonus;
+    const activeSpeedMultiplier =
+      this.activePowerUp === "super-power"
+        ? 1 + (activeDefinition?.speedBonus ?? 0)
+        : 1;
     const speedKmh =
-      flatSpeed * gradientPenalty * windMultiplier * draftMultiplier;
+      flatSpeed *
+      terrainMultiplier *
+      windMultiplier *
+      draftMultiplier *
+      activeSpeedMultiplier;
 
     return {
       speedKmh,
       sweatPerSecond:
-        (0.08 + speedKmh / 250) * stage.sweatYield,
+        (0.08 + speedKmh / 250) *
+        stage.sweatYield *
+        (activeDefinition?.sweatMultiplier ?? 1),
       cashPerSecond: (speedKmh / 3_600) * stage.cashPerKm,
       handling:
         1 +
@@ -446,7 +889,30 @@ export class GameStore {
       windMitigation,
       effectiveWindPenalty,
       flowDecayPerSecond: Math.max(2.5, 5 - hydration * 0.5),
+      activeSpeedMultiplier,
     };
+  }
+
+  private currentGradient(): number {
+    const stage = this.currentStage();
+    return gradientAtProgress(
+      stage,
+      Math.min(1, this.state.stageDistanceM / stage.distanceM),
+    );
+  }
+
+  private advanceActivePowerUp(deltaSeconds: number): void {
+    if (!this.activePowerUp) return;
+
+    this.activePowerUpRemaining = Math.max(
+      0,
+      this.activePowerUpRemaining - deltaSeconds,
+    );
+    if (this.activePowerUpRemaining > 0) return;
+
+    const label = powerUpDefinitions[this.activePowerUp].label;
+    this.activePowerUp = null;
+    this.notice(`${label} ended`, "neutral");
   }
 
   private applyOfflineProgress(): void {
@@ -502,14 +968,81 @@ export class GameStore {
       delete migratedUpgrades["reinforced-tires"];
       delete migratedUpgrades["performance-tires"];
       delete migratedUpgrades["tubeless-tires"];
+      const savedStage = Math.max(
+        1,
+        Math.min(stages.length, Math.floor(Number(currentState.stage ?? 1))),
+      );
+      const savedStageDefinition = stages[savedStage - 1];
+      const rawStageDistanceM = Math.max(
+        0,
+        Number(currentState.stageDistanceM ?? 0),
+      );
+      const legacyCompletedTours =
+        savedStage === stages.length
+          ? Math.floor(rawStageDistanceM / savedStageDefinition.distanceM)
+          : 0;
+      const stage = legacyCompletedTours > 0 ? 1 : savedStage;
+      const stageDefinition = stages[stage - 1];
+      const stageDistanceM =
+        legacyCompletedTours > 0
+          ? Math.min(
+              rawStageDistanceM % savedStageDefinition.distanceM,
+              stageDefinition.distanceM,
+            )
+          : stage === stages.length
+            ? rawStageDistanceM % stageDefinition.distanceM
+            : Math.min(rawStageDistanceM, stageDefinition.distanceM);
+      const stageProgress = stageDistanceM / stageDefinition.distanceM;
+      const savedElapsedSeconds = Number(
+        currentState.sectorElapsedSeconds,
+      );
+      const persistedSectorElapsedSeconds =
+        Number.isFinite(savedElapsedSeconds) && savedElapsedSeconds >= 0
+          ? savedElapsedSeconds
+          : stageDistanceM / (BASE_FLAT_SPEED_KMH / 3.6);
+      const sectorElapsedSeconds =
+        legacyCompletedTours > 0 ? 0 : persistedSectorElapsedSeconds;
+      const savedHighestStage = Number(currentState.highestStage);
+      const highestStage = Number.isFinite(savedHighestStage)
+        ? Math.max(
+            savedStage,
+            stage,
+            Math.min(stages.length, Math.floor(savedHighestStage)),
+          )
+        : Math.max(savedStage, stage);
+      const savedTourNumber = Number(currentState.tourNumber);
+      const tourNumber =
+        (Number.isFinite(savedTourNumber)
+          ? Math.max(1, Math.floor(savedTourNumber))
+          : 1) + legacyCompletedTours;
       return {
         ...initialState(this.now()),
         ...currentState,
+        stage,
+        highestStage,
+        tourNumber,
+        stageDistanceM,
+        sectorElapsedSeconds,
+        currentSectorSplits: migratedCurrentSplits(
+          legacyCompletedTours > 0
+            ? [0]
+            : currentState.currentSectorSplits,
+          stageProgress,
+          sectorElapsedSeconds,
+        ),
+        sectorRecords: normalizedSectorRecords(
+          currentState.sectorRecords,
+        ),
         sweat: Math.max(0, Math.floor(Number(currentState.sweat ?? 0))),
         cash: Math.max(
           0,
           Math.floor(Number(currentState.cash ?? 0) + rideCash),
         ),
+        reservedPowerUp:
+          currentState.reservedPowerUp === "super-draft" ||
+          currentState.reservedPowerUp === "super-power"
+            ? currentState.reservedPowerUp
+            : null,
         upgrades: migratedUpgrades,
       };
     } catch {
