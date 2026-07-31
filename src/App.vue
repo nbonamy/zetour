@@ -28,8 +28,10 @@ const displayedStageDistanceM = computed(() =>
 );
 const workshopOpen = ref(false);
 const resetConfirmationOpen = ref(false);
+const manuallyPaused = ref(visualQa.paused);
 const ridePaused = computed(
   () =>
+    manuallyPaused.value ||
     workshopOpen.value ||
     resetConfirmationOpen.value ||
     snapshot.value.raceFinished,
@@ -135,8 +137,20 @@ const cancelReset = (): void => {
 
 const confirmReset = (): void => {
   gameStore.resetCareer();
+  manuallyPaused.value = false;
   resetConfirmationOpen.value = false;
   workshopOpen.value = false;
+};
+
+const toggleManualPause = (): void => {
+  if (
+    snapshot.value.raceFinished ||
+    workshopOpen.value ||
+    resetConfirmationOpen.value
+  ) {
+    return;
+  }
+  manuallyPaused.value = !manuallyPaused.value;
 };
 
 const activatePowerUp = (): void => {
@@ -145,6 +159,7 @@ const activatePowerUp = (): void => {
 
 const restartRace = (): void => {
   gameStore.restartRace();
+  manuallyPaused.value = false;
 };
 
 const onKeydown = (event: KeyboardEvent): void => {
@@ -152,6 +167,12 @@ const onKeydown = (event: KeyboardEvent): void => {
     cancelReset();
   } else if (event.key === "Escape" && workshopOpen.value) {
     closeWorkshop();
+  } else if (
+    (event.key === "Escape" || event.key.toLowerCase() === "p") &&
+    !resetConfirmationOpen.value
+  ) {
+    event.preventDefault();
+    toggleManualPause();
   } else if (
     event.key.toLowerCase() === "w" &&
     !resetConfirmationOpen.value
@@ -170,7 +191,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 <template>
   <main class="app-shell">
     <section class="ride-column">
-      <div class="game-frame">
+      <div class="game-frame" :class="{ 'is-paused': ridePaused }">
         <GameCanvas :paused="ridePaused" />
         <header class="tour-hud">
           <section class="hud-panel hud-speed" aria-label="Current speed">
@@ -296,11 +317,28 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           <strong>{{ activePowerUp.label }}</strong>
           <b>{{ activePowerUp.remainingSeconds.toFixed(1) }}s</b>
         </div>
+        <div
+          v-if="manuallyPaused && !visualQa.paused"
+          class="pause-indicator"
+          role="status"
+        >
+          <strong>Ride paused</strong>
+          <small><kbd>P</kbd> or <kbd>Esc</kbd> to resume</small>
+        </div>
 
         <footer class="hud-bottom">
           <div class="hud-bottom-side hud-bottom-left">
             <button type="button" class="reset-trigger" @click="requestReset">
               Restart race
+            </button>
+            <button
+              type="button"
+              class="pause-trigger"
+              :class="{ active: manuallyPaused }"
+              :aria-pressed="manuallyPaused"
+              @click="toggleManualPause"
+            >
+              {{ manuallyPaused ? "Resume" : "Pause" }} <kbd>P</kbd>
             </button>
             <span class="steering-hint">
               Steer <kbd>↑</kbd> <kbd>↓</kbd>

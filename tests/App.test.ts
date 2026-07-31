@@ -73,6 +73,7 @@ describe("App", () => {
     expect(document.body.textContent).not.toContain("580.00");
     expect(document.body.textContent).not.toContain("km ridden");
     expect(document.body.textContent).toContain("Workshop W");
+    expect(document.body.textContent).toContain("Pause P");
     expect(document.body.textContent).not.toContain("Workshop U");
     expect(
       document.querySelector('[aria-label^="Sweat balance"] strong')?.textContent,
@@ -90,6 +91,23 @@ describe("App", () => {
     expect(document.body.textContent).not.toContain(
       "All collected resources are available immediately",
     );
+    expect(componentState.paused).toBe(false);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p" }));
+    await nextTick();
+
+    expect(componentState.paused).toBe(true);
+    expect(document.querySelector(".pause-indicator")?.textContent).toContain(
+      "Ride paused",
+    );
+    expect(
+      document.querySelector<HTMLButtonElement>(".pause-trigger")?.getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p" }));
+    await nextTick();
     expect(componentState.paused).toBe(false);
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));

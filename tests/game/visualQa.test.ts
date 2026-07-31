@@ -7,6 +7,7 @@ describe("visual QA overrides", () => {
       parseVisualQaOverrides("?qaStage=2&qaGradient=-0.05"),
     ).toEqual({
       gradient: -0.05,
+      paused: false,
       stage: 2,
     });
   });
@@ -16,13 +17,21 @@ describe("visual QA overrides", () => {
       parseVisualQaOverrides("?qaStage=99&qaGradient=0.8"),
     ).toEqual({
       gradient: 0.12,
+      paused: false,
       stage: 5,
     });
     expect(
       parseVisualQaOverrides("?qaStage=nope&qaGradient=nope"),
     ).toEqual({
       gradient: null,
+      paused: false,
       stage: null,
     });
+  });
+
+  it("supports clean deterministic paused screenshots", () => {
+    expect(parseVisualQaOverrides("?qaPaused=1").paused).toBe(true);
+    expect(parseVisualQaOverrides("?qaPaused=true").paused).toBe(true);
+    expect(parseVisualQaOverrides("?qaPaused=0").paused).toBe(false);
   });
 });
