@@ -188,6 +188,11 @@ describe("UpgradeGraph", () => {
 
     hydration.dispatchEvent(new PointerEvent("pointerenter"));
     await nextTick();
+    expect(hydration.hasAttribute("title")).toBe(false);
+    expect(hydration.querySelector(".node-progress")?.hasAttribute("title")).toBe(
+      false,
+    );
+    expect(hydration.classList.contains("tooltip-visible")).toBe(true);
     expect(host.textContent).toContain("Turn ad-hoc bottles");
     expect(host.querySelectorAll(".purchase-option")).toHaveLength(2);
     expect(host.textContent).toContain("Buy next step");
@@ -196,6 +201,11 @@ describe("UpgradeGraph", () => {
     expect(host.textContent).toContain("×15");
     expect(host.textContent).toContain("×150");
     expect(host.textContent).toContain("×3.8K");
+
+    hydration.dispatchEvent(new PointerEvent("pointerleave"));
+    await nextTick();
+    expect(hydration.classList.contains("tooltip-visible")).toBe(false);
+    expect(host.textContent).toContain("Turn ad-hoc bottles");
 
     hydration.click();
     await nextTick();
@@ -261,7 +271,7 @@ describe("UpgradeGraph", () => {
     );
     if (!hyperbike) throw new Error("Missing Hyperbike node");
 
-    expect(hyperbike.textContent).toContain("$2B DREAM");
+    expect(hyperbike.textContent).not.toContain("$2B DREAM");
     hyperbike.click();
     await nextTick();
 

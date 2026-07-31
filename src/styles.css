@@ -3228,13 +3228,6 @@ kbd {
   font-size: 25px;
 }
 
-.tree-node .node-main > small {
-  color: color-mix(in srgb, var(--branch-color) 76%, #38241c);
-  font-size: 8px;
-  font-weight: 900;
-  line-height: 1;
-}
-
 .detail-milestones {
   display: grid;
   gap: 8px;
@@ -3806,8 +3799,8 @@ kbd {
   z-index: 0;
   top: 390px;
   left: 560px;
-  width: 320px;
-  height: 320px;
+  width: 480px;
+  height: 480px;
   transform: translate(-50%, -50%);
   border: 2px solid rgba(103, 66, 37, 0.08);
   border-radius: 50%;
@@ -4121,7 +4114,7 @@ kbd {
 
 .node-label {
   position: absolute;
-  z-index: 10;
+  z-index: 40;
   top: calc(100% + 5px);
   left: 50%;
   display: block;
@@ -4145,19 +4138,6 @@ kbd {
     opacity 100ms ease,
     transform 100ms ease;
   white-space: normal;
-}
-
-.tree-node .node-main > small {
-  position: absolute;
-  top: 42px;
-  left: 50%;
-  width: 70px;
-  transform: translateX(-50%);
-  margin: 0;
-  color: color-mix(in srgb, var(--branch-color) 76%, #38241c);
-  font: 900 6px/1 Georgia, "Times New Roman", serif;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
 }
 
 .tree-node[data-branch="team"] .node-label {
@@ -4197,6 +4177,11 @@ kbd {
   filter: none;
 }
 
+.tree-node.tooltip-visible,
+.tree-node:focus-visible {
+  z-index: 30;
+}
+
 .tree-node:hover .node-medallion,
 .tree-node.selected .node-medallion {
   transform: translateY(-2px) scale(1.1) rotate(-1deg);
@@ -4206,8 +4191,7 @@ kbd {
     0 5px 0 rgba(72, 42, 25, 0.46);
 }
 
-.tree-node:hover .node-label,
-.tree-node.selected .node-label,
+.tree-node.tooltip-visible .node-label,
 .tree-node:focus-visible .node-label {
   transform: translate(-50%, 0);
   opacity: 1;

@@ -40,6 +40,7 @@ interface GraphConnection {
 }
 
 const selectedId = ref<string | null>(null);
+const hoveredId = ref<string | null>(null);
 const viewport = ref<HTMLElement | null>(null);
 const dragging = ref(false);
 const zoom = ref(0.7);
@@ -314,6 +315,15 @@ const activateNode = (upgrade: UpgradeDefinition): void => {
   selectedId.value = upgrade.id;
 };
 
+const previewNode = (upgrade: UpgradeDefinition): void => {
+  hoveredId.value = upgrade.id;
+  activateNode(upgrade);
+};
+
+const hideNodeTooltip = (upgrade: UpgradeDefinition): void => {
+  if (hoveredId.value === upgrade.id) hoveredId.value = null;
+};
+
 const activateAndBuyNode = (upgrade: UpgradeDefinition): void => {
   activateNode(upgrade);
   if (
@@ -568,6 +578,7 @@ onBeforeUnmount(stopWheelZoom);
                 `node-${visibility(node)}`,
                 {
                   selected: selectedId === node.id,
+                  'tooltip-visible': hoveredId === node.id,
                   acquired: level(node) > 0,
                   complete: level(node) >= node.maxLevel,
                   locked: !gameStore.isBranchUnlocked(node.branch),
@@ -578,11 +589,11 @@ onBeforeUnmount(stopWheelZoom);
                 top: `${nodePositions[node.id]?.y ?? center.y}px`,
               }"
               :disabled="!gameStore.isBranchUnlocked(node.branch)"
-              :title="visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name"
               :aria-label="
                 visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name
               "
-              @pointerenter="activateNode(node)"
+              @pointerenter="previewNode(node)"
+              @pointerleave="hideNodeTooltip(node)"
               @focus="activateNode(node)"
               @click="activateAndBuyNode(node)"
             >
@@ -595,21 +606,11 @@ onBeforeUnmount(stopWheelZoom);
                 <span class="node-label">
                   {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
                 </span>
-                <small
-                  v-if="
-                    visibility(node) === 'revealed' &&
-                    node.id === 'hyperbike' &&
-                    level(node) === 0
-                  "
-                >
-                  $2B DREAM
-                </small>
               </span>
               <span
                 v-if="visibility(node) === 'revealed'"
                 class="node-progress"
                 :aria-label="`${nodeProgressPercent(node)}% complete — ${level(node)} of ${node.maxLevel} steps`"
-                :title="`${level(node)} of ${node.maxLevel} steps complete`"
               >
                 <span
                   class="node-progress-fill"
