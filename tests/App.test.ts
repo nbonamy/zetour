@@ -51,6 +51,9 @@ describe("App", () => {
       "Scandibérique · Atlantic plains",
     );
     expect(document.querySelector(".hud-title-plaque")).not.toBeNull();
+    expect(document.querySelectorAll(".hud-title .title-word")).toHaveLength(2);
+    expect(document.querySelectorAll(".hud-title .title-sprig")).toHaveLength(2);
+    expect(document.querySelector(".hud-route-ribbon .sr-only")).not.toBeNull();
     expect(document.querySelector(".speed-dial")).not.toBeNull();
     expect(document.querySelector(".hud-distance-track")).not.toBeNull();
     expect(document.querySelector(".hud-tray")).not.toBeNull();

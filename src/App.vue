@@ -13,6 +13,7 @@ import {
 } from "./core/gameStore";
 import { formatCompactNumber, formatMultiplier } from "./core/format";
 import { formatRaceTime } from "./core/timeTrial";
+import { flowMultiplier as rideFlowMultiplier } from "./game/rideSystems";
 import { readVisualQaOverrides } from "./game/visualQa";
 
 const snapshot = shallowRef(gameStore.getSnapshot());
@@ -144,6 +145,11 @@ const speedGaugeSegments = computed(() =>
 const speedNeedleAngle = computed(
   () => `${-135 + speedGaugeRatio.value * 180}deg`,
 );
+const displayedFlowMultiplier = computed(() =>
+  visualQa.flow === null
+    ? snapshot.value.stats.flowMultiplier
+    : rideFlowMultiplier(visualQa.flow),
+);
 const notice = ref<{ message: string; tone: "good" | "bad" | "neutral" } | null>(
   null,
 );
@@ -271,14 +277,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                 ></span>
               </div>
               <b class="effective-pace">
-                Tour pace
+                Pace
                 {{ format(snapshot.stats.effectivePaceKmh) }} km/h
                 <span
-                  v-if="snapshot.stats.flowMultiplier > 1"
+                  v-if="displayedFlowMultiplier > 1"
                   class="flow-bonus"
                   title="Clean pickups, near-misses, and drafting boost Tour pace and income. A collision resets the bonus."
                 >
-                  Flow {{ formatMultiplier(snapshot.stats.flowMultiplier) }}
+                  Flow {{ formatMultiplier(displayedFlowMultiplier) }}
                 </span>
               </b>
               <small>{{ gradeLabel }} · {{ windLabel }}</small>
@@ -287,13 +293,43 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
           <div class="hud-title">
             <div class="hud-title-plaque">
-              <small>
+              <small class="hud-tour-meta">
                 Season {{ snapshot.season }} · Tour {{ snapshot.tourNumber }} ·
                 Sector
                 {{ displayedStage.number }} /
                 {{ stages.length }}
               </small>
-              <h1>Ze Tour</h1>
+              <svg
+                class="title-sprig title-sprig-left"
+                viewBox="0 0 28 42"
+                aria-hidden="true"
+              >
+                <path d="M15 39C15 28 11 17 5 7" />
+                <path d="M12 28C7 28 4 25 3 20C8 20 11 22 12 28Z" />
+                <path d="M9 19C5 18 3 14 4 10C8 11 10 14 9 19Z" />
+                <path d="M15 32C20 30 22 26 21 21C17 22 14 26 15 32Z" />
+                <path d="M12 23C17 21 19 17 18 12C14 14 12 18 12 23Z" />
+              </svg>
+              <h1 aria-label="Ze Tour">
+                <span class="sr-only">Ze Tour</span>
+                <span class="title-word" aria-hidden="true">
+                  <i>Z</i><i>E</i>
+                </span>
+                <span class="title-word" aria-hidden="true">
+                  <i>T</i><i>O</i><i>U</i><i>R</i>
+                </span>
+              </h1>
+              <svg
+                class="title-sprig title-sprig-right"
+                viewBox="0 0 28 42"
+                aria-hidden="true"
+              >
+                <path d="M15 39C15 28 11 17 5 7" />
+                <path d="M12 28C7 28 4 25 3 20C8 20 11 22 12 28Z" />
+                <path d="M9 19C5 18 3 14 4 10C8 11 10 14 9 19Z" />
+                <path d="M15 32C20 30 22 26 21 21C17 22 14 26 15 32Z" />
+                <path d="M12 23C17 21 19 17 18 12C14 14 12 18 12 23Z" />
+              </svg>
             </div>
             <div class="hud-route-ribbon">
               <strong>
@@ -301,7 +337,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                 <i aria-hidden="true">→</i>
                 {{ displayedStage.finish }}
               </strong>
-              <small>
+              <small class="sr-only">
                 {{ displayedStage.name }}
                 <template v-if="displayedStage.surface === 'gravel'">
                   · GRAVEL
