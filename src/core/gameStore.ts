@@ -12,6 +12,7 @@ import {
   RANDOM_RIDER_DRAFT_BONUS,
   RANDOM_RIDER_DRAFT_DURATION_SECONDS,
   RANDOM_RIDER_DRAFT_SWEAT_REWARD,
+  RANDOM_RIDER_DRAFT_WIND_SHELTER,
 } from "./drafting";
 import {
   captureReachedSplits,
@@ -986,7 +987,7 @@ export class GameStore {
       this.activePowerUp === "super-draft"
         ? (activeDefinition?.windShelter ?? 0)
         : this.temporaryDraftBonus > 0
-          ? 0.45
+          ? RANDOM_RIDER_DRAFT_WIND_SHELTER
           : 0;
     const effectiveWindPenalty =
       stage.windPenalty *

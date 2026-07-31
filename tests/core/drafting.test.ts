@@ -4,6 +4,7 @@ import {
   RANDOM_RIDER_DRAFT_BONUS,
   RANDOM_RIDER_DRAFT_DURATION_SECONDS,
   RANDOM_RIDER_DRAFT_SWEAT_REWARD,
+  RANDOM_RIDER_DRAFT_WIND_SHELTER,
 } from "../../src/core/drafting";
 
 describe("drafting bonuses", () => {
@@ -11,6 +12,7 @@ describe("drafting bonuses", () => {
     expect(RANDOM_RIDER_DRAFT_BONUS).toBe(0.5);
     expect(RANDOM_RIDER_DRAFT_DURATION_SECONDS).toBe(15);
     expect(RANDOM_RIDER_DRAFT_SWEAT_REWARD).toBe(100);
+    expect(RANDOM_RIDER_DRAFT_WIND_SHELTER).toBe(0.45);
   });
 
   it("scales the domestique formation bonus by team size", () => {

@@ -1,8 +1,11 @@
 import type { PowerUpType } from "../core/gameStore";
+import type { RideEncounter } from "./rideSystems";
 
 export interface VisualQaOverrides {
   domestiques: number | null;
+  draftLane: number | null;
   drafting: boolean;
+  encounter: RideEncounter | null;
   flow: number | null;
   gradient: number | null;
   paused: boolean;
@@ -14,6 +17,16 @@ const powerUpTypes: readonly PowerUpType[] = [
   "super-draft",
   "lucky-bidon",
   "jump",
+];
+const encounterTypes: readonly RideEncounter[] = [
+  "bonus-line",
+  "slalom",
+  "fan-corridor",
+  "feed-zone",
+  "sprint",
+  "hairpins",
+  "power-up",
+  "draft",
 ];
 
 const finiteNumber = (value: string | null): number | null => {
@@ -27,7 +40,9 @@ export const parseVisualQaOverrides = (
 ): VisualQaOverrides => {
   const parameters = new URLSearchParams(search);
   const rawDomestiques = finiteNumber(parameters.get("qaDomestiques"));
+  const rawDraftLane = finiteNumber(parameters.get("qaDraftLane"));
   const rawDrafting = parameters.get("qaDrafting");
+  const rawEncounter = parameters.get("qaEncounter");
   const rawFlow = finiteNumber(parameters.get("qaFlow"));
   const rawGradient = finiteNumber(parameters.get("qaGradient"));
   const rawStage = finiteNumber(parameters.get("qaStage"));
@@ -38,7 +53,14 @@ export const parseVisualQaOverrides = (
       rawDomestiques === null
         ? null
         : Math.max(0, Math.min(3, Math.floor(rawDomestiques))),
+    draftLane:
+      rawDraftLane === null
+        ? null
+        : Math.max(0, Math.min(2, Math.round(rawDraftLane))),
     drafting: rawDrafting === "1" || rawDrafting === "true",
+    encounter:
+      encounterTypes.find((encounter) => encounter === rawEncounter) ??
+      null,
     flow:
       rawFlow === null
         ? null
@@ -61,7 +83,9 @@ export const readVisualQaOverrides = (): VisualQaOverrides => {
   if (!import.meta.env.DEV || typeof window === "undefined") {
     return {
       domestiques: null,
+      draftLane: null,
       drafting: false,
+      encounter: null,
       flow: null,
       gradient: null,
       paused: false,

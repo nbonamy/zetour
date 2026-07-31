@@ -67,8 +67,8 @@ const windLabel = computed(() => {
   if (stage.windPenalty <= 0) return "Wind calm";
   const raw = Math.round(stage.windPenalty * 100);
   const effective = Math.round(snapshot.value.stats.effectiveWindPenalty * 100);
-  return snapshot.value.stats.windMitigation > 0
-    ? `Wind ${effective}% after aero`
+  return effective < raw
+    ? `Wind ${effective}% effective`
     : `Wind ${raw}% headwind`;
 });
 const gradeLabel = computed(() => {

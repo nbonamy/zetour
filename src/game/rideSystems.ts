@@ -60,8 +60,8 @@ export const draftRulesForStage = (stage: number): DraftRules => {
   const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
   const difficulty = (normalizedStage - 1) / 4;
   return {
-    laneTolerancePx: Math.round(42 - difficulty * 30),
-    reactionSeconds: 1.5 - difficulty * 1.1,
+    laneTolerancePx: Math.round(18 - difficulty * 8),
+    reactionSeconds: 1.6 - difficulty * 0.8,
     durationSeconds: RANDOM_RIDER_DRAFT_DURATION_SECONDS,
   };
 };
@@ -145,6 +145,18 @@ export const roadOffsetAtX = (
     ? 0
     : -roadVisualRise(gradient) * (distanceFromAnchor / width);
 };
+
+export const draftAlignmentGap = (
+  riderRoadY: number,
+  cyclistScreenY: number,
+  cyclistX: number,
+  gradient: number,
+): number =>
+  Math.abs(
+    riderRoadY +
+      roadOffsetAtX(cyclistX, gradient) -
+      cyclistScreenY,
+  );
 
 export const roadAngleDegrees = (gradient: number, width = 640): number =>
   (Math.atan2(-roadVisualRise(gradient), width) * 180) / Math.PI;

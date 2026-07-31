@@ -8,6 +8,7 @@ import {
   chooseEncounter,
   decayFlow,
   domestiqueFormationX,
+  draftAlignmentGap,
   draftRulesForStage,
   encounterStartX,
   fanFrameAt,
@@ -108,13 +109,46 @@ describe("active ride systems", () => {
     const stageFive = draftRulesForStage(5);
 
     expect(stageOne).toEqual({
-      laneTolerancePx: 42,
-      reactionSeconds: 1.5,
+      laneTolerancePx: 18,
+      reactionSeconds: 1.6,
       durationSeconds: 15,
     });
-    expect(stageFive.laneTolerancePx).toBe(12);
-    expect(stageFive.reactionSeconds).toBeCloseTo(0.4);
+    expect(stageFive.laneTolerancePx).toBe(10);
+    expect(stageFive.reactionSeconds).toBeCloseTo(0.8);
     expect(stageFive.durationSeconds).toBe(15);
+    expect(stageOne.laneTolerancePx).toBeLessThan(37.5 / 2);
+  });
+
+  it("measures drafting alignment in road space on every slope", () => {
+    const riderRoadY = 216;
+    const cyclistX = 406;
+    const climbOffset = roadOffsetAtX(cyclistX, 0.12);
+    const descentOffset = roadOffsetAtX(cyclistX, -0.12);
+
+    expect(
+      draftAlignmentGap(
+        riderRoadY,
+        riderRoadY + climbOffset,
+        cyclistX,
+        0.12,
+      ),
+    ).toBeCloseTo(0);
+    expect(
+      draftAlignmentGap(
+        riderRoadY,
+        riderRoadY + descentOffset,
+        cyclistX,
+        -0.12,
+      ),
+    ).toBeCloseTo(0);
+    expect(
+      draftAlignmentGap(
+        riderRoadY,
+        riderRoadY + climbOffset + 37.5,
+        cyclistX,
+        0.12,
+      ),
+    ).toBeCloseTo(37.5);
   });
 
   it("places outside riders ahead of the full domestique formation", () => {

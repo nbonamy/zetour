@@ -527,7 +527,9 @@ describe("stage and offline progression", () => {
       (drafting.stats.speedKmh / 3_600) *
         drafting.stageDefinition.cashPerKm,
     );
-    expect(drafting.stats.speedKmh).toBeGreaterThan(solo.stats.speedKmh);
+    expect(drafting.stats.speedKmh / solo.stats.speedKmh).toBeGreaterThan(
+      1.7,
+    );
     expect(drafting.stats.effectiveWindPenalty).toBeLessThan(
       solo.stats.effectiveWindPenalty,
     );
@@ -541,6 +543,29 @@ describe("stage and offline progression", () => {
 
     expect(store.getSnapshot().sweat).toBeGreaterThanOrEqual(100);
     expect(store.getSnapshot().sweat).toBeLessThanOrEqual(104);
+  });
+
+  it("turns a full draft into a visible course-distance gain", () => {
+    const solo = createTestStore();
+    const drafting = createTestStore();
+    drafting.store.setTemporaryDraftBonus(0.5);
+
+    solo.advance(15);
+    drafting.advance(15);
+
+    const soloSnapshot = solo.store.getSnapshot();
+    const draftingSnapshot = drafting.store.getSnapshot();
+    const displayedGain =
+      displayStageDistanceKm(
+        stages[0],
+        draftingSnapshot.stageDistanceM,
+      ) -
+      displayStageDistanceKm(stages[0], soloSnapshot.stageDistanceM);
+
+    expect(
+      draftingSnapshot.stageDistanceM / soloSnapshot.stageDistanceM,
+    ).toBeGreaterThan(1.4);
+    expect(displayedGain).toBeGreaterThan(15);
   });
 
   it("applies domestique speed bonuses without multiplying Sweat", () => {

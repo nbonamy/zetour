@@ -13,6 +13,7 @@ import {
   advanceRoadObjectX,
   decayFlow,
   domestiqueFormationX,
+  draftAlignmentGap,
   draftRulesForStage,
   encounterLabel,
   encounterStartX,
@@ -94,9 +95,12 @@ const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
 const ROAD_MARKER_MAX_X =
   Math.ceil((WIDTH + ROAD_MARKER_SPACING) / ROAD_MARKER_SPACING) *
   ROAD_MARKER_SPACING;
-const FLOW_TRACK_X = 522;
+const FLOW_TRACK_X = 506;
 const FLOW_TRACK_Y = 146;
-const FLOW_TRACK_WIDTH = 104;
+const FLOW_TRACK_WIDTH = 120;
+const RANDOM_RIDER_DRAFT_PERCENT = Math.round(
+  RANDOM_RIDER_DRAFT_BONUS * 100,
+);
 const POWER_UP_COLORS: Record<PowerUpType, { css: string; hex: number }> = {
   "super-draft": { css: "#71f5cc", hex: 0x71f5cc },
   "lucky-bidon": { css: "#a7e8ff", hex: 0xa7e8ff },
@@ -131,7 +135,7 @@ export class GameScene extends Phaser.Scene {
   private roadGradient = 0;
   private targetLane = 1;
   private riderRoadY = cyclistLaneY(LANE_Y[1]);
-  private encounterCountdown = 1_200;
+  private encounterCountdown = VISUAL_QA.encounter ? 0 : 1_200;
   private encounterCount = 0;
   private pickupSequenceCount = 0;
   private animationCountdown = 120;
@@ -317,10 +321,12 @@ export class GameScene extends Phaser.Scene {
     );
     this.encounterCountdown -= delta;
     if (this.encounterCountdown <= 0 && !this.draftCyclist) {
-      const encounter = nextEncounter(
-        snapshot.stageDefinition,
-        this.encounterCount,
-      );
+      const encounter =
+        VISUAL_QA.encounter ??
+        nextEncounter(
+          snapshot.stageDefinition,
+          this.encounterCount,
+        );
       this.startEncounter(encounter);
       this.encounterCount += 1;
       this.encounterCountdown = Phaser.Math.Between(8_500, 12_000);
@@ -392,7 +398,7 @@ export class GameScene extends Phaser.Scene {
     this.draftWake.clear().setVisible(false);
     this.draftWindStreaks.forEach((streak) => streak.setVisible(false));
 
-    this.encounterCountdown = 1_200;
+    this.encounterCountdown = VISUAL_QA.encounter ? 0 : 1_200;
     this.encounterCount = 0;
     this.pickupSequenceCount = 0;
     this.animationCountdown = 120;
@@ -1143,9 +1149,9 @@ export class GameScene extends Phaser.Scene {
       if (this.flow === 0) this.combo = 0;
     }
     const multiplier = flowMultiplier(this.flow);
-    this.flowBar.width = this.flow;
+    this.flowBar.width = (this.flow / 100) * FLOW_TRACK_WIDTH;
     const draftTimer = this.drafting
-      ? ` · DRAFT ${Math.ceil(this.draftTimeRemaining)}s`
+      ? ` · DRAFT +${RANDOM_RIDER_DRAFT_PERCENT}% ${Math.ceil(this.draftTimeRemaining)}s`
       : "";
     this.flowText.setText(
       `FLOW x${multiplier.toFixed(1)}${this.combo > 1 ? ` · ${this.combo}` : ""}${draftTimer}`,
@@ -1154,7 +1160,8 @@ export class GameScene extends Phaser.Scene {
 
   private spawnDraftCyclist(): void {
     if (this.draftCyclist) return;
-    this.draftLane = Phaser.Math.Between(0, 2);
+    this.draftLane =
+      VISUAL_QA.draftLane ?? Phaser.Math.Between(0, 2);
     this.draftCyclist = this.add
       .sprite(
         -42,
@@ -1235,7 +1242,12 @@ export class GameScene extends Phaser.Scene {
     if (cyclist.x < targetX - 12) return;
 
     const aligned =
-      Math.abs(this.rider.y - cyclist.y) < rules.laneTolerancePx;
+      draftAlignmentGap(
+        this.riderRoadY,
+        cyclist.y,
+        cyclist.x,
+        this.roadGradient,
+      ) < rules.laneTolerancePx;
     if (!this.drafting) {
       this.draftAcquisitionRemaining -= delta;
       if (aligned) {
@@ -1247,7 +1259,7 @@ export class GameScene extends Phaser.Scene {
           formatDraftTimer(this.draftTimeRemaining),
         );
         this.showEncounter(
-          `IN THE DRAFT · +50% SPEED · ${rules.durationSeconds}s`,
+          `IN THE DRAFT · +${RANDOM_RIDER_DRAFT_PERCENT}% SPEED · ${rules.durationSeconds}s`,
           1_600,
         );
         this.rewardFlow(12, "DRAFT");

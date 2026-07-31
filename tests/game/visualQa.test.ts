@@ -7,7 +7,9 @@ describe("visual QA overrides", () => {
       parseVisualQaOverrides("?qaStage=2&qaGradient=-0.05"),
     ).toEqual({
       domestiques: null,
+      draftLane: null,
       drafting: false,
+      encounter: null,
       flow: null,
       gradient: -0.05,
       paused: false,
@@ -21,7 +23,9 @@ describe("visual QA overrides", () => {
       parseVisualQaOverrides("?qaStage=99&qaGradient=0.8"),
     ).toEqual({
       domestiques: null,
+      draftLane: null,
       drafting: false,
+      encounter: null,
       flow: null,
       gradient: 0.12,
       paused: false,
@@ -32,7 +36,9 @@ describe("visual QA overrides", () => {
       parseVisualQaOverrides("?qaStage=nope&qaGradient=nope"),
     ).toEqual({
       domestiques: null,
+      draftLane: null,
       drafting: false,
+      encounter: null,
       flow: null,
       gradient: null,
       paused: false,
@@ -76,6 +82,25 @@ describe("visual QA overrides", () => {
     ).toMatchObject({
       drafting: false,
       powerUp: null,
+    });
+  });
+
+  it("forces a known encounter and draft lane for live gameplay QA", () => {
+    expect(
+      parseVisualQaOverrides(
+        "?qaEncounter=draft&qaDraftLane=1",
+      ),
+    ).toMatchObject({
+      encounter: "draft",
+      draftLane: 1,
+    });
+    expect(
+      parseVisualQaOverrides(
+        "?qaEncounter=dragon&qaDraftLane=9",
+      ),
+    ).toMatchObject({
+      encounter: null,
+      draftLane: 2,
     });
   });
 });
