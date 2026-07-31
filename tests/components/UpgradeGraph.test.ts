@@ -33,10 +33,7 @@ describe("UpgradeGraph", () => {
     ).toBeCloseTo(93.531, 3);
     expect(host.querySelector(".graph-connections")).toBeNull();
     expect(host.querySelectorAll(".hex-branch")).toHaveLength(5);
-    expect(host.querySelectorAll(".branch-territory")).toHaveLength(5);
-    expect(
-      host.querySelector('[aria-label="Bike branch territory"]')?.textContent,
-    ).toContain("Bike");
+    expect(host.querySelector(".branch-territory")).toBeNull();
     expect(
       host.querySelector<HTMLElement>(
         '.hex-branch[data-branch="nutrition"]',
@@ -92,13 +89,21 @@ describe("UpgradeGraph", () => {
     hydration.dispatchEvent(new PointerEvent("pointerenter"));
     await nextTick();
     expect(host.textContent).toContain("Start with a bidon");
-    expect(host.querySelectorAll(".buy-quantity button")).toHaveLength(3);
+    expect(host.querySelectorAll(".purchase-option")).toHaveLength(3);
+    expect(host.textContent).toContain("Buy up to 10");
+    expect(host.textContent).toContain("Buy max");
+    expect(host.textContent).toContain("×3");
+    expect(host.textContent).toContain("×15");
+    expect(host.textContent).toContain("×150");
+    expect(host.textContent).toContain("×3.8K");
 
     hydration.click();
     await nextTick();
     expect(gameStore.getSnapshot().upgrades.hydration).toBe(1);
 
-    host.querySelector<HTMLButtonElement>(".detail-buy")?.click();
+    host
+      .querySelector<HTMLButtonElement>('.purchase-option[data-quantity="1"]')
+      ?.click();
     await nextTick();
     expect(gameStore.getSnapshot().upgrades.hydration).toBe(2);
     app?.unmount();
@@ -117,9 +122,11 @@ describe("UpgradeGraph", () => {
 
     expect(gameStore.getSnapshot().upgrades.hydration).toBeUndefined();
     expect(host.textContent).toContain("Start with a bidon");
-    expect(host.querySelector<HTMLButtonElement>(".detail-buy")?.disabled).toBe(
-      true,
-    );
+    expect(
+      host.querySelector<HTMLButtonElement>(
+        '.purchase-option[data-quantity="1"]',
+      )?.disabled,
+    ).toBe(true);
     app?.unmount();
     host.remove();
   });
@@ -137,7 +144,9 @@ describe("UpgradeGraph", () => {
 
     expect(host.textContent).toContain("Pace ×10 · Sweat ×10 · Cash ×10");
     expect(
-      host.querySelector<HTMLButtonElement>(".detail-buy")?.textContent,
+      host.querySelector<HTMLButtonElement>(
+        '.purchase-option[data-quantity="1"]',
+      )?.textContent,
     ).toContain("Need $2B more");
     expect(gameStore.getSnapshot().upgrades.hyperbike).toBeUndefined();
     app?.unmount();

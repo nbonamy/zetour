@@ -90,11 +90,11 @@ describe("ride rendering", () => {
     expect(groundedRoadObjectOffsetY(34)).toBe(-17);
   });
 
-  it("keeps ground hazards centered on the lane baseline", () => {
-    expect(ROAD_HAZARD_LANE_OFFSET_Y).toBe(0);
-    expect(roadHazardLaneY(212.5)).toBe(212.5);
-    expect(roadHazardLaneY(250)).toBe(250);
-    expect(roadHazardLaneY(289.5)).toBe(289.5);
+  it("lifts shallow ground hazards above the lane baseline", () => {
+    expect(ROAD_HAZARD_LANE_OFFSET_Y).toBe(-6);
+    expect(roadHazardLaneY(212.5)).toBe(206.5);
+    expect(roadHazardLaneY(250)).toBe(244);
+    expect(roadHazardLaneY(289.5)).toBe(283.5);
   });
 
   it("syncs collision bodies without replaying manually applied road motion", () => {

@@ -2,7 +2,7 @@ export const RIDE_WORLD_WIDTH = 640;
 export const RIDE_WORLD_HEIGHT = 360;
 export const RIDE_RENDER_SCALE = 2;
 export const CYCLIST_LANE_OFFSET_Y = -34;
-export const ROAD_HAZARD_LANE_OFFSET_Y = 0;
+export const ROAD_HAZARD_LANE_OFFSET_Y = -6;
 
 export type CyclistRole = "player" | "draft" | "domestique";
 

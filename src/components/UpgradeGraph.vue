@@ -27,7 +27,6 @@ const props = defineProps<{
 type NodeVisibility = "revealed" | "mystery" | "hidden";
 
 const selectedId = ref<string | null>(null);
-const purchaseQuantity = ref<PurchaseQuantity>(1);
 const viewport = ref<HTMLElement | null>(null);
 const dragging = ref(false);
 const world = { width: 1_200, height: 820 };
@@ -100,15 +99,18 @@ const selected = computed(() =>
 const selectedVisibility = computed<NodeVisibility>(() =>
   selected.value ? visibility(selected.value) : "hidden",
 );
-const selectedStatus = computed(() => {
+const purchaseOptions = computed(() => {
   const upgrade = selected.value;
-  if (!upgrade) return undefined;
+  if (!upgrade || level(upgrade) >= upgrade.maxLevel) return [];
   const snapshot = props.snapshot;
   void snapshot.stage;
   void snapshot.sweat;
   void snapshot.cash;
   void snapshot.upgrades[upgrade.id];
-  return gameStore.purchaseStatus(upgrade, purchaseQuantity.value);
+  return ([1, 10, "max"] as const).map((quantity) => ({
+    quantity,
+    status: gameStore.purchaseStatus(upgrade, quantity),
+  }));
 });
 const currentMilestone = computed(() => {
   if (!selected.value) return undefined;
@@ -164,6 +166,25 @@ const formatCost = (upgrade: UpgradeDefinition, cost: number): string =>
     ? `$${formatCompactNumber(cost)}`
     : `${formatCompactNumber(cost)} Sweat`;
 
+const purchaseOptionLabel = (quantity: PurchaseQuantity): string =>
+  quantity === 1
+    ? "Buy 1 level"
+    : quantity === 10
+      ? "Buy up to 10"
+      : "Buy max";
+
+const purchaseOptionDetail = (
+  upgrade: UpgradeDefinition,
+  option: (typeof purchaseOptions.value)[number],
+): string => {
+  if (!option.status.available) return option.status.reason ?? "Unavailable";
+  const levelLabel = option.status.levels === 1 ? "level" : "levels";
+  return `+${option.status.levels} ${levelLabel} · ${formatCost(
+    upgrade,
+    option.status.cost,
+  )}`;
+};
+
 watch(
   () => props.snapshot.upgrades,
   () => {
@@ -186,13 +207,13 @@ const activateAndBuyNode = (upgrade: UpgradeDefinition): void => {
     visibility(upgrade) === "revealed" &&
     gameStore.isBranchUnlocked(upgrade.branch)
   ) {
-    gameStore.purchase(upgrade, purchaseQuantity.value);
+    gameStore.purchase(upgrade, 1);
   }
 };
 
-const buySelected = (): void => {
+const buySelected = (quantity: PurchaseQuantity): void => {
   if (selected.value) {
-    gameStore.purchase(selected.value, purchaseQuantity.value);
+    gameStore.purchase(selected.value, quantity);
   }
 };
 
@@ -267,16 +288,6 @@ onMounted(centerViewport);
         >
           <span>◆</span>
           <strong>Season {{ snapshot.season }}</strong>
-        </div>
-
-        <div
-          v-for="branch in branches"
-          :key="`${branch}-territory`"
-          class="branch-territory"
-          :data-branch="branch"
-          :aria-label="`${branchLabels[branch]} branch territory`"
-        >
-          <span>{{ branchLabels[branch] }}</span>
         </div>
 
         <div
@@ -369,37 +380,47 @@ onMounted(centerViewport);
         <h3>{{ selected.name }}</h3>
         <p>{{ selected.description }}</p>
 
-        <div
-          v-if="currentMilestone"
-          class="milestone-banner"
-        >
-          <span>Current breakthrough</span>
-          <strong>
-            {{ currentMilestone.label }}
-            {{ formatMultiplier(currentMilestoneMultiplier) }} total
-          </strong>
+        <div class="detail-milestones">
+          <div class="milestone-heading">
+            <strong>Compounding breakthroughs</strong>
+            <small>Every bonus multiplies the last</small>
+          </div>
+
+          <div class="milestone-track" aria-label="Upgrade milestones">
+            <span
+              v-for="marker in nodeMarkers(selected)"
+              :key="marker.level"
+              :class="{ filled: marker.level <= level(selected) }"
+            >
+              <strong>Lv {{ marker.level }}</strong>
+              <small>
+                {{
+                  formatMultiplier(
+                    upgradeMilestoneMultiplier(selected, marker.level),
+                  )
+                }}
+              </small>
+            </span>
+          </div>
         </div>
 
-        <div class="level-track milestone-track" aria-label="Upgrade milestones">
-          <span
-            v-for="marker in nodeMarkers(selected)"
-            :key="marker.level"
-            :class="{ filled: marker.level <= level(selected) }"
-          >
-            {{ marker.level }}
-          </span>
-        </div>
-
-        <dl>
-          <div>
+        <dl class="detail-stats">
+          <div class="detail-stat">
             <dt>Installed</dt>
             <dd>{{ installedLevelName }}</dd>
+            <dd v-if="currentMilestone" class="current-level-total">
+              {{ formatMultiplier(currentMilestoneMultiplier) }} total
+            </dd>
           </div>
-          <div v-if="nextMilestone">
+          <div class="detail-stat detail-level-stat">
+            <dt>Level</dt>
+            <dd>{{ level(selected) }} / {{ selected.maxLevel }}</dd>
+          </div>
+          <div v-if="nextMilestone" class="detail-stat detail-next-stat">
             <dt>Next breakthrough</dt>
             <dd>{{ nextMilestone.label }}</dd>
             <dd class="next-level-cost">
-              Level {{ nextMilestone.level }} ·
+              {{ nextMilestone.level - level(selected) }} levels away ·
               {{
                 formatMultiplier(
                   upgradeMilestoneMultiplier(selected, nextMilestone.level),
@@ -408,45 +429,42 @@ onMounted(centerViewport);
               total
             </dd>
           </div>
-          <div>
-            <dt>Level</dt>
-            <dd>{{ level(selected) }} / {{ selected.maxLevel }}</dd>
-          </div>
         </dl>
 
-        <div
-          v-if="level(selected) < selected.maxLevel"
-          class="buy-quantity"
-          aria-label="Purchase quantity"
+        <section
+          v-if="purchaseOptions.length"
+          class="detail-purchase"
+          aria-label="Buy upgrade levels"
         >
-          <button
-            v-for="quantity in ([1, 10, 'max'] as const)"
-            :key="quantity"
-            type="button"
-            :class="{ active: purchaseQuantity === quantity }"
-            @click="purchaseQuantity = quantity"
-          >
-            {{ quantity === "max" ? "MAX" : `+${quantity}` }}
-          </button>
-        </div>
+          <div class="purchase-heading">
+            <strong>Buy levels now</strong>
+            <small>Each button purchases immediately</small>
+          </div>
+          <div class="purchase-options">
+            <button
+              v-for="option in purchaseOptions"
+              :key="option.quantity"
+              type="button"
+              class="purchase-option"
+              :data-quantity="option.quantity"
+              :disabled="!option.status.available"
+              :aria-label="`${purchaseOptionLabel(option.quantity)} of ${selected.name}`"
+              @click="buySelected(option.quantity)"
+            >
+              <strong>{{ purchaseOptionLabel(option.quantity) }}</strong>
+              <small>{{ purchaseOptionDetail(selected, option) }}</small>
+            </button>
+          </div>
+        </section>
 
-        <button
-          type="button"
-          class="detail-buy"
-          :disabled="!selectedStatus?.available"
-          @click="buySelected"
+        <div
+          v-else
+          class="purchase-complete"
+          role="status"
         >
-          <template v-if="level(selected) >= selected.maxLevel">
-            Fully upgraded
-          </template>
-          <template v-else-if="selectedStatus?.available">
-            Buy +{{ selectedStatus.levels }} ·
-            {{ formatCost(selected, selectedStatus.cost) }}
-          </template>
-          <template v-else>
-            {{ selectedStatus?.reason }}
-          </template>
-        </button>
+          <span>✓</span>
+          <strong>Fully upgraded</strong>
+        </div>
       </template>
 
       <template v-else-if="selectedVisibility === 'mystery'">
