@@ -25,8 +25,8 @@ describe("UpgradeGraph", () => {
     mountGraph();
 
     const map = host.querySelector<HTMLElement>(".graph-map");
-    expect(map?.style.width).toBe("1000px");
-    expect(map?.style.height).toBe("700px");
+    expect(map?.style.width).toBe("1200px");
+    expect(map?.style.height).toBe("820px");
     expect(map?.style.getPropertyValue("--hex-width")).toBe("108px");
     expect(
       Number.parseFloat(map?.style.getPropertyValue("--hex-height") ?? "0"),
@@ -41,14 +41,14 @@ describe("UpgradeGraph", () => {
       host.querySelector<HTMLElement>(
         '.hex-branch[data-branch="nutrition"]',
       )?.style.left,
-    ).toBe("584px");
+    ).toBe("684px");
     expect(
       Number.parseFloat(
         host.querySelector<HTMLElement>(
           '.hex-branch[data-branch="nutrition"]',
         )?.style.top ?? "0",
       ),
-    ).toBeCloseTo(301.235, 3);
+    ).toBeCloseTo(361.235, 3);
     expect(host.querySelectorAll(".tree-node > .node-main")).toHaveLength(
       host.querySelectorAll(".tree-node").length,
     );
@@ -58,14 +58,14 @@ describe("UpgradeGraph", () => {
     expect(host.querySelector(".node-level")).toBeNull();
     expect(
       host.querySelectorAll(
-        'button[aria-label="Hydration"] .node-progress-segment',
+        'button[aria-label="Hydration protocol"] .node-progress-segment',
       ),
-    ).toHaveLength(5);
+    ).toHaveLength(4);
     expect(
       host.querySelector(
-        'button[aria-label="Hydration"] .node-progress',
+        'button[aria-label="Hydration protocol"] .node-progress',
       )?.getAttribute("aria-label"),
-    ).toBe("Level 0 of 5");
+    ).toBe("Level 0 of 100");
     expect(host.querySelector(".node-level-count")).toBeNull();
     expect(host.textContent).toContain("Rider");
     expect(host.textContent).toContain("Nutrition");
@@ -74,7 +74,7 @@ describe("UpgradeGraph", () => {
     expect(host.textContent).toContain("Team");
     expect(host.textContent).toContain("Sector 2");
     expect(host.textContent).toContain("Sector 3");
-    expect(host.textContent).toContain("Sector 5");
+    expect(host.textContent).toContain("Sector 4");
     app?.unmount();
     host.remove();
   });
@@ -85,13 +85,14 @@ describe("UpgradeGraph", () => {
     }
     mountGraph();
     const hydration = host.querySelector<HTMLButtonElement>(
-      'button[aria-label="Hydration"]',
+      'button[aria-label="Hydration protocol"]',
     );
     if (!hydration) throw new Error("Missing Hydration node");
 
     hydration.dispatchEvent(new PointerEvent("pointerenter"));
     await nextTick();
-    expect(host.textContent).toContain("Preserve Flow longer");
+    expect(host.textContent).toContain("Start with a bidon");
+    expect(host.querySelectorAll(".buy-quantity button")).toHaveLength(3);
 
     hydration.click();
     await nextTick();

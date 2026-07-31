@@ -1,5 +1,24 @@
 export type Currency = "sweat" | "cash";
 export type Branch = "bike" | "rider" | "nutrition" | "equipment" | "team";
+export type PurchaseQuantity = 1 | 10 | "max";
+
+export interface UpgradeMilestone {
+  level: number;
+  multiplier: number;
+  label: string;
+}
+
+export interface UpgradeEffects {
+  pacePerLevel?: number;
+  roadSpeedPerLogLevel?: number;
+  sweatPerLevel?: number;
+  cashPerLevel?: number;
+  handlingPerLogLevel?: number;
+  flowRetentionPerLogLevel?: number;
+  windMitigationPerLogLevel?: number;
+  gravelMitigationPerLogLevel?: number;
+  potholeProtectionPerLogLevel?: number;
+}
 
 export interface UpgradeDefinition {
   id: string;
@@ -13,9 +32,10 @@ export interface UpgradeDefinition {
   maxLevel: number;
   costs?: number[];
   levelNames?: string[];
+  milestones?: readonly UpgradeMilestone[];
+  effects: UpgradeEffects;
   requires?: string;
   requiredStage?: number;
-  requiredStages?: number[];
   tree: {
     x: number;
     y: number;
@@ -33,236 +53,340 @@ export const branchLabels: Record<Branch, string> = {
 export const branchUnlockStages: Record<Branch, number> = {
   rider: 1,
   nutrition: 1,
-  bike: 3,
   equipment: 2,
-  team: 5,
+  bike: 3,
+  team: 4,
 };
+
+const deepMilestones = (labels: readonly [string, string, string, string]) =>
+  [
+    { level: 10, multiplier: 2, label: labels[0] },
+    { level: 25, multiplier: 3, label: labels[1] },
+    { level: 50, multiplier: 5, label: labels[2] },
+    { level: 100, multiplier: 10, label: labels[3] },
+  ] as const;
+
+const mediumMilestones = (labels: readonly [string, string, string]) =>
+  [
+    { level: 10, multiplier: 2, label: labels[0] },
+    { level: 25, multiplier: 3, label: labels[1] },
+    { level: 50, multiplier: 5, label: labels[2] },
+  ] as const;
 
 export const upgrades: UpgradeDefinition[] = [
   {
     id: "road-bike",
     branch: "bike",
     name: "Workshop road bike",
-    description: "Replaces the fixed starter bike and unlocks component upgrades.",
+    description:
+      "Ditch the city bike, unlock component tuning, and multiply Tour pace.",
     icon: "🚲",
     currency: "cash",
-    baseCost: 60,
+    baseCost: 90,
     costScale: 1,
     maxLevel: 1,
     levelNames: ["Workshop road bike"],
+    effects: {
+      pacePerLevel: 0.4,
+      roadSpeedPerLogLevel: 4.5,
+    },
     requiredStage: 3,
     tree: { x: 50, y: 20 },
   },
   {
     id: "frame",
     branch: "bike",
-    name: "Frame",
-    description: "Progressively reduce bike weight and improve power transfer.",
+    name: "Frame laboratory",
+    description:
+      "Keep removing weight until the bicycle becomes mostly confidence.",
     icon: "◇",
     currency: "cash",
-    baseCost: 165,
-    costScale: 2.9,
-    maxLevel: 2,
-    costs: [165, 480],
-    levelNames: ["Aluminium frame", "Carbon frame"],
+    baseCost: 120,
+    costScale: 1.17,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Aluminium race frame",
+      "Carbon monocoque",
+      "Wind-tunnel prototype",
+      "Negative-mass frame",
+    ]),
+    effects: {
+      pacePerLevel: 0.025,
+      roadSpeedPerLogLevel: 1.35,
+    },
     requires: "road-bike",
-    requiredStages: [3, 4],
+    requiredStage: 3,
     tree: { x: 20, y: 48 },
   },
   {
     id: "tires",
     branch: "bike",
-    name: "Tires",
-    description: "Improve grip, rolling resistance, steering, and pothole protection.",
+    name: "Road tires",
+    description:
+      "Faster compounds, lower rolling resistance, fewer expensive explosions.",
     icon: "◎",
     currency: "cash",
     baseCost: 45,
-    costScale: 2.5,
-    maxLevel: 3,
-    costs: [45, 120, 280],
-    levelNames: ["Reinforced tires", "Performance tires", "Tubeless tires"],
+    costScale: 1.16,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Reinforced tires",
+      "Performance tubeless",
+      "Silica race compound",
+      "Tires that intimidate asphalt",
+    ]),
+    effects: {
+      pacePerLevel: 0.02,
+      roadSpeedPerLogLevel: 0.95,
+      handlingPerLogLevel: 0.05,
+      potholeProtectionPerLogLevel: 0.035,
+    },
     requires: "road-bike",
-    requiredStages: [3, 3, 4],
+    requiredStage: 3,
     tree: { x: 50, y: 55 },
   },
   {
     id: "shifting",
     branch: "bike",
-    name: "Shifting",
-    description: "Keep the rider efficient as gradients and road speed change.",
+    name: "Drivetrain",
+    description:
+      "Add gears, remove hesitation, and eventually shift before physics asks.",
     icon: "⚙",
     currency: "cash",
     baseCost: 70,
-    costScale: 2.7,
-    maxLevel: 3,
-    costs: [70, 190, 520],
-    levelNames: [
-      "Indexed 8-speed",
-      "Performance 11-speed",
-      "Electronic 12-speed",
-    ],
+    costScale: 1.18,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Indexed shifting",
+      "Electronic shifting",
+      "Predictive shifting",
+      "Telepathic derailleur",
+    ]),
+    effects: {
+      pacePerLevel: 0.024,
+      roadSpeedPerLogLevel: 0.75,
+    },
     requires: "road-bike",
-    requiredStages: [3, 4, 5],
+    requiredStage: 3,
     tree: { x: 80, y: 48 },
   },
   {
     id: "wheels",
     branch: "bike",
-    name: "Wheels",
-    description: "Trade weight against aerodynamic performance.",
+    name: "Wheel program",
+    description:
+      "Trade weight for aero until the wheels look expensive while standing still.",
     icon: "◉",
     currency: "cash",
-    baseCost: 130,
-    costScale: 2.8,
-    maxLevel: 3,
-    costs: [130, 365, 1_020],
-    levelNames: ["Lightweight alloy", "Carbon wheels", "Deep aero wheels"],
+    baseCost: 150,
+    costScale: 1.18,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Lightweight alloy",
+      "Carbon wheels",
+      "Deep aero wheels",
+      "Orbital flywheels",
+    ]),
+    effects: {
+      pacePerLevel: 0.028,
+      roadSpeedPerLogLevel: 1.15,
+      windMitigationPerLogLevel: 0.025,
+    },
     requires: "frame",
-    requiredStages: [3, 4, 5],
+    requiredStage: 3,
     tree: { x: 20, y: 80 },
   },
   {
     id: "brakes",
     branch: "bike",
-    name: "Brakes",
-    description: "Descend faster and recover from lane changes more safely.",
+    name: "Braking confidence",
+    description:
+      "Better brakes paradoxically make you descend faster. Cycling is weird.",
     icon: "⬡",
     currency: "cash",
     baseCost: 110,
-    costScale: 2.9,
-    maxLevel: 2,
-    costs: [110, 320],
-    levelNames: ["Mechanical disc brakes", "Hydraulic disc brakes"],
+    costScale: 1.19,
+    maxLevel: 50,
+    milestones: mediumMilestones([
+      "Mechanical discs",
+      "Hydraulic discs",
+      "Last-possible-moment braking",
+    ]),
+    effects: {
+      pacePerLevel: 0.016,
+      roadSpeedPerLogLevel: 0.35,
+      handlingPerLogLevel: 0.08,
+    },
     requires: "shifting",
-    requiredStages: [3, 5],
+    requiredStage: 3,
     tree: { x: 80, y: 80 },
+  },
+  {
+    id: "chain-lube",
+    branch: "bike",
+    name: "Chain lubrication",
+    description:
+      "Oil, wax, ceramic particles, classified aerospace goo. Every watt matters.",
+    icon: "♨",
+    currency: "cash",
+    baseCost: 80,
+    costScale: 1.15,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Clean chain",
+      "Hot wax ritual",
+      "Ceramic drivetrain",
+      "Zero-friction prophecy",
+    ]),
+    effects: {
+      pacePerLevel: 0.03,
+      roadSpeedPerLogLevel: 0.45,
+      gravelMitigationPerLogLevel: 0.015,
+    },
+    requires: "road-bike",
+    requiredStage: 3,
+    tree: { x: 50, y: 88 },
   },
   {
     id: "endurance",
     branch: "rider",
     name: "Endurance",
-    description: "Maintain efficient power as stages become longer.",
+    description:
+      "Build an engine that regards the concept of a finish line as a suggestion.",
     icon: "♥",
     currency: "sweat",
     baseCost: 20,
-    costScale: 2,
-    maxLevel: 6,
-    costs: [20, 45, 100, 225, 500, 1_100],
-    requiredStages: [1, 1, 1, 3, 4, 5],
-    levelNames: [
-      "Aerobic base I",
-      "Aerobic base II",
-      "Endurance I",
-      "Endurance II",
-      "Fatigue resistance I",
-      "Fatigue resistance II",
-    ],
+    costScale: 1.15,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Aerobic base",
+      "Fatigue resistance",
+      "Grand-tour engine",
+      "Perpetual-motion legs",
+    ]),
+    effects: {
+      pacePerLevel: 0.022,
+      roadSpeedPerLogLevel: 0.65,
+      sweatPerLevel: 0.035,
+    },
     tree: { x: 24, y: 52 },
   },
   {
     id: "power",
     branch: "rider",
     name: "Sustained power",
-    description: "Increase speed on every road surface.",
+    description:
+      "More watts everywhere, followed eventually by watts not recognized by science.",
     icon: "⚡",
     currency: "sweat",
     baseCost: 35,
-    costScale: 2,
-    maxLevel: 6,
-    costs: [35, 75, 165, 360, 800, 1_750],
-    requiredStages: [1, 1, 1, 3, 4, 5],
-    levelNames: [
-      "Tempo power I",
-      "Tempo power II",
-      "Threshold power I",
-      "Threshold power II",
-      "Climbing power I",
-      "Climbing power II",
-    ],
+    costScale: 1.16,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Threshold power",
+      "Climbing power",
+      "World-tour watts",
+      "Portable thunderstorm",
+    ]),
+    effects: {
+      pacePerLevel: 0.03,
+      roadSpeedPerLogLevel: 1.8,
+      sweatPerLevel: 0.03,
+    },
     tree: { x: 50, y: 28 },
   },
   {
     id: "technique",
     branch: "rider",
     name: "Bike handling",
-    description: "Change lanes faster and recover from hazards sooner.",
+    description:
+      "Change lanes faster, descend later, and make terrible road choices look planned.",
     icon: "↔",
     currency: "sweat",
     baseCost: 50,
-    costScale: 2.4,
-    maxLevel: 4,
-    costs: [50, 120, 300, 750],
-    requiredStages: [1, 1, 3, 4],
-    levelNames: [
-      "Cornering basics",
+    costScale: 1.18,
+    maxLevel: 50,
+    milestones: mediumMilestones([
       "Fast line changes",
-      "Descending technique",
       "Pro handling",
-    ],
+      "Bicycle telekinesis",
+    ]),
+    effects: {
+      pacePerLevel: 0.014,
+      handlingPerLogLevel: 0.12,
+      roadSpeedPerLogLevel: 0.2,
+    },
     tree: { x: 76, y: 52 },
   },
   {
     id: "body-composition",
     branch: "rider",
-    name: "Body composition",
-    description: "Reduce the penalty of steep gradients without sacrificing power.",
+    name: "Climber build",
+    description:
+      "Improve power-to-weight without becoming a haunted pair of sunglasses.",
     icon: "△",
     currency: "sweat",
     baseCost: 60,
-    costScale: 2.5,
-    maxLevel: 5,
-    costs: [60, 150, 375, 940, 2_350],
-    requiredStages: [1, 2, 3, 4, 5],
-    levelNames: [
-      "Healthy habits",
+    costScale: 1.18,
+    maxLevel: 50,
+    milestones: mediumMilestones([
       "Lean endurance build",
-      "Climber build I",
-      "Climber build II",
       "Grand-tour condition",
-    ],
+      "Alpine cryptid",
+    ]),
+    effects: {
+      pacePerLevel: 0.02,
+      sweatPerLevel: 0.025,
+    },
     requires: "endurance",
     tree: { x: 25, y: 80 },
   },
   {
     id: "hydration",
     branch: "nutrition",
-    name: "Hydration",
-    description: "Preserve Flow longer by recovering better between efforts.",
-    icon: "◉",
+    name: "Hydration protocol",
+    description:
+      "Start with a bidon. End with a mobile weather system attached to the bike.",
+    icon: "◍",
     currency: "sweat",
     baseCost: 25,
-    costScale: 2.4,
-    maxLevel: 5,
-    costs: [25, 60, 145, 350, 850],
-    requiredStages: [1, 1, 1, 3, 4],
-    levelNames: [
-      "Carry a bidon",
+    costScale: 1.15,
+    maxLevel: 100,
+    milestones: deepMilestones([
       "Electrolyte mix",
       "Timed hydration",
-      "Hot-weather plan",
-      "Pro hydration protocol",
-    ],
+      "Pro hydration",
+      "Internal rain cloud",
+    ]),
+    effects: {
+      pacePerLevel: 0.016,
+      sweatPerLevel: 0.04,
+      flowRetentionPerLogLevel: 0.38,
+    },
     tree: { x: 50, y: 32 },
   },
   {
     id: "fueling",
     branch: "nutrition",
-    name: "Fueling",
-    description: "Sustain more speed with progressively better ride nutrition.",
+    name: "Race fueling",
+    description:
+      "Bananas become gels; gels become a continuous strategic carbohydrate pipeline.",
     icon: "●",
     currency: "sweat",
     baseCost: 40,
-    costScale: 2.4,
-    maxLevel: 5,
-    costs: [40, 95, 225, 540, 1_300],
-    requiredStages: [1, 1, 2, 3, 4],
-    levelNames: [
-      "Banana",
-      "Energy bar",
-      "Carbohydrate gel",
+    costScale: 1.16,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Energy bars",
       "Fueling schedule",
-      "Race nutrition plan",
-    ],
+      "Team nutrition lab",
+      "Infinite emergency banana",
+    ]),
+    effects: {
+      pacePerLevel: 0.024,
+      roadSpeedPerLogLevel: 0.55,
+      sweatPerLevel: 0.045,
+    },
     requires: "hydration",
     tree: { x: 50, y: 68 },
   },
@@ -270,76 +394,223 @@ export const upgrades: UpgradeDefinition[] = [
     id: "aero-socks",
     branch: "equipment",
     name: "Aero socks",
-    description: "Tiny gains. Enormous confidence.",
-    icon: "♨",
+    description:
+      "Tiny gains, enormous confidence, increasingly indefensible invoices.",
+    icon: "♧",
     currency: "cash",
     baseCost: 25,
-    costScale: 2.2,
-    maxLevel: 4,
-    requiredStage: 2,
-    levelNames: [
-      "Cycling socks",
+    costScale: 1.15,
+    maxLevel: 100,
+    milestones: deepMilestones([
       "Compression socks",
-      "Aero socks",
       "Wind-tunnel socks",
-    ],
+      "Boundary-layer hosiery",
+      "Socks faster than sound",
+    ]),
+    effects: {
+      pacePerLevel: 0.018,
+      roadSpeedPerLogLevel: 0.28,
+      windMitigationPerLogLevel: 0.02,
+    },
+    requiredStage: 2,
     tree: { x: 22, y: 52 },
   },
   {
     id: "helmet",
     branch: "equipment",
     name: "Aero helmet",
-    description: "Reduce drag while keeping the retro hero silhouette.",
+    description:
+      "Protect the head, then gradually reshape it into an aerodynamic argument.",
     icon: "◒",
     currency: "cash",
     baseCost: 60,
-    costScale: 2.2,
-    maxLevel: 4,
-    requiredStage: 2,
-    levelNames: [
-      "Road helmet",
+    costScale: 1.17,
+    maxLevel: 100,
+    milestones: deepMilestones([
       "Performance helmet",
       "Aero road helmet",
-      "Custom aero helmet",
-    ],
+      "Custom wind-tunnel lid",
+      "Personal atmospheric cone",
+    ]),
+    effects: {
+      pacePerLevel: 0.022,
+      roadSpeedPerLogLevel: 0.32,
+      windMitigationPerLogLevel: 0.03,
+    },
+    requiredStage: 2,
     tree: { x: 50, y: 28 },
   },
   {
     id: "skinsuit",
     branch: "equipment",
     name: "Race suit",
-    description: "A progressive path from fitted kit to full aero skinsuit.",
+    description:
+      "Remove wrinkles, seams, dignity, and finally most measurable drag.",
     icon: "♜",
     currency: "cash",
     baseCost: 90,
-    costScale: 2.35,
-    maxLevel: 4,
-    requiredStage: 2,
-    levelNames: [
-      "Fitted cycling kit",
+    costScale: 1.18,
+    maxLevel: 100,
+    milestones: deepMilestones([
       "Race-cut kit",
       "Skinsuit",
       "Custom aero suit",
-    ],
+      "Vacuum-sealed champion",
+    ]),
+    effects: {
+      pacePerLevel: 0.025,
+      roadSpeedPerLogLevel: 0.35,
+      windMitigationPerLogLevel: 0.025,
+    },
+    requiredStage: 2,
     tree: { x: 78, y: 52 },
+  },
+  {
+    id: "gravel-tires",
+    branch: "equipment",
+    name: "Gravel tires",
+    description:
+      "Turn the Périgord farm tracks from punishment into a shortcut.",
+    icon: "⊚",
+    currency: "cash",
+    baseCost: 55,
+    costScale: 1.16,
+    maxLevel: 50,
+    milestones: mediumMilestones([
+      "File-tread tires",
+      "Gravel race casing",
+      "All-surface tractor mode",
+    ]),
+    effects: {
+      pacePerLevel: 0.012,
+      handlingPerLogLevel: 0.05,
+      gravelMitigationPerLogLevel: 0.075,
+      potholeProtectionPerLogLevel: 0.025,
+    },
+    requiredStage: 2,
+    tree: { x: 88, y: 72 },
+  },
+  {
+    id: "suspension",
+    branch: "equipment",
+    name: "Micro-suspension",
+    description:
+      "First compliance, then travel, then a bicycle that laughs at farm roads.",
+    icon: "≋",
+    currency: "cash",
+    baseCost: 130,
+    costScale: 1.18,
+    maxLevel: 50,
+    milestones: mediumMilestones([
+      "Compliant cockpit",
+      "Gravel suspension",
+      "Paris-Dakar conversion",
+    ]),
+    effects: {
+      pacePerLevel: 0.015,
+      handlingPerLogLevel: 0.06,
+      gravelMitigationPerLogLevel: 0.06,
+      potholeProtectionPerLogLevel: 0.05,
+    },
+    requires: "gravel-tires",
+    requiredStage: 2,
+    tree: { x: 76, y: 92 },
   },
   {
     id: "domestique",
     branch: "team",
-    name: "Domestique",
-    description: "Adds drafting, pacing, and roadside support.",
+    name: "Domestique train",
+    description:
+      "Recruit helpers until the rider is escorted by a small cycling nation.",
     icon: "♟",
     currency: "cash",
-    baseCost: 350,
-    costScale: 2.8,
-    maxLevel: 3,
-    requiredStage: 5,
-    levelNames: [
-      "First domestique",
-      "Two-rider paceline",
+    baseCost: 260,
+    costScale: 1.2,
+    maxLevel: 50,
+    milestones: mediumMilestones([
       "Three-rider train",
-    ],
+      "World-tour squad",
+      "Entire peloton on payroll",
+    ]),
+    effects: {
+      pacePerLevel: 0.035,
+      cashPerLevel: 0.025,
+    },
+    requiredStage: 4,
     tree: { x: 50, y: 38 },
+  },
+  {
+    id: "mechanic",
+    branch: "team",
+    name: "Race mechanic",
+    description:
+      "Maintain the drivetrain and glare personally at every pothole.",
+    icon: "⚒",
+    currency: "cash",
+    baseCost: 180,
+    costScale: 1.18,
+    maxLevel: 50,
+    milestones: mediumMilestones([
+      "Team mechanic",
+      "Rolling service course",
+      "Mechanical omniscience",
+    ]),
+    effects: {
+      pacePerLevel: 0.018,
+      gravelMitigationPerLogLevel: 0.035,
+      potholeProtectionPerLogLevel: 0.065,
+    },
+    requiredStage: 4,
+    tree: { x: 20, y: 62 },
+  },
+  {
+    id: "sponsor",
+    branch: "team",
+    name: "Sponsor empire",
+    description:
+      "Sell jersey space, naming rights, and eventually weather itself.",
+    icon: "$",
+    currency: "cash",
+    baseCost: 220,
+    costScale: 1.19,
+    maxLevel: 100,
+    milestones: deepMilestones([
+      "Regional sponsor",
+      "Global campaign",
+      "Broadcast empire",
+      "Economy with a logo",
+    ]),
+    effects: {
+      pacePerLevel: 0.01,
+      cashPerLevel: 0.08,
+    },
+    requiredStage: 4,
+    tree: { x: 80, y: 62 },
+  },
+  {
+    id: "team-director",
+    branch: "team",
+    name: "Directeur sportif",
+    description:
+      "Coordinate pacing, bottles, tactics, and suspiciously precise tailwinds.",
+    icon: "♛",
+    currency: "cash",
+    baseCost: 420,
+    costScale: 1.21,
+    maxLevel: 50,
+    milestones: mediumMilestones([
+      "Team radio",
+      "Tactical command car",
+      "Omniscient race director",
+    ]),
+    effects: {
+      pacePerLevel: 0.04,
+      sweatPerLevel: 0.02,
+      cashPerLevel: 0.02,
+    },
+    requires: "domestique",
+    requiredStage: 5,
+    tree: { x: 50, y: 84 },
   },
 ];
 
@@ -354,4 +625,87 @@ export const upgradeCost = (
   currentLevel: number,
 ): number =>
   upgrade.costs?.[currentLevel] ??
-  Math.round(upgrade.baseCost * upgrade.costScale ** currentLevel);
+  Math.max(
+    1,
+    Math.round(upgrade.baseCost * upgrade.costScale ** currentLevel),
+  );
+
+export const upgradeBulkCost = (
+  upgrade: UpgradeDefinition,
+  currentLevel: number,
+  quantity: number,
+): number => {
+  const safeQuantity = Math.max(
+    0,
+    Math.min(
+      upgrade.maxLevel - currentLevel,
+      Math.floor(quantity),
+    ),
+  );
+  let total = 0;
+  for (let offset = 0; offset < safeQuantity; offset += 1) {
+    total += upgradeCost(upgrade, currentLevel + offset);
+  }
+  return total;
+};
+
+export const affordableUpgradeLevels = (
+  upgrade: UpgradeDefinition,
+  currentLevel: number,
+  balance: number,
+  quantity: PurchaseQuantity,
+): number => {
+  const requested =
+    quantity === "max"
+      ? upgrade.maxLevel - currentLevel
+      : Math.min(quantity, upgrade.maxLevel - currentLevel);
+  let total = 0;
+  let levels = 0;
+  while (levels < requested) {
+    const nextCost = upgradeCost(upgrade, currentLevel + levels);
+    if (total + nextCost > balance) break;
+    total += nextCost;
+    levels += 1;
+  }
+  return levels;
+};
+
+export const reachedMilestones = (
+  upgrade: UpgradeDefinition,
+  level: number,
+): UpgradeMilestone[] =>
+  (upgrade.milestones ?? []).filter(
+    (milestone) => level >= milestone.level,
+  );
+
+export const upgradeMilestoneMultiplier = (
+  upgrade: UpgradeDefinition,
+  level: number,
+): number =>
+  reachedMilestones(upgrade, level).reduce(
+    (multiplier, milestone) => multiplier * milestone.multiplier,
+    1,
+  );
+
+export const nextUpgradeMilestone = (
+  upgrade: UpgradeDefinition,
+  level: number,
+): UpgradeMilestone | undefined =>
+  upgrade.milestones?.find((milestone) => milestone.level > level);
+
+export const upgradeEffectMultiplier = (
+  upgrade: UpgradeDefinition,
+  level: number,
+  effect: "pacePerLevel" | "sweatPerLevel" | "cashPerLevel",
+): number => {
+  if (level <= 0) return 1;
+  const perLevel = upgrade.effects[effect] ?? 0;
+  if (perLevel <= 0) return 1;
+  return (
+    (1 + perLevel * level) *
+    upgradeMilestoneMultiplier(upgrade, level)
+  );
+};
+
+export const logarithmicUpgradeLevel = (level: number): number =>
+  Math.log2(1 + Math.max(0, level));

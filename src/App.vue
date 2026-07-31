@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import GameCanvas from "./components/GameCanvas.vue";
+import PalmaresPanel from "./components/PalmaresPanel.vue";
 import UpgradeGraph from "./components/UpgradeGraph.vue";
 import {
   courseRecordForStage,
@@ -10,6 +11,7 @@ import {
   stages,
   type RaceResults,
 } from "./core/gameStore";
+import { formatCompactNumber, formatMultiplier } from "./core/format";
 import { formatRaceTime } from "./core/timeTrial";
 import { readVisualQaOverrides } from "./game/visualQa";
 
@@ -65,6 +67,7 @@ const displayedStageDistanceM = computed(() =>
     : displayedStage.value.distanceM * displayedStageProgress.value,
 );
 const workshopOpen = ref(false);
+const workshopTab = ref<"career" | "palmares">("career");
 const resetConfirmationOpen = ref(false);
 const manuallyPaused = ref(visualQa.paused);
 const ridePaused = computed(
@@ -127,6 +130,11 @@ const raceDeltaLabel = computed(() => {
   if (Math.abs(delta) < 0.05) return "Record pace";
   return `${Math.abs(delta).toFixed(1)}s ${delta < 0 ? "ahead" : "behind"}`;
 });
+const displayedPendingPalmares = computed(() =>
+  visualQa.finished && !snapshot.value.raceFinished
+    ? 10
+    : snapshot.value.pendingPalmares,
+);
 const speedGaugeRatio = computed(() =>
   Math.min(1, Math.max(0, snapshot.value.stats.speedKmh / 48)),
 );
@@ -158,10 +166,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(noticeTimer);
 });
 
-const format = (value: number): string =>
-  new Intl.NumberFormat("en", {
-    maximumFractionDigits: 0,
-  }).format(value);
+const format = (value: number): string => formatCompactNumber(value);
 
 const openWorkshop = (): void => {
   if (displayedRaceFinished.value) return;
@@ -203,8 +208,13 @@ const activatePowerUp = (): void => {
   if (!ridePaused.value) gameStore.activateReservedPowerUp();
 };
 
-const restartRace = (): void => {
-  gameStore.restartRace();
+const continueTour = (): void => {
+  gameStore.continueTour();
+  manuallyPaused.value = false;
+};
+
+const startNextSeason = (): void => {
+  gameStore.startNextSeason();
   manuallyPaused.value = false;
 };
 
@@ -260,6 +270,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                   :class="{ active: segment <= speedGaugeSegments }"
                 ></span>
               </div>
+              <b class="effective-pace">
+                Tour pace
+                {{ format(snapshot.stats.effectivePaceKmh) }} km/h
+                <i>{{ formatMultiplier(snapshot.stats.paceMultiplier) }}</i>
+              </b>
               <small>{{ gradeLabel }} · {{ windLabel }}</small>
             </div>
           </section>
@@ -267,7 +282,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           <div class="hud-title">
             <div class="hud-title-plaque">
               <small>
-                Tour {{ snapshot.tourNumber }} · Sector
+                Season {{ snapshot.season }} · Tour {{ snapshot.tourNumber }} ·
+                Sector
                 {{ displayedStage.number }} /
                 {{ stages.length }}
               </small>
@@ -279,7 +295,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                 <i aria-hidden="true">→</i>
                 {{ displayedStage.finish }}
               </strong>
-              <small>{{ displayedStage.name }}</small>
+              <small>
+                {{ displayedStage.name }}
+                <template v-if="displayedStage.surface === 'gravel'">
+                  · GRAVEL
+                </template>
+              </small>
             </div>
           </div>
 
@@ -391,7 +412,11 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             </span>
           </div>
 
-          <div class="hud-tray" aria-label="Resources and power-up reserve">
+          <div
+            class="hud-tray"
+            :class="{ 'has-palmares': snapshot.totalPalmares > 0 }"
+            aria-label="Resources and power-up reserve"
+          >
             <div
               class="hud-tray-slot"
               :aria-label="`Sweat balance: ${format(snapshot.sweat)}`"
@@ -427,6 +452,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             >
               <img src="/assets/art/bag-cash.png" alt="" aria-hidden="true" />
               <strong>{{ format(snapshot.cash) }}</strong>
+            </div>
+            <div
+              v-if="snapshot.totalPalmares > 0"
+              class="hud-tray-slot hud-palmares-slot"
+              :aria-label="`Palmarès balance: ${format(snapshot.palmares)}`"
+            >
+              <span aria-hidden="true">★</span>
+              <strong>{{ format(snapshot.palmares) }}</strong>
             </div>
           </div>
 
@@ -473,6 +506,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                   />
                   <strong>{{ format(snapshot.cash) }}</strong>
                 </span>
+                <span
+                  v-if="snapshot.totalPalmares > 0"
+                  class="workshop-palmares"
+                  :aria-label="`Palmarès balance: ${format(snapshot.palmares)}`"
+                >
+                  <b aria-hidden="true">★</b>
+                  <strong>{{ format(snapshot.palmares) }}</strong>
+                </span>
               </div>
               <button
                 type="button"
@@ -483,7 +524,30 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                 Resume ride <kbd>Esc</kbd>
               </button>
             </header>
-            <UpgradeGraph :snapshot="snapshot" />
+            <nav class="workshop-tabs" aria-label="Workshop sections">
+              <button
+                type="button"
+                :class="{ active: workshopTab === 'career' }"
+                @click="workshopTab = 'career'"
+              >
+                This Season
+              </button>
+              <button
+                type="button"
+                :class="{ active: workshopTab === 'palmares' }"
+                @click="workshopTab = 'palmares'"
+              >
+                Palmarès
+                <span v-if="snapshot.palmares > 0">
+                  ★ {{ format(snapshot.palmares) }}
+                </span>
+              </button>
+            </nav>
+            <UpgradeGraph
+              v-if="workshopTab === 'career'"
+              :snapshot="snapshot"
+            />
+            <PalmaresPanel v-else :snapshot="snapshot" />
           </section>
         </div>
       </Transition>
@@ -497,7 +561,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           aria-labelledby="race-results-title"
         >
           <section class="race-results-window">
-            <p class="eyebrow">Tour complete</p>
+            <p class="eyebrow">
+              Season {{ snapshot.season }} · Tour {{ snapshot.tourNumber }}
+              complete
+            </p>
             <h2 id="race-results-title">Alpe d'Huez finish</h2>
             <div class="race-result-summary">
               <span>
@@ -515,6 +582,27 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               <b :class="{ ahead: displayedRaceResults.deltaSeconds < 0 }">
                 {{ raceDeltaLabel }}
               </b>
+            </div>
+
+            <div class="season-reward">
+              <span aria-hidden="true">★</span>
+              <div>
+                <small>Start the next Season now</small>
+                <strong>+{{ format(displayedPendingPalmares) }} Palmarès</strong>
+                <p>
+                  Permanent pace becomes
+                  {{
+                    formatMultiplier(
+                      snapshot.stats.palmaresMultiplier *
+                        (1 +
+                          displayedPendingPalmares /
+                            Math.max(1, 10 + snapshot.totalPalmares)),
+                    )
+                  }}.
+                  Or keep this build and complete another Tour for a larger
+                  reward.
+                </p>
+              </div>
             </div>
 
             <h3>Final leaderboard</h3>
@@ -542,13 +630,23 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               </li>
             </ol>
 
-            <button
-              type="button"
-              class="race-restart"
-              @click="restartRace"
-            >
-              Ride again
-            </button>
+            <div class="season-actions">
+              <button
+                type="button"
+                class="race-restart race-victory-lap"
+                @click="continueTour"
+              >
+                Victory lap · keep everything
+              </button>
+              <button
+                type="button"
+                class="race-restart race-next-season"
+                @click="startNextSeason"
+              >
+                Start Season {{ snapshot.season + 1 }} ·
+                +{{ format(displayedPendingPalmares) }} ★
+              </button>
+            </div>
           </section>
         </div>
       </Transition>

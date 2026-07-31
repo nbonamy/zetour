@@ -3122,3 +3122,537 @@ kbd {
     width: 35%;
   }
 }
+
+/* Incremental Seasons */
+
+.hud-speed-copy {
+  gap: 3px;
+}
+
+.effective-pace {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: #f3cf4f;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px;
+  letter-spacing: 0.035em;
+  line-height: 1;
+  text-shadow: 0 1px 0 #160d09;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.effective-pace i {
+  padding: 2px 4px;
+  border: 1px solid #a87725;
+  border-radius: 999px;
+  background: rgba(227, 173, 50, 0.14);
+  color: #ffe991;
+  font-style: normal;
+}
+
+.hud-tray.has-palmares {
+  width: min(485px, 52%);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hud-palmares-slot > span {
+  color: #c58c1f;
+  font-size: 48px;
+  line-height: 1;
+  text-shadow:
+    0 2px 0 #70411f,
+    0 0 12px rgba(241, 193, 65, 0.42);
+}
+
+.workshop-tabs {
+  display: flex;
+  gap: 7px;
+  padding: 7px 16px 0;
+  border-bottom: 3px solid #38241c;
+  background: rgba(83, 49, 32, 0.12);
+}
+
+.workshop-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px 9px;
+  transform: translateY(3px);
+  border: 3px solid #5a3927;
+  border-bottom: 0;
+  border-radius: 12px 9px 0 0;
+  background: rgba(201, 169, 105, 0.55);
+  color: #684632;
+  font: 800 13px/1 Georgia, "Times New Roman", serif;
+  cursor: pointer;
+}
+
+.workshop-tabs button.active {
+  background: #3d281e;
+  color: #ffe4a7;
+}
+
+.workshop-tabs button span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #c48b24;
+  color: #2f1b12;
+  font-size: 10px;
+}
+
+.workshop-palmares b {
+  color: #b57a19;
+  font-size: 25px;
+}
+
+.tree-node .node-main > small {
+  color: color-mix(in srgb, var(--branch-color) 76%, #38241c);
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.tree-node .node-progress {
+  gap: 3px;
+}
+
+.tree-node .node-progress-segment {
+  min-width: 7px;
+  border-radius: 999px;
+}
+
+.milestone-banner {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 2px solid #765039;
+  border-radius: 10px 7px 11px 8px;
+  background: rgba(124, 139, 68, 0.18);
+}
+
+.milestone-banner span {
+  color: #80624a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.milestone-banner strong {
+  color: #4f5f2a;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.milestone-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.milestone-track span {
+  display: grid;
+  min-height: 24px;
+  place-items: center;
+  border-radius: 7px;
+  color: #6e523e;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.milestone-track span.filled {
+  color: #fff2c8;
+}
+
+.buy-quantity {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.buy-quantity button {
+  padding: 6px;
+  border: 2px solid #75513a;
+  border-radius: 8px 6px 9px 6px;
+  background: rgba(234, 211, 161, 0.7);
+  color: #5f3e2d;
+  font: 900 11px/1 Georgia, "Times New Roman", serif;
+  cursor: pointer;
+}
+
+.buy-quantity button.active {
+  background: #4b3023;
+  color: #ffe4aa;
+}
+
+.palmares-panel {
+  min-height: 0;
+  padding: 18px;
+  overflow: auto;
+  background:
+    linear-gradient(rgba(250, 231, 184, 0.78), rgba(221, 187, 124, 0.76)),
+    url("/assets/art/paper-texture.jpg");
+  color: #42291e;
+}
+
+.palmares-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 4px solid #452a1d;
+  border-radius: 18px 13px 19px 12px;
+  background:
+    linear-gradient(rgba(68, 42, 29, 0.96), rgba(43, 27, 21, 0.98)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow: 0 5px 0 #8a552e;
+  color: #ffe9b4;
+}
+
+.palmares-medallion {
+  display: grid;
+  width: 74px;
+  height: 74px;
+  place-items: center;
+  border: 5px solid #1f120d;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #ffe77e, #d4911e 56%, #79451d);
+  box-shadow:
+    inset 0 0 0 3px #f4c34b,
+    0 4px 0 #130a07;
+  color: #5d3518;
+  font-size: 39px;
+}
+
+.palmares-hero h3 {
+  margin: 1px 0 5px;
+  font: 900 29px/1 Georgia, "Times New Roman", serif;
+}
+
+.palmares-hero p {
+  max-width: 650px;
+  margin: 0;
+  color: #e7cfa2;
+  font-size: 12px;
+}
+
+.palmares-balance {
+  display: grid;
+  min-width: 135px;
+  justify-items: end;
+}
+
+.palmares-balance small,
+.palmares-summary small,
+.palmares-card small {
+  color: #a77842;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.palmares-balance strong {
+  color: #ffd659;
+  font: 900 35px/1 Georgia, "Times New Roman", serif;
+}
+
+.palmares-balance span {
+  color: #dbc18f;
+  font-size: 9px;
+}
+
+.palmares-locked {
+  display: grid;
+  max-width: 540px;
+  justify-items: center;
+  gap: 8px;
+  margin: 70px auto;
+  text-align: center;
+}
+
+.palmares-locked > span {
+  color: #a26d28;
+  font-size: 60px;
+}
+
+.palmares-locked h4 {
+  margin: 0;
+  font: 900 22px/1.1 Georgia, "Times New Roman", serif;
+}
+
+.palmares-locked p {
+  margin: 0;
+  color: #76543e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.palmares-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.palmares-summary > span {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 2px solid #73503a;
+  border-radius: 10px 7px 11px 8px;
+  background: rgba(255, 239, 198, 0.48);
+}
+
+.palmares-summary strong {
+  font: 900 18px/1 Georgia, "Times New Roman", serif;
+}
+
+.palmares-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.palmares-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 11px;
+  border: 3px solid #62402d;
+  border-radius: 14px 10px 15px 9px;
+  background: rgba(255, 237, 194, 0.55);
+  box-shadow: 0 3px 0 rgba(107, 64, 38, 0.45);
+}
+
+.palmares-card.complete {
+  border-color: #778545;
+  background: rgba(213, 219, 158, 0.5);
+}
+
+.palmares-card-icon {
+  display: grid;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border: 2px solid #4b2e20;
+  border-radius: 50%;
+  background: #e2b758;
+  color: #47291b;
+  font-size: 23px;
+}
+
+.palmares-card h4 {
+  margin: 2px 0 3px;
+  font: 900 16px/1 Georgia, "Times New Roman", serif;
+}
+
+.palmares-card p {
+  margin: 0;
+  color: #73503c;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.palmares-card button,
+.automation-switch button {
+  min-width: 64px;
+  padding: 8px 10px;
+  border: 2px solid #41271b;
+  border-radius: 9px 7px 10px 6px;
+  background: #d9a431;
+  color: #3c2419;
+  font: 900 12px/1 Georgia, "Times New Roman", serif;
+  cursor: pointer;
+}
+
+.palmares-card button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.automation-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 13px;
+  padding: 12px 14px;
+  border: 3px solid #4e3224;
+  border-radius: 13px 9px 14px 8px;
+  background: rgba(65, 41, 29, 0.88);
+  color: #ffe7b0;
+}
+
+.automation-switch div {
+  display: grid;
+  gap: 3px;
+}
+
+.automation-switch small {
+  color: #dec699;
+  font-size: 10px;
+}
+
+.automation-switch button {
+  background: #9d7042;
+}
+
+.automation-switch button.active {
+  background: #a7b557;
+}
+
+.season-reward {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 13px 0;
+  padding: 12px 14px;
+  border: 3px solid #86571f;
+  border-radius: 14px 10px 15px 9px;
+  background: linear-gradient(135deg, rgba(255, 224, 113, 0.4), rgba(183, 119, 28, 0.18));
+}
+
+.season-reward > span {
+  color: #c4871c;
+  font-size: 45px;
+  text-shadow: 0 2px 0 #744019;
+}
+
+.season-reward div {
+  display: grid;
+  gap: 2px;
+}
+
+.season-reward small {
+  color: #765039;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.season-reward strong {
+  color: #6f441e;
+  font: 900 22px/1 Georgia, "Times New Roman", serif;
+}
+
+.season-reward p {
+  margin: 2px 0 0;
+  color: #76513a;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.season-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 9px;
+}
+
+.race-victory-lap {
+  background: #ead09a;
+  color: #4b3023;
+}
+
+.race-next-season {
+  background: linear-gradient(#e9bd3e, #c9841f);
+  color: #352014;
+}
+
+@container ride (max-width: 900px) {
+  .effective-pace {
+    font-size: 7px;
+  }
+
+  .effective-pace i {
+    padding: 1px 3px;
+  }
+
+  .hud-tray.has-palmares {
+    width: min(380px, 52%);
+  }
+
+  .hud-palmares-slot > span {
+    font-size: 35px;
+  }
+}
+
+@container ride (max-width: 620px) {
+  .effective-pace {
+    font-size: 5.5px;
+  }
+
+  .effective-pace i {
+    display: none;
+  }
+
+  .hud-tray.has-palmares {
+    left: 51%;
+    width: 48%;
+  }
+}
+
+@media (max-width: 760px) {
+  .workshop-tabs {
+    padding-inline: 8px;
+  }
+
+  .workshop-tabs button {
+    padding-inline: 10px;
+    font-size: 11px;
+  }
+
+  .palmares-panel {
+    padding: 10px;
+  }
+
+  .palmares-hero {
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .palmares-medallion {
+    width: 52px;
+    height: 52px;
+    font-size: 28px;
+  }
+
+  .palmares-balance {
+    grid-column: 1 / -1;
+    grid-template-columns: auto auto;
+    justify-content: start;
+    gap: 6px;
+  }
+
+  .palmares-balance strong {
+    font-size: 25px;
+  }
+
+  .palmares-balance span {
+    grid-column: 1 / -1;
+  }
+
+  .palmares-summary,
+  .palmares-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .palmares-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .palmares-card button {
+    grid-column: 1 / -1;
+  }
+
+  .season-actions {
+    grid-template-columns: 1fr;
+  }
+}

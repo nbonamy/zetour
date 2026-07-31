@@ -4,10 +4,15 @@ import {
   branchLabels,
   branchUnlockStages,
   type Branch,
+  type PurchaseQuantity,
   type UpgradeDefinition,
+  nextUpgradeMilestone,
+  reachedMilestones,
   upgradeById,
+  upgradeEffectMultiplier,
   upgradesByBranch,
 } from "../core/upgrades";
+import { formatCompactNumber, formatMultiplier } from "../core/format";
 import { gameStore, type GameSnapshot } from "../core/gameStore";
 import {
   axialHexPosition,
@@ -21,10 +26,11 @@ const props = defineProps<{
 type NodeVisibility = "revealed" | "mystery" | "hidden";
 
 const selectedId = ref<string | null>(null);
+const purchaseQuantity = ref<PurchaseQuantity>(1);
 const viewport = ref<HTMLElement | null>(null);
 const dragging = ref(false);
-const world = { width: 1_000, height: 700 };
-const center = { x: 500, y: 350 };
+const world = { width: 1_200, height: 820 };
+const center = { x: 600, y: 410 };
 const HEX_WIDTH = 108;
 const HEX_HEIGHT = regularFlatTopHexHeight(HEX_WIDTH);
 const HEX_GAP = 4;
@@ -48,6 +54,7 @@ const nodePositions: Record<string, { x: number; y: number }> = {
   shifting: hexPosition(-3, 2),
   wheels: hexPosition(-4, 1),
   brakes: hexPosition(-4, 3),
+  "chain-lube": hexPosition(-2, 2),
   endurance: hexPosition(-1, -1),
   power: hexPosition(0, -2),
   technique: hexPosition(1, -2),
@@ -57,7 +64,12 @@ const nodePositions: Record<string, { x: number; y: number }> = {
   "aero-socks": hexPosition(2, 0),
   helmet: hexPosition(2, -1),
   skinsuit: hexPosition(1, 1),
+  "gravel-tires": hexPosition(3, 0),
+  suspension: hexPosition(3, 1),
   domestique: hexPosition(0, 2),
+  mechanic: hexPosition(-1, 2),
+  sponsor: hexPosition(1, 2),
+  "team-director": hexPosition(0, 3),
 };
 const branches = Object.keys(branchLabels) as Branch[];
 
@@ -94,25 +106,54 @@ const selectedStatus = computed(() => {
   void snapshot.sweat;
   void snapshot.cash;
   void snapshot.upgrades[upgrade.id];
-  return gameStore.purchaseStatus(upgrade);
+  return gameStore.purchaseStatus(upgrade, purchaseQuantity.value);
 });
-const nextLevelName = computed(() => {
-  if (!selected.value) return "";
-  return (
-    selected.value.levelNames?.[level(selected.value)] ??
-    selected.value.name
-  );
+const currentMilestone = computed(() => {
+  if (!selected.value) return undefined;
+  return reachedMilestones(selected.value, level(selected.value)).at(-1);
 });
+const nextMilestone = computed(() =>
+  selected.value
+    ? nextUpgradeMilestone(selected.value, level(selected.value))
+    : undefined,
+);
 const installedLevelName = computed(() => {
-  if (!selected.value || level(selected.value) === 0) return "None";
-  return (
-    selected.value.levelNames?.[level(selected.value) - 1] ??
-    `Level ${level(selected.value)}`
-  );
+  if (!selected.value || level(selected.value) === 0) return "Not started";
+  return currentMilestone.value?.label ?? `Level ${level(selected.value)}`;
+});
+const effectSummary = computed(() => {
+  const upgrade = selected.value;
+  if (!upgrade) return "";
+  const currentLevel = level(upgrade);
+  const effects = [
+    upgrade.effects.pacePerLevel
+      ? `Pace ${formatMultiplier(
+          upgradeEffectMultiplier(upgrade, currentLevel, "pacePerLevel"),
+        )}`
+      : "",
+    upgrade.effects.sweatPerLevel
+      ? `Sweat ${formatMultiplier(
+          upgradeEffectMultiplier(upgrade, currentLevel, "sweatPerLevel"),
+        )}`
+      : "",
+    upgrade.effects.cashPerLevel
+      ? `Cash ${formatMultiplier(
+          upgradeEffectMultiplier(upgrade, currentLevel, "cashPerLevel"),
+        )}`
+      : "",
+  ].filter(Boolean);
+  return effects.join(" · ") || "Handling and reliability";
 });
 
+const nodeMarkers = (upgrade: UpgradeDefinition) =>
+  upgrade.milestones?.length
+    ? upgrade.milestones
+    : [{ level: upgrade.maxLevel, multiplier: 1, label: "Installed" }];
+
 const formatCost = (upgrade: UpgradeDefinition, cost: number): string =>
-  upgrade.currency === "cash" ? `$${cost}` : `${cost} Sweat`;
+  upgrade.currency === "cash"
+    ? `$${formatCompactNumber(cost)}`
+    : `${formatCompactNumber(cost)} Sweat`;
 
 watch(
   () => props.snapshot.upgrades,
@@ -131,7 +172,9 @@ const activateNode = (upgrade: UpgradeDefinition): void => {
 };
 
 const buySelected = (): void => {
-  if (selected.value) gameStore.purchase(selected.value);
+  if (selected.value) {
+    gameStore.purchase(selected.value, purchaseQuantity.value);
+  }
 };
 
 const centerViewport = async (): Promise<void> => {
@@ -204,7 +247,7 @@ onMounted(centerViewport);
           :style="{ left: `${center.x}px`, top: `${center.y}px` }"
         >
           <span>◆</span>
-          <strong>Cycling career</strong>
+          <strong>Season {{ snapshot.season }}</strong>
         </div>
 
         <div
@@ -269,23 +312,22 @@ onMounted(centerViewport);
             <span class="node-label">
               {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
             </span>
+            <small v-if="visibility(node) === 'revealed'">
+              Lv {{ level(node) }}
+            </small>
           </span>
           <span
             v-if="visibility(node) === 'revealed'"
             class="node-progress"
             :aria-label="`Level ${level(node)} of ${node.maxLevel}`"
           >
-            <span v-if="level(node) >= node.maxLevel" class="node-complete-mark">
-              ✓
-            </span>
-            <template v-else>
-              <span
-                v-for="index in node.maxLevel"
-                :key="index"
-                class="node-progress-segment"
-                :class="{ filled: index <= level(node) }"
-              ></span>
-            </template>
+            <span
+              v-for="marker in nodeMarkers(node)"
+              :key="marker.level"
+              class="node-progress-segment"
+              :class="{ filled: marker.level <= level(node) }"
+              :title="`${marker.label} at Level ${marker.level}`"
+            ></span>
           </span>
         </button>
       </div>
@@ -300,17 +342,30 @@ onMounted(centerViewport);
       <template v-if="selected && selectedVisibility === 'revealed'">
         <div class="detail-kicker">
           <span>{{ selected.icon }}</span>
-          {{ branchLabels[selected.branch] }} upgrade
+          {{ branchLabels[selected.branch] }} · {{ effectSummary }}
         </div>
         <h3>{{ selected.name }}</h3>
         <p>{{ selected.description }}</p>
 
-        <div class="level-track" aria-label="Upgrade level">
+        <div
+          v-if="currentMilestone"
+          class="milestone-banner"
+        >
+          <span>Current breakthrough</span>
+          <strong>
+            {{ currentMilestone.label }}
+            {{ formatMultiplier(currentMilestone.multiplier) }}
+          </strong>
+        </div>
+
+        <div class="level-track milestone-track" aria-label="Upgrade milestones">
           <span
-            v-for="index in selected.maxLevel"
-            :key="index"
-            :class="{ filled: index <= level(selected) }"
-          ></span>
+            v-for="marker in nodeMarkers(selected)"
+            :key="marker.level"
+            :class="{ filled: marker.level <= level(selected) }"
+          >
+            {{ marker.level }}
+          </span>
         </div>
 
         <dl>
@@ -318,11 +373,12 @@ onMounted(centerViewport);
             <dt>Installed</dt>
             <dd>{{ installedLevelName }}</dd>
           </div>
-          <div v-if="level(selected) < selected.maxLevel">
-            <dt>Next level</dt>
-            <dd>{{ nextLevelName }}</dd>
+          <div v-if="nextMilestone">
+            <dt>Next breakthrough</dt>
+            <dd>{{ nextMilestone.label }}</dd>
             <dd class="next-level-cost">
-              {{ formatCost(selected, selectedStatus?.cost ?? 0) }}
+              Level {{ nextMilestone.level }} ·
+              {{ formatMultiplier(nextMilestone.multiplier) }}
             </dd>
           </div>
           <div>
@@ -330,6 +386,22 @@ onMounted(centerViewport);
             <dd>{{ level(selected) }} / {{ selected.maxLevel }}</dd>
           </div>
         </dl>
+
+        <div
+          v-if="level(selected) < selected.maxLevel"
+          class="buy-quantity"
+          aria-label="Purchase quantity"
+        >
+          <button
+            v-for="quantity in ([1, 10, 'max'] as const)"
+            :key="quantity"
+            type="button"
+            :class="{ active: purchaseQuantity === quantity }"
+            @click="purchaseQuantity = quantity"
+          >
+            {{ quantity === "max" ? "MAX" : `+${quantity}` }}
+          </button>
+        </div>
 
         <button
           type="button"
@@ -341,7 +413,8 @@ onMounted(centerViewport);
             Fully upgraded
           </template>
           <template v-else-if="selectedStatus?.available">
-            Upgrade · {{ formatCost(selected, selectedStatus.cost) }}
+            Buy +{{ selectedStatus.levels }} ·
+            {{ formatCost(selected, selectedStatus.cost) }}
           </template>
           <template v-else>
             {{ selectedStatus?.reason }}
@@ -356,11 +429,12 @@ onMounted(centerViewport);
       </template>
 
       <template v-else>
-        <div class="detail-kicker">Career progression</div>
+        <div class="detail-kicker">Compounding career</div>
         <h3>Select a node</h3>
         <p>
-          Explore Rider, Nutrition, Bike, Equipment, and Team from the central
-          career node. Unknown bonuses reveal as you purchase their parent.
+          Every branch multiplies the others. Push nodes to Levels 10, 25, 50,
+          and 100 for the breakthroughs that turn a bicycle into an economic
+          incident.
         </p>
       </template>
     </aside>

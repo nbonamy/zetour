@@ -302,7 +302,8 @@ export class GameScene extends Phaser.Scene {
       this.pickups,
       scrollSpeed,
       delta,
-      activePowerUpDefinition?.pickupMagnet ?? false,
+      (activePowerUpDefinition?.pickupMagnet ?? false) ||
+        snapshot.stats.pickupMagnet,
     );
     this.updateRoadObjects(this.hazards, scrollSpeed, delta);
     this.updateFlow(delta, snapshot.stats.flowDecayPerSecond);
@@ -405,6 +406,7 @@ export class GameScene extends Phaser.Scene {
     this.riderFrame = false;
     this.lastSteerAt = 0;
     this.flow = 0;
+    gameStore.setActiveFlowMultiplier(1);
     this.combo = 0;
     this.lastFlowActionAt = this.time.now;
     this.flowBar.width = 0;
@@ -612,8 +614,13 @@ export class GameScene extends Phaser.Scene {
     this.sceneryStage = stage.number;
     const stageNumber = Phaser.Math.Clamp(stage.number, 1, 5);
     this.scenery.setTexture(`stage-${stageNumber}`);
+    this.roadTexture.setTint(
+      stage.surface === "gravel" ? 0xb48860 : 0xd1b998,
+    );
     this.showEncounter(
-      `${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`,
+      stage.surface === "gravel"
+        ? `GRAVEL SECTOR · ${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`
+        : `${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`,
       2_400,
     );
   }
@@ -935,12 +942,8 @@ export class GameScene extends Phaser.Scene {
       this.clearPowerUpChoice(object.powerUpChoiceId);
       return;
     }
-    const multiplier = flowMultiplier(this.flow);
     const bagType = object.eventType === "sweat" ? "sweat" : "cash";
-    const amount = gameStore.collectBag(
-      bagType,
-      multiplier,
-    );
+    const amount = gameStore.collectBag(bagType);
     this.rewardFlow(10, `COMBO ${this.combo + 1}`);
     this.floatText(
       object.x,
@@ -1018,6 +1021,7 @@ export class GameScene extends Phaser.Scene {
 
     const lost = gameStore.hitPothole();
     this.flow = 0;
+    gameStore.setActiveFlowMultiplier(1);
     this.combo = 0;
     this.lastFlowActionAt = this.time.now;
     this.floatText(object.x, object.y - 18, `-$${lost}`, "#ff8d7d");
@@ -1149,6 +1153,7 @@ export class GameScene extends Phaser.Scene {
       if (this.flow === 0) this.combo = 0;
     }
     const multiplier = flowMultiplier(this.flow);
+    gameStore.setActiveFlowMultiplier(multiplier);
     this.flowBar.width = (this.flow / 100) * FLOW_TRACK_WIDTH;
     const draftTimer = this.drafting
       ? ` · DRAFT +${RANDOM_RIDER_DRAFT_PERCENT}% ${Math.ceil(this.draftTimeRemaining)}s`

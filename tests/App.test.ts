@@ -209,7 +209,7 @@ describe("App", () => {
     app.unmount();
   });
 
-  it("shows the final leaderboard and starts a completely fresh ride", async () => {
+  it("shows the final leaderboard and starts a rewarded next Season", async () => {
     for (
       let index = 0;
       index < 30_000 && !gameStore.getSnapshot().raceFinished;
@@ -227,14 +227,16 @@ describe("App", () => {
     if (!host) throw new Error("Missing test host");
     app.mount(host);
 
-    expect(document.body.textContent).toContain("Tour complete");
+    expect(document.body.textContent).toContain("Season 1");
     expect(document.body.textContent).toContain("Alpe d'Huez");
     expect(document.body.textContent).toContain("Final leaderboard");
-    expect(document.body.textContent).toContain("Ride again");
+    expect(document.body.textContent).toContain("Victory lap");
+    expect(document.body.textContent).toContain("Start Season 2");
+    expect(document.body.textContent).toContain("+10 Palmarès");
     expect(componentState.paused).toBe(true);
 
     document
-      .querySelector<HTMLButtonElement>(".race-restart")
+      .querySelector<HTMLButtonElement>(".race-next-season")
       ?.click();
     await nextTick();
 
@@ -243,12 +245,15 @@ describe("App", () => {
     expect(restarted.stage).toBe(1);
     expect(restarted.highestStage).toBe(1);
     expect(restarted.tourNumber).toBe(1);
+    expect(restarted.season).toBe(2);
+    expect(restarted.palmares).toBe(10);
+    expect(restarted.totalPalmares).toBe(10);
     expect(restarted.sweat).toBe(0);
     expect(restarted.cash).toBe(0);
     expect(restarted.distanceM).toBe(0);
     expect(restarted.upgrades).toEqual({});
     expect(restarted.reservedPowerUp).toBeNull();
-    expect(restarted.sectorRecords).toEqual({});
+    expect(Object.keys(restarted.sectorRecords)).toHaveLength(5);
     expect(componentState.paused).toBe(false);
     app.unmount();
   });

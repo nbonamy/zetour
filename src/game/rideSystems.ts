@@ -236,7 +236,7 @@ export const clampFlow = (flow: number): number =>
   Math.max(0, Math.min(100, flow));
 
 export const flowMultiplier = (flow: number): number =>
-  1 + Math.floor(clampFlow(flow) / 20) * 0.2;
+  1 + Math.floor(clampFlow(flow) / 20) * 0.4;
 
 export const addFlow = (flow: number, amount: number): number =>
   clampFlow(flow + amount);

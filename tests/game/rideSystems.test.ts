@@ -78,9 +78,9 @@ describe("active ride systems", () => {
 
   it("builds Flow into a capped reward multiplier", () => {
     expect(flowMultiplier(0)).toBe(1);
-    expect(flowMultiplier(20)).toBe(1.2);
-    expect(flowMultiplier(67)).toBe(1.6);
-    expect(flowMultiplier(100)).toBe(2);
+    expect(flowMultiplier(20)).toBe(1.4);
+    expect(flowMultiplier(67)).toBe(2.2);
+    expect(flowMultiplier(100)).toBe(3);
     expect(addFlow(94, 15)).toBe(100);
     expect(decayFlow(10, 1)).toBe(5);
   });

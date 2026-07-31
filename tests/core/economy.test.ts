@@ -1,51 +1,62 @@
 import { describe, expect, it } from "vitest";
-import { bagRewardForStage } from "../../src/core/economy";
-import { upgradeCost, upgrades } from "../../src/core/upgrades";
+import {
+  BAG_PRODUCTION_SECONDS,
+  bagRewardForRate,
+} from "../../src/core/economy";
+import {
+  upgradeBulkCost,
+  upgradeById,
+} from "../../src/core/upgrades";
 import { createTestStore } from "../helpers/createTestStore";
 
-describe("economy balance", () => {
-  it("keeps Sweat bags meaningful while Cash remains the larger reward", () => {
-    expect(
-      [1, 2, 3, 4, 5].map((stage) =>
-        bagRewardForStage("sweat", stage),
-      ),
-    ).toEqual([8, 13, 18, 24, 30]);
-    expect(
-      [1, 2, 3, 4, 5].map((stage) =>
-        bagRewardForStage("cash", stage),
-      ),
-    ).toEqual([18, 26, 34, 42, 50]);
+const upgrade = (id: string) => {
+  const definition = upgradeById(id);
+  if (!definition) throw new Error(`Missing upgrade ${id}`);
+  return definition;
+};
+
+describe("incremental economy", () => {
+  it("values bags as time at the current production rate", () => {
+    expect(BAG_PRODUCTION_SECONDS).toEqual({
+      sweat: 20,
+      cash: 30,
+    });
+    expect(bagRewardForRate("sweat", 2)).toBe(40);
+    expect(bagRewardForRate("cash", 2)).toBe(60);
+    expect(bagRewardForRate("cash", 2, 1.5)).toBe(90);
   });
 
-  it("applies Flow after calculating the stage reward", () => {
-    expect(bagRewardForStage("sweat", 1, 1.6)).toBe(13);
-    expect(bagRewardForStage("cash", 1, 1.6)).toBe(29);
-  });
-
-  it("keeps starter passive income rates in the same order of magnitude", () => {
+  it("keeps starter income high enough for a purchase inside a minute", () => {
     const { stats } = createTestStore().store.getSnapshot();
     const sweatPerMinute = stats.sweatPerSecond * 60;
     const cashPerMinute = stats.cashPerSecond * 60;
 
-    expect(sweatPerMinute).toBeGreaterThanOrEqual(8);
-    expect(sweatPerMinute).toBeLessThanOrEqual(11);
-    expect(cashPerMinute).toBeGreaterThanOrEqual(8);
-    expect(cashPerMinute).toBeLessThanOrEqual(11);
-    expect(cashPerMinute / sweatPerMinute).toBeLessThanOrEqual(1.25);
+    expect(sweatPerMinute).toBeGreaterThanOrEqual(40);
+    expect(sweatPerMinute).toBeLessThanOrEqual(50);
+    expect(cashPerMinute).toBeGreaterThanOrEqual(40);
+    expect(cashPerMinute).toBeLessThanOrEqual(50);
   });
 
-  it("keeps total Sweat and Cash spending capacity comparable", () => {
-    const totals = upgrades.reduce(
-      (result, upgrade) => {
-        for (let level = 0; level < upgrade.maxLevel; level += 1) {
-          result[upgrade.currency] += upgradeCost(upgrade, level);
-        }
-        return result;
-      },
-      { sweat: 0, cash: 0 },
+  it("keeps the first Sweat and Cash milestone in the same price range", () => {
+    const powerMilestoneCost = upgradeBulkCost(upgrade("power"), 0, 10);
+    const aeroMilestoneCost = upgradeBulkCost(
+      upgrade("aero-socks"),
+      0,
+      10,
     );
 
-    expect(totals.sweat / totals.cash).toBeGreaterThanOrEqual(0.9);
-    expect(totals.sweat / totals.cash).toBeLessThanOrEqual(1.4);
+    expect(powerMilestoneCost / aeroMilestoneCost).toBeGreaterThan(1);
+    expect(powerMilestoneCost / aeroMilestoneCost).toBeLessThan(2);
+  });
+
+  it("makes upgraded production increase the value of every future bag", () => {
+    const base = createTestStore().store;
+    const upgraded = createTestStore({
+      upgrades: { power: 10, hydration: 10 },
+    }).store;
+
+    expect(upgraded.collectBag("sweat")).toBeGreaterThan(
+      base.collectBag("sweat") * 5,
+    );
   });
 });
