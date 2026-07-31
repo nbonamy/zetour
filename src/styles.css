@@ -2130,7 +2130,7 @@ kbd {
     url("/assets/art/paper-texture.jpg");
   box-shadow:
     inset 0 0 0 2px #775038,
-    0 7px 0 rgba(30, 18, 13, 0.78);
+    0 0 8px rgba(30, 18, 13, 0.48);
   color: #fff0c9;
 }
 

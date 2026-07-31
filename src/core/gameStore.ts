@@ -54,6 +54,7 @@ const BASE_SWEAT_PER_SECOND = 2.5;
 const BASE_CASH_PER_SECOND = 2.5;
 export const CHALLENGE_BASE_PRODUCTION_SECONDS = 24;
 export const TOTAL_TOUR_DISTANCE_KM = 1_615;
+export const TOUR_DURATION_MULTIPLIER = 1.5;
 
 export interface ChallengeReward {
   sweat: number;
@@ -358,16 +359,19 @@ export const courseRecordForStage = (
   const cached = courseRecordCache.get(stage.number);
   if (cached) return cached;
 
-  const record = createCourseRecord(stage.distanceM, (progress) => {
-    const terrainMultiplier = terrainSpeedMultiplier(
-      gradientAtProgress(stage, progress),
-    );
-    return (
-      COURSE_RECORD_FLAT_SPEED_KMH *
-      terrainMultiplier *
-      (1 - stage.windPenalty)
-    );
-  });
+  const record = createCourseRecord(
+    stage.distanceM * TOUR_DURATION_MULTIPLIER,
+    (progress) => {
+      const terrainMultiplier = terrainSpeedMultiplier(
+        gradientAtProgress(stage, progress),
+      );
+      return (
+        COURSE_RECORD_FLAT_SPEED_KMH *
+        terrainMultiplier *
+        (1 - stage.windPenalty)
+      );
+    },
+  );
   courseRecordCache.set(stage.number, record);
   return record;
 };
@@ -718,7 +722,9 @@ export class GameStore {
 
     const safeDelta = Math.min(deltaSeconds, 0.25);
     const stats = this.computeStats();
-    const distance = (stats.effectivePaceKmh / 3.6) * safeDelta;
+    const distance =
+      ((stats.effectivePaceKmh / 3.6) * safeDelta) /
+      TOUR_DURATION_MULTIPLIER;
     const sweatGenerated =
       this.sweatGenerationRemainder + stats.sweatPerSecond * safeDelta;
     const cashGenerated =
@@ -1540,7 +1546,8 @@ export class GameStore {
       this.state.palmaresUpgrades,
     );
     const distance =
-      (stats.effectivePaceKmh / 3.6) * elapsedSeconds * efficiency;
+      ((stats.effectivePaceKmh / 3.6) * elapsedSeconds * efficiency) /
+      TOUR_DURATION_MULTIPLIER;
     this.advanceRideDistance(distance, elapsedSeconds);
     this.state.sweat += Math.floor(
       stats.sweatPerSecond * elapsedSeconds * efficiency,

@@ -14,6 +14,7 @@ import {
   stages,
   terrainSpeedMultiplier,
   TOTAL_TOUR_DISTANCE_KM,
+  TOUR_DURATION_MULTIPLIER,
   type SaveState,
 } from "../../src/core/gameStore";
 
@@ -165,10 +166,31 @@ describe("stage and offline progression", () => {
     expect(store.getSnapshot().stage).toBe(2);
   });
 
+  it("extends Tour duration without weakening speed or income", () => {
+    const { store } = createTestStore();
+    const before = store.getSnapshot();
+
+    store.tick(0.25);
+    const after = store.getSnapshot();
+
+    expect(TOUR_DURATION_MULTIPLIER).toBe(1.5);
+    expect(after.stageDistanceM).toBeCloseTo(
+      ((before.stats.effectivePaceKmh / 3.6) * 0.25) /
+        TOUR_DURATION_MULTIPLIER,
+    );
+    expect(after.stats.speedKmh).toBeCloseTo(before.stats.speedKmh);
+    expect(after.stats.sweatPerSecond).toBeCloseTo(
+      before.stats.sweatPerSecond,
+    );
+    expect(after.stats.cashPerSecond).toBeCloseTo(
+      before.stats.cashPerSecond,
+    );
+  });
+
   it("reaches the climbing sector after the Paris to Bordeaux opener", () => {
     const { store, advance } = createTestStore();
 
-    advance(181);
+    advance(275);
 
     const state = store.getSnapshot();
     expect(state.stage).toBe(2);
@@ -482,7 +504,7 @@ describe("stage and offline progression", () => {
 
     const slower = createTestStore({
       stageDistanceM: 400,
-      sectorElapsedSeconds: 75,
+      sectorElapsedSeconds: 110,
     }).store.getSnapshot();
     expect(slower.leaderboard.status).toBe("behind");
     expect(slower.leaderboard.deltaSeconds).toBeGreaterThan(0);

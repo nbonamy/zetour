@@ -79,7 +79,8 @@ requirement for passive or offline progress.
 ## Tour and Seasons
 
 The displayed route covers 1,615 km while the simulation distances are
-compressed for game pacing:
+compressed for game pacing. A 1.5× duration factor gives the faster road
+boosts room to breathe without reducing their speed or income effects:
 
 | Sector | Route | Surface / challenge | Branch unlock |
 | --- | --- | --- | --- |
