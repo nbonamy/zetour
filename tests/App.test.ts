@@ -201,6 +201,39 @@ describe("App", () => {
     app.unmount();
   });
 
+  it("restores QA resources with the Konami Code", async () => {
+    const app = createApp(App);
+    const host = document.querySelector("#test-app");
+    if (!host) throw new Error("Missing test host");
+    app.mount(host);
+
+    const code = [
+      "ArrowUp",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowLeft",
+      "ArrowRight",
+      "b",
+      "a",
+    ];
+    code.forEach((key) => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+    });
+    await nextTick();
+
+    expect(gameStore.getSnapshot()).toMatchObject({
+      sweat: 5_000_000_000,
+      cash: 5_000_000_000,
+    });
+    expect(document.body.textContent).toContain(
+      "Konami code — 5B Sweat and $5B Cash restored",
+    );
+    app.unmount();
+  });
+
   it("shows and activates the single power-up reserve", async () => {
     gameStore.collectPowerUp("lucky-bidon");
     const app = createApp(App);

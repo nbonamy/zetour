@@ -162,6 +162,19 @@ const notice = ref<{ message: string; tone: "good" | "bad" | "neutral" } | null>
   null,
 );
 let noticeTimer: number | undefined;
+const konamiCode = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+] as const;
+let konamiProgress = 0;
 
 const unsubscribe = gameStore.subscribe((next) => {
   snapshot.value = next;
@@ -232,8 +245,26 @@ const startNextSeason = (): void => {
   manuallyPaused.value = false;
 };
 
+const trackKonamiCode = (event: KeyboardEvent): boolean => {
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  if (key === konamiCode[konamiProgress]) {
+    konamiProgress += 1;
+    if (konamiProgress === konamiCode.length) {
+      konamiProgress = 0;
+      gameStore.activateKonamiCheat();
+      return true;
+    }
+    return false;
+  }
+
+  konamiProgress = key === konamiCode[0] ? 1 : 0;
+  return false;
+};
+
 const onKeydown = (event: KeyboardEvent): void => {
-  if (event.key === "Escape" && resetConfirmationOpen.value) {
+  if (trackKonamiCode(event)) {
+    event.preventDefault();
+  } else if (event.key === "Escape" && resetConfirmationOpen.value) {
     cancelReset();
   } else if (event.key === "Escape" && workshopOpen.value) {
     closeWorkshop();

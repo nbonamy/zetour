@@ -56,6 +56,7 @@ const BASE_CASH_PER_SECOND = 2.5;
 export const CHALLENGE_BASE_PRODUCTION_SECONDS = 24;
 export const TOTAL_TOUR_DISTANCE_KM = 1_615;
 export const TOUR_DURATION_MULTIPLIER = 1.5;
+export const KONAMI_RESOURCE_BALANCE = 5_000_000_000;
 
 export interface ChallengeReward {
   sweat: number;
@@ -715,6 +716,20 @@ export class GameStore {
         TOTAL_TOUR_DISTANCE_KM,
       ),
     };
+  }
+
+  activateKonamiCheat(): void {
+    this.state.sweat = Math.max(
+      this.state.sweat,
+      KONAMI_RESOURCE_BALANCE,
+    );
+    this.state.cash = Math.max(
+      this.state.cash,
+      KONAMI_RESOURCE_BALANCE,
+    );
+    this.save();
+    this.notice("Konami code — 5B Sweat and $5B Cash restored", "good");
+    this.emit();
   }
 
   tick(deltaSeconds: number): void {

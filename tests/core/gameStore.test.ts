@@ -10,6 +10,7 @@ import {
   elevationAtProgress,
   gradientAtProgress,
   gradientSpeedMultiplier,
+  KONAMI_RESOURCE_BALANCE,
   powerUpDefinitions,
   stages,
   terrainSpeedMultiplier,
@@ -19,6 +20,20 @@ import {
 } from "../../src/core/gameStore";
 
 describe("riding economy", () => {
+  it("restores both QA balances to at least five billion", () => {
+    const { store } = createTestStore({
+      sweat: 123,
+      cash: KONAMI_RESOURCE_BALANCE + 7,
+    });
+
+    store.activateKonamiCheat();
+
+    expect(store.getSnapshot()).toMatchObject({
+      sweat: KONAMI_RESOURCE_BALANCE,
+      cash: KONAMI_RESOURCE_BALANCE + 7,
+    });
+  });
+
   it("credits generated Sweat and Cash immediately while riding", () => {
     const { store, advance } = createTestStore();
 
