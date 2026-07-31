@@ -15,64 +15,68 @@ import {
 } from "../core/upgrades";
 import { formatCompactNumber, formatMultiplier } from "../core/format";
 import { gameStore, type GameSnapshot } from "../core/gameStore";
-import {
-  axialHexPosition,
-  regularFlatTopHexHeight,
-} from "../core/hexGrid";
 
 const props = defineProps<{
   snapshot: GameSnapshot;
 }>();
 
 type NodeVisibility = "revealed" | "mystery" | "hidden";
+type Point = { x: number; y: number };
+type ConnectionState = "available" | "acquired" | "mystery" | "locked";
+
+interface GraphConnection {
+  id: string;
+  branch: Branch;
+  from: Point;
+  to: Point;
+  state: ConnectionState;
+}
 
 const selectedId = ref<string | null>(null);
 const viewport = ref<HTMLElement | null>(null);
 const dragging = ref(false);
-const world = { width: 1_200, height: 820 };
-const center = { x: 600, y: 410 };
-const HEX_WIDTH = 108;
-const HEX_HEIGHT = regularFlatTopHexHeight(HEX_WIDTH);
-const HEX_GAP = 4;
-const hexPosition = (q: number, r: number) =>
-  axialHexPosition(
-    center,
-    { q, r },
-    { x: HEX_WIDTH + HEX_GAP, y: HEX_HEIGHT + HEX_GAP },
-  );
-const branchPositions: Record<Branch, { x: number; y: number }> = {
-  bike: hexPosition(-1, 1),
-  rider: hexPosition(0, -1),
-  nutrition: hexPosition(1, -1),
-  equipment: hexPosition(1, 0),
-  team: hexPosition(0, 1),
+const world = { width: 1_460, height: 980 };
+const center: Point = { x: 730, y: 480 };
+const branchPositions: Record<Branch, Point> = {
+  bike: { x: 490, y: 525 },
+  rider: { x: 625, y: 320 },
+  nutrition: { x: 850, y: 315 },
+  equipment: { x: 985, y: 485 },
+  team: { x: 785, y: 680 },
 };
-const nodePositions: Record<string, { x: number; y: number }> = {
-  "road-bike": hexPosition(-2, 1),
-  frame: hexPosition(-3, 1),
-  tires: hexPosition(-2, 0),
-  shifting: hexPosition(-3, 2),
-  wheels: hexPosition(-4, 1),
-  brakes: hexPosition(-4, 3),
-  "chain-lube": hexPosition(-2, 2),
-  endurance: hexPosition(-1, -1),
-  power: hexPosition(0, -2),
-  hyperbike: hexPosition(-2, 0),
-  technique: hexPosition(1, -2),
-  "body-composition": hexPosition(-2, -1),
-  hydration: hexPosition(2, -2),
-  fueling: hexPosition(3, -3),
-  "aero-socks": hexPosition(2, 0),
-  helmet: hexPosition(2, -1),
-  skinsuit: hexPosition(1, 1),
-  "gravel-tires": hexPosition(3, 0),
-  suspension: hexPosition(3, 1),
-  domestique: hexPosition(0, 2),
-  mechanic: hexPosition(-1, 2),
-  sponsor: hexPosition(1, 2),
-  "team-director": hexPosition(0, 3),
+const nodePositions: Record<string, Point> = {
+  "road-bike": { x: 355, y: 505 },
+  frame: { x: 235, y: 385 },
+  tires: { x: 175, y: 525 },
+  shifting: { x: 245, y: 665 },
+  wheels: { x: 105, y: 270 },
+  brakes: { x: 105, y: 790 },
+  "chain-lube": { x: 385, y: 745 },
+  endurance: { x: 490, y: 225 },
+  power: { x: 610, y: 120 },
+  hyperbike: { x: 740, y: 140 },
+  technique: { x: 760, y: 250 },
+  "body-composition": { x: 355, y: 120 },
+  hydration: { x: 980, y: 220 },
+  fueling: { x: 1_135, y: 125 },
+  "aero-socks": { x: 1_100, y: 350 },
+  helmet: { x: 1_225, y: 445 },
+  skinsuit: { x: 1_130, y: 555 },
+  "gravel-tires": { x: 1_080, y: 690 },
+  suspension: { x: 1_245, y: 800 },
+  domestique: { x: 670, y: 815 },
+  mechanic: { x: 815, y: 855 },
+  sponsor: { x: 965, y: 790 },
+  "team-director": { x: 590, y: 930 },
 };
 const branches = Object.keys(branchLabels) as Branch[];
+const branchIcons: Record<Branch, string> = {
+  bike: "⚙",
+  rider: "♥",
+  nutrition: "◍",
+  equipment: "◒",
+  team: "♟",
+};
 
 const level = (upgrade: UpgradeDefinition): number =>
   props.snapshot.upgrades[upgrade.id] ?? 0;
@@ -92,6 +96,61 @@ const visibleNodes = computed(() =>
     ),
   ),
 );
+
+const connectionPath = (from: Point, to: Point): string => {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const bend = Math.min(92, Math.max(34, Math.hypot(dx, dy) * 0.28));
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const direction = Math.sign(dx) || 1;
+    return `M ${from.x} ${from.y} C ${from.x + direction * bend} ${from.y}, ${to.x - direction * bend} ${to.y}, ${to.x} ${to.y}`;
+  }
+  const direction = Math.sign(dy) || 1;
+  return `M ${from.x} ${from.y} C ${from.x} ${from.y + direction * bend}, ${to.x} ${to.y - direction * bend}, ${to.x} ${to.y}`;
+};
+
+const graphConnections = computed<GraphConnection[]>(() => {
+  void props.snapshot.stage;
+  const branchConnections = branches.map((branch) => {
+    const unlocked = gameStore.isBranchUnlocked(branch);
+    const hasProgress = upgradesByBranch(branch).some(
+      (upgrade) => level(upgrade) > 0,
+    );
+    return {
+      id: `hub:${branch}`,
+      branch,
+      from: center,
+      to: branchPositions[branch],
+      state: !unlocked
+        ? "locked"
+        : hasProgress
+          ? "acquired"
+          : "available",
+    } satisfies GraphConnection;
+  });
+
+  const nodeConnections = visibleNodes.value.map((upgrade) => {
+    const nodeVisibility = visibility(upgrade);
+    const parentPosition = upgrade.requires
+      ? nodePositions[upgrade.requires]
+      : branchPositions[upgrade.branch];
+    return {
+      id: `node:${upgrade.id}`,
+      branch: upgrade.branch,
+      from: parentPosition ?? branchPositions[upgrade.branch],
+      to: nodePositions[upgrade.id] ?? center,
+      state: !gameStore.isBranchUnlocked(upgrade.branch)
+        ? "locked"
+        : nodeVisibility === "mystery"
+          ? "mystery"
+          : level(upgrade) > 0
+            ? "acquired"
+            : "available",
+    } satisfies GraphConnection;
+  });
+
+  return [...branchConnections, ...nodeConnections];
+});
 
 const selected = computed(() =>
   selectedId.value ? upgradeById(selectedId.value) : undefined,
@@ -286,22 +345,42 @@ onMounted(centerViewport);
         :style="{
           width: `${world.width}px`,
           height: `${world.height}px`,
-          '--hex-width': `${HEX_WIDTH}px`,
-          '--hex-height': `${HEX_HEIGHT}px`,
         }"
       >
+        <div class="graph-map-title" aria-hidden="true">
+          <strong>Career map</strong>
+          <span>Choose your line</span>
+        </div>
+
+        <svg
+          class="graph-connections"
+          :viewBox="`0 0 ${world.width} ${world.height}`"
+          aria-hidden="true"
+        >
+          <path
+            v-for="connection in graphConnections"
+            :key="connection.id"
+            class="graph-connection"
+            :class="`edge-${connection.state}`"
+            :data-edge="connection.id"
+            :data-branch="connection.branch"
+            :d="connectionPath(connection.from, connection.to)"
+          />
+        </svg>
+
         <div
           class="graph-center"
           :style="{ left: `${center.x}px`, top: `${center.y}px` }"
         >
-          <span>◆</span>
+          <span class="center-emblem">🚲</span>
           <strong>Season {{ snapshot.season }}</strong>
+          <small>Career</small>
         </div>
 
         <div
           v-for="branch in branches"
           :key="branch"
-          class="branch-hub hex-branch"
+          class="branch-hub"
           :data-branch="branch"
           :class="{ locked: !gameStore.isBranchUnlocked(branch) }"
           :style="{
@@ -309,7 +388,9 @@ onMounted(centerViewport);
             top: `${branchPositions[branch].y}px`,
           }"
         >
-          <span>{{ gameStore.isBranchUnlocked(branch) ? "◆" : "🔒" }}</span>
+          <span class="hub-icon">
+            {{ gameStore.isBranchUnlocked(branch) ? branchIcons[branch] : "×" }}
+          </span>
           <strong>{{ branchLabels[branch] }}</strong>
           <small v-if="!gameStore.isBranchUnlocked(branch)">
             Sector {{ branchUnlockStages[branch] }}
@@ -336,6 +417,7 @@ onMounted(centerViewport);
             top: `${nodePositions[node.id]?.y ?? center.y}px`,
           }"
           :disabled="!gameStore.isBranchUnlocked(node.branch)"
+          :title="visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name"
           :aria-label="
             visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name
           "
@@ -344,8 +426,10 @@ onMounted(centerViewport);
           @click="activateAndBuyNode(node)"
         >
           <span class="node-main">
-            <span class="node-icon">
-              {{ visibility(node) === "mystery" ? "?" : node.icon }}
+            <span class="node-medallion">
+              <span class="node-icon">
+                {{ visibility(node) === "mystery" ? "?" : node.icon }}
+              </span>
             </span>
             <span class="node-label">
               {{ visibility(node) === "mystery" ? "Unknown" : node.name }}

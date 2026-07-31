@@ -26,30 +26,43 @@ describe("UpgradeGraph", () => {
     mountGraph();
 
     const map = host.querySelector<HTMLElement>(".graph-map");
-    expect(map?.style.width).toBe("1200px");
-    expect(map?.style.height).toBe("820px");
-    expect(map?.style.getPropertyValue("--hex-width")).toBe("108px");
-    expect(
-      Number.parseFloat(map?.style.getPropertyValue("--hex-height") ?? "0"),
-    ).toBeCloseTo(93.531, 3);
-    expect(host.querySelector(".graph-connections")).toBeNull();
-    expect(host.querySelectorAll(".hex-branch")).toHaveLength(5);
+    expect(map?.style.width).toBe("1460px");
+    expect(map?.style.height).toBe("980px");
+    expect(map?.style.getPropertyValue("--hex-width")).toBe("");
+    expect(host.querySelector(".graph-connections")).not.toBeNull();
+    expect(host.querySelectorAll(".hex-branch")).toHaveLength(0);
+    expect(host.querySelectorAll(".branch-hub")).toHaveLength(5);
     expect(host.querySelector(".branch-territory")).toBeNull();
     expect(
       host.querySelector<HTMLElement>(
-        '.hex-branch[data-branch="nutrition"]',
+        '.branch-hub[data-branch="nutrition"]',
       )?.style.left,
-    ).toBe("684px");
+    ).toBe("850px");
     expect(
       Number.parseFloat(
         host.querySelector<HTMLElement>(
-          '.hex-branch[data-branch="nutrition"]',
+          '.branch-hub[data-branch="nutrition"]',
         )?.style.top ?? "0",
       ),
-    ).toBeCloseTo(361.235, 3);
+    ).toBe(315);
     expect(host.querySelectorAll(".tree-node > .node-main")).toHaveLength(
       host.querySelectorAll(".tree-node").length,
     );
+    expect(host.querySelectorAll(".node-medallion")).toHaveLength(
+      host.querySelectorAll(".tree-node").length,
+    );
+    expect(host.querySelectorAll(".graph-connection")).toHaveLength(
+      host.querySelectorAll(".tree-node").length + 5,
+    );
+    expect(
+      host.querySelector('[data-edge="hub:nutrition"]'),
+    ).not.toBeNull();
+    expect(
+      host
+        .querySelector('[data-edge="node:fueling"]')
+        ?.classList.contains("edge-mystery"),
+    ).toBe(true);
+    expect(host.textContent).toContain("Career map");
     expect(
       host.querySelectorAll('.tree-node[data-branch="nutrition"]'),
     ).toHaveLength(2);
