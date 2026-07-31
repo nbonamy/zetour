@@ -519,15 +519,15 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             >
               <span class="hud-level-display" aria-hidden="true">
                 <b>{{ snapshot.riderProgress.level }}</b>
-                <i>
-                  <span
-                    :style="{
-                      width: `${snapshot.riderProgress.progress * 100}%`,
-                    }"
-                  ></span>
-                </i>
               </span>
-              <strong>Level {{ snapshot.riderProgress.level }}</strong>
+              <strong
+                class="hud-level-progress"
+                :style="{
+                  '--hud-level-progress': `${snapshot.riderProgress.progress * 100}%`,
+                }"
+              >
+                <span>Level {{ snapshot.riderProgress.level }}</span>
+              </strong>
             </div>
             <button
               type="button"

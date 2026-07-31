@@ -71,6 +71,13 @@ describe("App", () => {
         (label) => label.textContent?.trim(),
       ),
     ).toEqual(["Level 1", "Power-up", "0", "0"]);
+    const levelProgress = document.querySelector<HTMLElement>(
+      ".hud-level-progress",
+    );
+    expect(levelProgress?.style.getPropertyValue("--hud-level-progress")).toBe(
+      "0%",
+    );
+    expect(document.querySelector(".hud-level-display i")).toBeNull();
     expect(
       document.querySelector(".hud-distance-copy strong"),
     ).not.toBeNull();
