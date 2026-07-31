@@ -150,6 +150,17 @@ const visibleNodes = computed(() =>
   ),
 );
 
+const nodePurchaseStatus = (upgrade: UpgradeDefinition) =>
+  gameStore.purchaseStatus(upgrade, 1);
+
+const nodePurchaseState = (upgrade: UpgradeDefinition) =>
+  visibility(upgrade) === "revealed"
+    ? nodePurchaseStatus(upgrade).state
+    : "mystery";
+
+const isNodeUnaffordable = (upgrade: UpgradeDefinition): boolean =>
+  nodePurchaseState(upgrade) === "unaffordable";
+
 const connectionPath = (from: Point, to: Point): string => {
   return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 };
@@ -568,6 +579,7 @@ onBeforeUnmount(stopWheelZoom);
               type="button"
               class="tree-node"
               :data-branch="node.branch"
+              :data-purchase-state="nodePurchaseState(node)"
               :class="[
                 `node-${visibility(node)}`,
                 {
@@ -576,6 +588,8 @@ onBeforeUnmount(stopWheelZoom);
                   acquired: level(node) > 0,
                   complete: level(node) >= node.maxLevel,
                   locked: !gameStore.isBranchUnlocked(node.branch),
+                  purchasable: nodePurchaseState(node) === 'purchasable',
+                  unaffordable: isNodeUnaffordable(node),
                 },
               ]"
               :style="{
@@ -596,9 +610,22 @@ onBeforeUnmount(stopWheelZoom);
                   <span class="node-icon">
                     {{ visibility(node) === "mystery" ? "?" : node.icon }}
                   </span>
+                  <span
+                    v-if="isNodeUnaffordable(node)"
+                    class="node-funds-marker"
+                    :class="`funds-${node.currency}`"
+                    aria-hidden="true"
+                  >
+                    {{ node.currency === "cash" ? "$" : "S" }}
+                  </span>
                 </span>
                 <span class="node-label">
-                  {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
+                  <span>
+                    {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
+                  </span>
+                  <small v-if="isNodeUnaffordable(node)">
+                    {{ nodePurchaseStatus(node).reason }}
+                  </small>
                 </span>
               </span>
               <span

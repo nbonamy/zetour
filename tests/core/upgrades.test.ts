@@ -23,12 +23,16 @@ describe("incremental upgrade tree", () => {
   it("requires the workshop road bike before component upgrades", () => {
     const { store } = createTestStore({ riderXp: 550, cash: 2_000 });
 
-    expect(store.purchaseStatus(upgrade("tires")).reason).toBe(
-      "Requires Workshop road bike tier 1",
-    );
+    expect(store.purchaseStatus(upgrade("tires"))).toMatchObject({
+      state: "dependency-locked",
+      reason: "Requires Workshop road bike tier 1",
+    });
     expect(store.purchase(upgrade("road-bike"))).toBe(true);
     expect(store.getSnapshot().cash).toBe(500);
-    expect(store.purchaseStatus(upgrade("tires")).available).toBe(true);
+    expect(store.purchaseStatus(upgrade("tires"))).toMatchObject({
+      available: true,
+      state: "purchasable",
+    });
   });
 
   it("spends each Tour currency on its intended branches", () => {
@@ -126,6 +130,9 @@ describe("incremental upgrade tree", () => {
     expect(store.purchaseStatus(upgrade("road-bike")).reason).toBe(
       "Need $1.5K more",
     );
+    expect(store.purchaseStatus(upgrade("road-bike")).state).toBe(
+      "unaffordable",
+    );
     expect(store.purchaseStatus(upgrade("endurance")).reason).toBe(
       "Need 100 more Sweat",
     );
@@ -151,6 +158,9 @@ describe("incremental upgrade tree", () => {
       true,
     );
     expect(levelTwo.isBranchUnlocked("bike")).toBe(false);
+    expect(levelTwo.purchaseStatus(upgrade("road-bike")).state).toBe(
+      "branch-locked",
+    );
     expect(levelFour.isBranchUnlocked("bike")).toBe(true);
     expect(levelFour.isBranchUnlocked("team")).toBe(false);
     expect(levelSix.isBranchUnlocked("team")).toBe(true);

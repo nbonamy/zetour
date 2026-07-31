@@ -4140,6 +4140,34 @@ kbd {
   font: 900 18px/1 Georgia, "Times New Roman", serif;
 }
 
+.node-funds-marker {
+  position: absolute;
+  z-index: 3;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  place-items: center;
+  border: 2px solid #5a3824;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 240, 192, 0.5),
+    0 2px 0 rgba(65, 38, 23, 0.4);
+  color: #fff0be;
+  font: 900 8px/1 Georgia, "Times New Roman", serif;
+  text-shadow: 0 1px 0 rgba(55, 31, 18, 0.72);
+}
+
+.node-funds-marker.funds-cash {
+  background: #c58a20;
+}
+
+.node-funds-marker.funds-sweat {
+  background: #3984a5;
+}
+
 .node-label {
   position: absolute;
   z-index: 40;
@@ -4166,6 +4194,19 @@ kbd {
     opacity 100ms ease,
     transform 100ms ease;
   white-space: normal;
+}
+
+.node-label > span {
+  display: block;
+}
+
+.node-label > small {
+  display: block;
+  margin-top: 2px;
+  color: #75523b;
+  font: 800 7px/1.12 Georgia, "Times New Roman", serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .tree-node[data-branch="team"] .node-label {
@@ -4273,6 +4314,21 @@ kbd {
   color: #3d2717;
   content: "✓";
   font: 900 8px/1 Georgia, "Times New Roman", serif;
+}
+
+.tree-node.unaffordable .node-medallion {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(72, 43, 29, 0.15) 0 3px,
+      transparent 3px 7px
+    ),
+    radial-gradient(circle at 38% 30%, rgba(255, 247, 215, 0.72), transparent 38%),
+    color-mix(in srgb, var(--branch-color) 13%, #ecd39b);
+}
+
+.tree-node.unaffordable:not(:hover):not(.selected) .node-icon {
+  opacity: 0.76;
 }
 
 .tree-node.node-mystery .node-medallion {

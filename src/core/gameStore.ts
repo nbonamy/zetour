@@ -513,8 +513,16 @@ export interface GameSnapshot extends SaveState {
   riderProgress: RiderProgress;
 }
 
+export type PurchaseState =
+  | "purchasable"
+  | "complete"
+  | "branch-locked"
+  | "dependency-locked"
+  | "unaffordable";
+
 export interface PurchaseStatus {
   available: boolean;
+  state: PurchaseState;
   reason?: string;
   cost: number;
   currency: Currency;
@@ -1101,13 +1109,19 @@ export class GameStore {
     };
 
     if (level >= upgrade.maxLevel) {
-      return { ...status, available: false, reason: "Max level" };
+      return {
+        ...status,
+        available: false,
+        state: "complete",
+        reason: "Max level",
+      };
     }
     const branchUnlockLevel = branchUnlockLevels[upgrade.branch];
     if (!this.isBranchUnlocked(upgrade.branch)) {
       return {
         ...status,
         available: false,
+        state: "branch-locked",
         reason: `Branch unlocks at Rider Level ${branchUnlockLevel}`,
       };
     }
@@ -1126,6 +1140,7 @@ export class GameStore {
       return {
         ...status,
         available: false,
+        state: "dependency-locked",
         reason: `Requires ${parent?.name ?? missingDependency.id} tier ${missingDependency.requiredTier}`,
       };
     }
@@ -1140,6 +1155,7 @@ export class GameStore {
       return {
         ...status,
         available: false,
+        state: "unaffordable",
         reason:
           upgrade.currency === "cash"
             ? `Need $${formatCompactNumber(missing)} more`
@@ -1149,6 +1165,7 @@ export class GameStore {
     return {
       ...status,
       available: true,
+      state: "purchasable",
       levels: affordableLevels,
       cost: upgradeBulkCost(upgrade, level, affordableLevels),
     };

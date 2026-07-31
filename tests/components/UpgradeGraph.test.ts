@@ -184,6 +184,10 @@ describe("UpgradeGraph", () => {
     );
     if (!hydration) throw new Error("Missing Hydration node");
 
+    expect(hydration.dataset.purchaseState).toBe("purchasable");
+    expect(hydration.classList.contains("unaffordable")).toBe(false);
+    expect(hydration.querySelector(".node-funds-marker")).toBeNull();
+
     hydration.dispatchEvent(new PointerEvent("pointerenter"));
     await nextTick();
     expect(hydration.hasAttribute("title")).toBe(false);
@@ -223,6 +227,15 @@ describe("UpgradeGraph", () => {
       'button[aria-label="Hydration protocol"]',
     );
     if (!hydration) throw new Error("Missing Hydration node");
+
+    expect(hydration.dataset.purchaseState).toBe("unaffordable");
+    expect(hydration.classList.contains("unaffordable")).toBe(true);
+    expect(hydration.querySelector(".node-funds-marker")?.textContent?.trim()).toBe(
+      "S",
+    );
+    expect(hydration.querySelector(".node-label small")?.textContent).toContain(
+      "Need 125 more Sweat",
+    );
 
     hydration.click();
     await nextTick();
