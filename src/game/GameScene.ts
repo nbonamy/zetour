@@ -95,8 +95,8 @@ const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
 const ROAD_MARKER_MAX_X =
   Math.ceil((WIDTH + ROAD_MARKER_SPACING) / ROAD_MARKER_SPACING) *
   ROAD_MARKER_SPACING;
-const FLOW_TRACK_X = 506;
-const FLOW_TRACK_Y = 146;
+const FLOW_TRACK_X = 166;
+const FLOW_TRACK_Y = 114;
 const FLOW_TRACK_WIDTH = 120;
 const RANDOM_RIDER_DRAFT_PERCENT = Math.round(
   RANDOM_RIDER_DRAFT_BONUS * 100,
@@ -562,17 +562,17 @@ export class GameScene extends Phaser.Scene {
       .fillStyle(0x2d1b14, 0.9)
       .fillRoundedRect(
         FLOW_TRACK_X - 8,
-        FLOW_TRACK_Y - 10,
+        FLOW_TRACK_Y - 9,
         FLOW_TRACK_WIDTH + 16,
-        32,
+        29,
         6,
       )
       .lineStyle(2, 0x9b6a42, 0.95)
       .strokeRoundedRect(
         FLOW_TRACK_X - 8,
-        FLOW_TRACK_Y - 10,
+        FLOW_TRACK_Y - 9,
         FLOW_TRACK_WIDTH + 16,
-        32,
+        29,
         6,
       );
     this.add

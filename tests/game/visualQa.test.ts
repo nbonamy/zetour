@@ -10,6 +10,7 @@ describe("visual QA overrides", () => {
       draftLane: null,
       drafting: false,
       encounter: null,
+      finished: false,
       flow: null,
       gradient: -0.05,
       paused: false,
@@ -26,6 +27,7 @@ describe("visual QA overrides", () => {
       draftLane: null,
       drafting: false,
       encounter: null,
+      finished: false,
       flow: null,
       gradient: 0.12,
       paused: false,
@@ -39,6 +41,7 @@ describe("visual QA overrides", () => {
       draftLane: null,
       drafting: false,
       encounter: null,
+      finished: false,
       flow: null,
       gradient: null,
       paused: false,
@@ -51,6 +54,12 @@ describe("visual QA overrides", () => {
     expect(parseVisualQaOverrides("?qaPaused=1").paused).toBe(true);
     expect(parseVisualQaOverrides("?qaPaused=true").paused).toBe(true);
     expect(parseVisualQaOverrides("?qaPaused=0").paused).toBe(false);
+  });
+
+  it("shows a deterministic finished-race view for results QA", () => {
+    expect(parseVisualQaOverrides("?qaFinished=1").finished).toBe(true);
+    expect(parseVisualQaOverrides("?qaFinished=true").finished).toBe(true);
+    expect(parseVisualQaOverrides("?qaFinished=0").finished).toBe(false);
   });
 
   it("forces support-rider and Flow states without altering the save", () => {

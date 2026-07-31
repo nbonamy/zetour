@@ -6,6 +6,7 @@ export interface VisualQaOverrides {
   draftLane: number | null;
   drafting: boolean;
   encounter: RideEncounter | null;
+  finished: boolean;
   flow: number | null;
   gradient: number | null;
   paused: boolean;
@@ -43,6 +44,7 @@ export const parseVisualQaOverrides = (
   const rawDraftLane = finiteNumber(parameters.get("qaDraftLane"));
   const rawDrafting = parameters.get("qaDrafting");
   const rawEncounter = parameters.get("qaEncounter");
+  const rawFinished = parameters.get("qaFinished");
   const rawFlow = finiteNumber(parameters.get("qaFlow"));
   const rawGradient = finiteNumber(parameters.get("qaGradient"));
   const rawStage = finiteNumber(parameters.get("qaStage"));
@@ -61,6 +63,7 @@ export const parseVisualQaOverrides = (
     encounter:
       encounterTypes.find((encounter) => encounter === rawEncounter) ??
       null,
+    finished: rawFinished === "1" || rawFinished === "true",
     flow:
       rawFlow === null
         ? null
@@ -86,6 +89,7 @@ export const readVisualQaOverrides = (): VisualQaOverrides => {
       draftLane: null,
       drafting: false,
       encounter: null,
+      finished: false,
       flow: null,
       gradient: null,
       paused: false,

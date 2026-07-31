@@ -79,7 +79,7 @@ describe("UpgradeGraph", () => {
     host.remove();
   });
 
-  it("selects on hover and buys a revealed node on click", async () => {
+  it("selects nodes safely and buys only from the explicit detail action", async () => {
     for (let index = 0; index < 5; index += 1) {
       gameStore.collectBag("sweat");
     }
@@ -94,6 +94,10 @@ describe("UpgradeGraph", () => {
     expect(host.textContent).toContain("Preserve Flow longer");
 
     hydration.click();
+    await nextTick();
+    expect(gameStore.getSnapshot().upgrades.hydration).toBeUndefined();
+
+    host.querySelector<HTMLButtonElement>(".detail-buy")?.click();
     await nextTick();
     expect(gameStore.getSnapshot().upgrades.hydration).toBe(1);
     app?.unmount();

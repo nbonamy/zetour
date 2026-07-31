@@ -130,13 +130,6 @@ const activateNode = (upgrade: UpgradeDefinition): void => {
   selectedId.value = upgrade.id;
 };
 
-const buyNode = (upgrade: UpgradeDefinition): void => {
-  activateNode(upgrade);
-  if (visibility(upgrade) === "revealed") {
-    gameStore.purchase(upgrade);
-  }
-};
-
 const buySelected = (): void => {
   if (selected.value) gameStore.purchase(selected.value);
 };
@@ -267,7 +260,7 @@ onMounted(centerViewport);
           "
           @pointerenter="activateNode(node)"
           @focus="activateNode(node)"
-          @click="buyNode(node)"
+          @click="activateNode(node)"
         >
           <span class="node-main">
             <span class="node-icon">

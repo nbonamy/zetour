@@ -124,6 +124,24 @@ describe("App", () => {
       "Cash",
     );
     expect(componentState.paused).toBe(true);
+
+    document
+      .querySelector<HTMLButtonElement>(".workshop-close")
+      ?.click();
+    await nextTick();
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+    expect(document.body.textContent).not.toContain("Career workshop");
+    expect(componentState.paused).toBe(false);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "p" }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "w" }));
+    await nextTick();
+    expect(componentState.paused).toBe(true);
+    document
+      .querySelector<HTMLButtonElement>(".workshop-close")
+      ?.click();
+    await nextTick();
+    expect(componentState.paused).toBe(false);
     app.unmount();
   });
 

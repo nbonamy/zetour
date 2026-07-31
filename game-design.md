@@ -330,10 +330,11 @@ rider accelerates toward the right edge and disappears. Drafting can continue
 for at most 15 seconds. At the end of that window, the other rider accelerates
 toward the right edge and disappears even if every move was followed.
 
-Drafting becomes less forgiving as the campaign advances. Sector 1 allows a
-wide spatial tolerance and a 1.5-second reaction window. Both values shrink on
-every sector until Sector 5 allows only a 12-pixel alignment tolerance and roughly
-0.4 seconds to follow a lane change.
+Drafting becomes less forgiving as the campaign advances. Alignment is measured
+in road space, so the same lane remains valid on climbs, descents, and during
+the Jump animation. Sector 1 allows an 18-pixel alignment tolerance and a
+1.6-second reaction window. Both values tighten gradually until Sector 5 allows
+a 10-pixel tolerance and 0.8 seconds to follow a lane change.
 
 Domestiques and Super Draft improve speed or shelter only. Neither multiplies
 Sweat generation; that reward belongs exclusively to following the temporary
@@ -342,9 +343,11 @@ random rider.
 ### Perceived Speed
 
 The ride view reinforces progression through faster wheel cadence, denser road
-particles, stronger parallax, climb-specific rider tilt, wind streaks, floating
-combo feedback, and subtle high-speed camera vibration. Collisions retain a
-stronger shake so hazards feel materially different from normal speed.
+particles, stronger parallax, climb-specific rider tilt, moving drafting
+streaks, a slipstream cone, floating combo feedback, and subtle high-speed
+camera vibration. Active power-ups add a persistent dual aura, ground ring, and
+orbiting sparks. Collisions retain a stronger shake so hazards feel materially
+different from normal speed.
 
 ## Challenges
 

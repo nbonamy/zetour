@@ -3,16 +3,54 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import GameCanvas from "./components/GameCanvas.vue";
 import UpgradeGraph from "./components/UpgradeGraph.vue";
 import {
+  courseRecordForStage,
   displayStageDistanceKm,
   gameStore,
   powerUpDefinitions,
   stages,
+  type RaceResults,
 } from "./core/gameStore";
 import { formatRaceTime } from "./core/timeTrial";
 import { readVisualQaOverrides } from "./game/visualQa";
 
 const snapshot = shallowRef(gameStore.getSnapshot());
 const visualQa = readVisualQaOverrides();
+const visualQaRaceResults: RaceResults | null = visualQa.finished
+  ? (() => {
+      const offsets = [-2.3, 4.7, -1.2, 8.9, 14.6];
+      const rows = stages.map((stage, index) => {
+        const recordSeconds = courseRecordForStage(stage).totalSeconds;
+        const deltaSeconds = offsets[index] ?? 0;
+        return {
+          stage: stage.number,
+          route: `${stage.start} → ${stage.finish}`,
+          timeSeconds: recordSeconds + deltaSeconds,
+          recordSeconds,
+          deltaSeconds,
+        };
+      });
+      const totalSeconds = rows.reduce(
+        (total, row) => total + row.timeSeconds,
+        0,
+      );
+      const recordTotalSeconds = rows.reduce(
+        (total, row) => total + row.recordSeconds,
+        0,
+      );
+      return {
+        totalSeconds,
+        recordTotalSeconds,
+        deltaSeconds: totalSeconds - recordTotalSeconds,
+        rows,
+      };
+    })()
+  : null;
+const displayedRaceResults = computed(
+  () => snapshot.value.raceResults ?? visualQaRaceResults,
+);
+const displayedRaceFinished = computed(
+  () => snapshot.value.raceFinished || visualQa.finished,
+);
 const displayedStage = computed(() =>
   visualQa.stage === null
     ? snapshot.value.stageDefinition
@@ -34,7 +72,7 @@ const ridePaused = computed(
     manuallyPaused.value ||
     workshopOpen.value ||
     resetConfirmationOpen.value ||
-    snapshot.value.raceFinished,
+    displayedRaceFinished.value,
 );
 const reservedPowerUp = computed(() =>
   snapshot.value.reservedPowerUp
@@ -85,7 +123,7 @@ const leaderboardDeltaLabel = computed(() => {
   return `${Math.abs(deltaSeconds).toFixed(1)}s ${status}`;
 });
 const raceDeltaLabel = computed(() => {
-  const delta = snapshot.value.raceResults?.deltaSeconds ?? 0;
+  const delta = displayedRaceResults.value?.deltaSeconds ?? 0;
   if (Math.abs(delta) < 0.05) return "Record pace";
   return `${Math.abs(delta).toFixed(1)}s ${delta < 0 ? "ahead" : "behind"}`;
 });
@@ -126,12 +164,13 @@ const format = (value: number): string =>
   }).format(value);
 
 const openWorkshop = (): void => {
-  if (snapshot.value.raceFinished) return;
+  if (displayedRaceFinished.value) return;
   workshopOpen.value = true;
 };
 
 const closeWorkshop = (): void => {
   workshopOpen.value = false;
+  manuallyPaused.value = false;
 };
 
 const requestReset = (): void => {
@@ -151,7 +190,7 @@ const confirmReset = (): void => {
 
 const toggleManualPause = (): void => {
   if (
-    snapshot.value.raceFinished ||
+    displayedRaceFinished.value ||
     workshopOpen.value ||
     resetConfirmationOpen.value
   ) {
@@ -271,7 +310,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
         </header>
 
         <aside
-          v-if="!snapshot.raceFinished"
+          v-if="!displayedRaceFinished"
           class="leaderboard-hud"
           :class="`leaderboard-${snapshot.leaderboard.status}`"
           aria-label="Live sector leaderboard"
@@ -451,7 +490,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
       <Transition name="workshop">
         <div
-          v-if="snapshot.raceFinished && snapshot.raceResults"
+          v-if="displayedRaceFinished && displayedRaceResults"
           class="workshop-overlay race-results-overlay"
           role="dialog"
           aria-modal="true"
@@ -464,16 +503,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               <span>
                 <small>Your time</small>
                 <strong>
-                  {{ formatRaceTime(snapshot.raceResults.totalSeconds) }}
+                  {{ formatRaceTime(displayedRaceResults.totalSeconds) }}
                 </strong>
               </span>
               <span>
                 <small>Fastest target</small>
                 <strong>
-                  {{ formatRaceTime(snapshot.raceResults.recordTotalSeconds) }}
+                  {{ formatRaceTime(displayedRaceResults.recordTotalSeconds) }}
                 </strong>
               </span>
-              <b :class="{ ahead: snapshot.raceResults.deltaSeconds < 0 }">
+              <b :class="{ ahead: displayedRaceResults.deltaSeconds < 0 }">
                 {{ raceDeltaLabel }}
               </b>
             </div>
@@ -481,7 +520,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             <h3>Final leaderboard</h3>
             <ol class="race-result-list">
               <li
-                v-for="row in snapshot.raceResults.rows"
+                v-for="row in displayedRaceResults.rows"
                 :key="row.stage"
               >
                 <span>

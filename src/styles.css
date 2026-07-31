@@ -2857,12 +2857,45 @@ kbd {
     top: 126px;
   }
 
+  .leaderboard-hud {
+    left: 8px;
+    width: 112px;
+    border-width: 2px;
+  }
+
+  .leaderboard-hud header {
+    gap: 4px;
+    padding: 5px 6px 4px;
+  }
+
+  .leaderboard-hud header span {
+    font-size: 8px;
+  }
+
+  .leaderboard-hud header small,
+  .leaderboard-times small {
+    font-size: 6px;
+  }
+
+  .leaderboard-times > span {
+    padding: 5px 6px;
+  }
+
+  .leaderboard-times strong {
+    font-size: 11px;
+  }
+
+  .leaderboard-delta {
+    padding: 4px 6px 5px;
+    font-size: 8px;
+  }
+
   .hud-bottom {
     height: 88px;
   }
 
   .hud-tray {
-    width: min(330px, 49%);
+    width: min(300px, 43%);
     height: 88px;
     gap: 7px;
     padding: 9px 11px 10px;
@@ -2886,6 +2919,13 @@ kbd {
   .hud-bottom-side,
   .hud-workshop {
     bottom: 10px;
+  }
+
+  .hud-bottom-left .reset-trigger,
+  .hud-bottom-left .pause-trigger,
+  .hud-workshop {
+    padding: 6px 8px;
+    font-size: 10px;
   }
 
   .hud-bottom-left {
@@ -3016,7 +3056,7 @@ kbd {
   }
 
   .hud-tray {
-    width: 46%;
+    width: 40%;
     height: 61px;
     gap: 3px;
     padding: 6px;
@@ -3067,5 +3107,18 @@ kbd {
 
   .pause-indicator small {
     font-size: 6px;
+  }
+}
+
+@container ride (max-width: 520px) {
+  .leaderboard-hud {
+    top: 72px;
+    transform: scale(0.8);
+    transform-origin: top left;
+  }
+
+  .hud-tray {
+    left: 54%;
+    width: 35%;
   }
 }

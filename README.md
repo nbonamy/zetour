@@ -24,6 +24,7 @@ npm run build
 
 - The rider moves forward automatically.
 - Use the Up/Down arrow keys to change lanes.
+- Pause or resume at any time with `P`, `Esc`, or the bottom Pause button.
 - Collect fan bags for Sweat and Cash.
 - Loot shifts gradually from 80% Sweat in Sector 1 to 80% Cash in Sector 5.
 - Choose between Super Draft, Lucky Bidon, and Jump pickups—one in each lane.
@@ -56,3 +57,9 @@ Clermont-Ferrand → Avignon → Grenoble → Alpe d'Huez. The HUD displays the
 declared route distances—580, 370, 380, 220, and 65 km—while the internal
 simulation remains compressed for game pacing. Terrain, wind direction, and the
 final 21-bend climb provide the geographical identity.
+
+For repeatable development screenshots, the local build accepts visual QA query
+parameters including `qaPaused`, `qaStage`, `qaGradient`, `qaEncounter`,
+`qaDomestiques`, `qaFlow`, `qaPowerUp`, `qaDrafting`, and `qaFinished`. These
+overrides are disabled in production; pair them with `qaPaused=1` for a
+save-neutral static screenshot.
