@@ -51,7 +51,12 @@ describe("App", () => {
       "Scandibérique · Atlantic plains",
     );
     expect(document.querySelector(".hud-title-plaque")).not.toBeNull();
+    expect(document.querySelectorAll(".hud-title .title-word")).toHaveLength(2);
+    expect(document.querySelectorAll(".hud-title .title-sprig")).toHaveLength(2);
+    expect(document.querySelector(".hud-route-ribbon .sr-only")).not.toBeNull();
     expect(document.querySelector(".speed-dial")).not.toBeNull();
+    expect(document.querySelector('[aria-label="Tour pace"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Current speed"]')).toBeNull();
     expect(document.querySelector(".hud-distance-track")).not.toBeNull();
     expect(document.querySelector(".hud-tray")).not.toBeNull();
     expect(
@@ -74,6 +79,16 @@ describe("App", () => {
     expect(document.body.textContent).not.toContain("km ridden");
     expect(document.body.textContent).toContain("Workshop W");
     expect(document.body.textContent).toContain("Pause P");
+    expect(document.querySelectorAll(".hud-control")).toHaveLength(4);
+    expect(
+      Array.from(
+        document.querySelectorAll(".hud-bottom .hud-control"),
+        (control) =>
+          Array.from(control.querySelectorAll("kbd"), (key) =>
+            key.textContent?.trim(),
+          ),
+      ),
+    ).toEqual([["R"], ["P"], ["↑", "↓"], ["W"]]);
     expect(document.body.textContent).not.toContain("Workshop U");
     expect(
       document.querySelector('[aria-label^="Sweat balance"] strong')?.textContent,
@@ -145,7 +160,7 @@ describe("App", () => {
     app.unmount();
   });
 
-  it("restarts the race and position from zero through the top control", async () => {
+  it("restarts the race and position from zero through the R control", async () => {
     for (let index = 0; index < 40; index += 1) {
       gameStore.tick(0.25);
     }
@@ -158,7 +173,7 @@ describe("App", () => {
     if (!host) throw new Error("Missing test host");
     app.mount(host);
 
-    document.querySelector<HTMLButtonElement>(".reset-trigger")?.click();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
     await nextTick();
     expect(document.body.textContent).toContain("Back to Paris?");
     expect(document.body.textContent).toContain("Your current Tour ends here.");
@@ -187,29 +202,69 @@ describe("App", () => {
   });
 
   it("shows and activates the single power-up reserve", async () => {
-    gameStore.collectPowerUp("super-draft");
+    gameStore.collectPowerUp("lucky-bidon");
     const app = createApp(App);
     const host = document.querySelector("#test-app");
     if (!host) throw new Error("Missing test host");
     app.mount(host);
 
-    expect(document.body.textContent).toContain("Super Draft");
+    expect(document.body.textContent).toContain("Acceleration");
     const useButton = document.querySelector<HTMLButtonElement>(
       ".hud-power-slot",
     );
     expect(useButton?.disabled).toBe(false);
+    expect(useButton?.title).toContain("2.5× speed + income");
+    expect(useButton?.getAttribute("aria-label")).toContain(
+      "Use Acceleration: 2.5× speed + income",
+    );
     useButton?.click();
     await nextTick();
 
     expect(gameStore.getSnapshot().reservedPowerUp).toBeNull();
-    expect(gameStore.getSnapshot().activePowerUp?.type).toBe("super-draft");
+    expect(gameStore.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
     expect(document.querySelector(".active-power-up")?.textContent).toContain(
-      "Super Draft",
+      "Acceleration",
     );
+    expect(document.querySelector(".active-power-up small")?.textContent).toBe(
+      "2.5× speed + income",
+    );
+    expect(
+      document.querySelector<HTMLImageElement>(".active-power-up img")?.src,
+    ).toContain("/assets/art/power-acceleration.png");
     app.unmount();
   });
 
-  it("shows the final leaderboard and starts a completely fresh ride", async () => {
+  it("keeps Flow out of the road view and explains it inside the speed HUD", () => {
+    gameStore.setActiveFlowMultiplier(1.8);
+    const app = createApp(App);
+    const host = document.querySelector("#test-app");
+    if (!host) throw new Error("Missing test host");
+    app.mount(host);
+
+    const flowBonus = document.querySelector<HTMLElement>(".flow-bonus");
+    const pacePanel = document.querySelector<HTMLElement>(
+      '[aria-label="Tour pace"]',
+    );
+    expect(gameStore.getSnapshot().stats.speedKmh).toBe(18);
+    expect(gameStore.getSnapshot().stats.effectivePaceKmh).toBeCloseTo(32.4);
+    expect(pacePanel?.querySelector("strong")?.textContent).toContain("32");
+    expect(pacePanel?.querySelector("strong")?.textContent).not.toContain(
+      "18",
+    );
+    expect(flowBonus?.textContent).toContain("Flow ×1.8");
+    expect(flowBonus?.title).toContain("boost Tour pace and income");
+    expect(document.querySelectorAll(".flow-bonus")).toHaveLength(1);
+    expect(document.querySelector(".effective-pace")?.textContent).toContain(
+      "Tour pace",
+    );
+    expect(document.querySelector(".effective-pace")?.textContent).not.toContain(
+      "km/h",
+    );
+    expect(document.querySelector(".game-canvas .flow-bonus")).toBeNull();
+    app.unmount();
+  });
+
+  it("shows the final leaderboard and starts a rewarded next Season", async () => {
     for (
       let index = 0;
       index < 30_000 && !gameStore.getSnapshot().raceFinished;
@@ -227,14 +282,16 @@ describe("App", () => {
     if (!host) throw new Error("Missing test host");
     app.mount(host);
 
-    expect(document.body.textContent).toContain("Tour complete");
+    expect(document.body.textContent).toContain("Season 1");
     expect(document.body.textContent).toContain("Alpe d'Huez");
     expect(document.body.textContent).toContain("Final leaderboard");
-    expect(document.body.textContent).toContain("Ride again");
+    expect(document.body.textContent).toContain("Victory lap");
+    expect(document.body.textContent).toContain("Start Season 2");
+    expect(document.body.textContent).toContain("+10 Palmarès");
     expect(componentState.paused).toBe(true);
 
     document
-      .querySelector<HTMLButtonElement>(".race-restart")
+      .querySelector<HTMLButtonElement>(".race-next-season")
       ?.click();
     await nextTick();
 
@@ -243,12 +300,15 @@ describe("App", () => {
     expect(restarted.stage).toBe(1);
     expect(restarted.highestStage).toBe(1);
     expect(restarted.tourNumber).toBe(1);
+    expect(restarted.season).toBe(2);
+    expect(restarted.palmares).toBe(10);
+    expect(restarted.totalPalmares).toBe(10);
     expect(restarted.sweat).toBe(0);
     expect(restarted.cash).toBe(0);
     expect(restarted.distanceM).toBe(0);
     expect(restarted.upgrades).toEqual({});
     expect(restarted.reservedPowerUp).toBeNull();
-    expect(restarted.sectorRecords).toEqual({});
+    expect(Object.keys(restarted.sectorRecords)).toHaveLength(5);
     expect(componentState.paused).toBe(false);
     app.unmount();
   });

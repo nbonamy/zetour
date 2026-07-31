@@ -3,6 +3,7 @@ import {
   CYCLIST_LANE_OFFSET_Y,
   cyclistFrameTexture,
   draftStreakStateAt,
+  groundedRoadObjectOffsetY,
   powerUpPulseAt,
   RIDE_RENDER_SCALE,
   RIDE_WORLD_HEIGHT,
@@ -12,7 +13,6 @@ import {
   laneCentersBetween,
   roadHazardLaneY,
   rideRenderSize,
-  jumpHeightAt,
   syncRoadBodyPosition,
 } from "../../src/game/rendering";
 
@@ -28,12 +28,6 @@ describe("ride rendering", () => {
     expect(cyclistFrameTexture("domestique", true)).toBe(
       "domestique-rider-b",
     );
-  });
-
-  it("uses a smooth jump arc that starts and ends on the road", () => {
-    expect(jumpHeightAt(1.2, 1.2)).toBeCloseTo(0);
-    expect(jumpHeightAt(0.6, 1.2)).toBeCloseTo(26);
-    expect(jumpHeightAt(0, 1.2)).toBeCloseTo(0);
   });
 
   it("keeps active power-up pulses subtle and continuously visible", () => {
@@ -83,11 +77,17 @@ describe("ride rendering", () => {
     ]);
   });
 
-  it("centers hazards on the same lane coordinate as pickups", () => {
-    expect(ROAD_HAZARD_LANE_OFFSET_Y).toBe(0);
-    expect(roadHazardLaneY(212.5)).toBe(212.5);
-    expect(roadHazardLaneY(250)).toBe(250);
-    expect(roadHazardLaneY(289.5)).toBe(289.5);
+  it("rests pickup artwork on the lane baseline instead of below it", () => {
+    expect(groundedRoadObjectOffsetY(28)).toBe(-14);
+    expect(250 + groundedRoadObjectOffsetY(28) + 28 / 2).toBe(250);
+    expect(groundedRoadObjectOffsetY(34)).toBe(-17);
+  });
+
+  it("lifts shallow ground hazards above the lane baseline", () => {
+    expect(ROAD_HAZARD_LANE_OFFSET_Y).toBe(-6);
+    expect(roadHazardLaneY(212.5)).toBe(206.5);
+    expect(roadHazardLaneY(250)).toBe(244);
+    expect(roadHazardLaneY(289.5)).toBe(283.5);
   });
 
   it("syncs collision bodies without replaying manually applied road motion", () => {

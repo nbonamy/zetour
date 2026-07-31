@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createdKeys: [] as string[],
+  between: vi.fn((minimum: number) => minimum),
 }));
 
 vi.mock("phaser", () => ({
@@ -10,6 +11,9 @@ vi.mock("phaser", () => ({
       constructor(key: string) {
         mocks.createdKeys.push(key);
       }
+    },
+    Math: {
+      Between: mocks.between,
     },
   },
 }));
@@ -25,6 +29,99 @@ describe("GameScene", () => {
     expect(mocks.createdKeys).toEqual(["ride"]);
   });
 
+  it("rests bag artwork on the selected lane baseline", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const body = { setSize: vi.fn() };
+    const bag: Record<string, any> = { body };
+    bag.setDisplaySize = vi.fn(() => bag);
+    bag.setDepth = vi.fn(() => bag);
+    const image = vi.fn(() => bag);
+    const ambientImage = vi.fn();
+    const addToPickups = vi.fn();
+    scene.physics = { add: { image } };
+    scene.add = { image: ambientImage };
+    scene.pickups = { add: addToPickups };
+    scene.roadGradient = 0;
+
+    (scene.spawnPickup as (
+      type: "sweat" | "cash",
+      lane: number,
+      x: number,
+    ) => void)("cash", 1, 400);
+
+    expect(image).toHaveBeenCalledWith(400, 236, "bag-cash");
+    expect(bag.roadLane).toBe(1);
+    expect(bag.roadYOffset).toBe(-14);
+    expect(bag.setDisplaySize).toHaveBeenCalledWith(28, 28);
+    expect(addToPickups).toHaveBeenCalledWith(bag);
+    expect(ambientImage).not.toHaveBeenCalled();
+  });
+
+  it("spawns ambient fans as an independent roadside group", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const spawnedFans: Record<string, any>[] = [];
+    const image = vi.fn((x: number, y: number, texture: string) => {
+      const fan: Record<string, any> = { x, y, texture };
+      fan.setDisplaySize = vi.fn(() => fan);
+      fan.setOrigin = vi.fn(() => fan);
+      fan.setDepth = vi.fn(() => fan);
+      spawnedFans.push(fan);
+      return fan;
+    });
+    scene.add = { image };
+    scene.fans = [];
+    scene.roadGradient = 0;
+
+    (scene.spawnFanCluster as (size: number, x: number) => void)(3, 700);
+
+    expect(spawnedFans).toHaveLength(3);
+    expect(scene.fans).toEqual(spawnedFans);
+    expect(image.mock.calls.map((call) => call[2])).toEqual([
+      "fan-1-a",
+      "fan-1-a",
+      "fan-1-a",
+    ]);
+    expect(image.mock.calls.map((call) => call[0])).toEqual([700, 738, 776]);
+  });
+
+  it("keeps ambient fans alive until the road scrolls them off-screen", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const fan: Record<string, any> = {
+      x: 45,
+      roadsideBaseY: 190,
+      fanVariant: 1,
+      frameOffset: 0,
+    };
+    fan.setX = vi.fn((x: number) => {
+      fan.x = x;
+      return fan;
+    });
+    fan.setY = vi.fn(() => fan);
+    fan.setTexture = vi.fn(() => fan);
+    fan.destroy = vi.fn();
+    Object.assign(scene, {
+      fans: [fan],
+      fanSpawnDistance: 1_000,
+      roadGradient: 0,
+      time: { now: 0 },
+    });
+
+    (scene.updateRoadsideFans as (speed: number, delta: number) => void)(
+      10,
+      1_000,
+    );
+    expect(fan.x).toBe(35);
+    expect(fan.destroy).not.toHaveBeenCalled();
+    expect(scene.fans).toEqual([fan]);
+
+    (scene.updateRoadsideFans as (speed: number, delta: number) => void)(
+      100,
+      1_000,
+    );
+    expect(fan.destroy).toHaveBeenCalledOnce();
+    expect(scene.fans).toEqual([]);
+  });
+
   it("preloads the complete painted ride asset pack", () => {
     const scene = new GameScene() as unknown as Record<string, any>;
     const image = vi.fn();
@@ -32,7 +129,7 @@ describe("GameScene", () => {
 
     (scene.preload as () => void)();
 
-    expect(image).toHaveBeenCalledTimes(28);
+    expect(image).toHaveBeenCalledTimes(31);
     expect(image).toHaveBeenCalledWith(
       "rider-a",
       "/assets/art/rider-a.png",
@@ -57,6 +154,103 @@ describe("GameScene", () => {
       "road-texture",
       "/assets/art/road-texture.jpg",
     );
+    expect(image).toHaveBeenCalledWith(
+      "road-texture-gravel",
+      "/assets/art/road-texture-gravel.jpg",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "oncoming-car-red",
+      "/assets/art/oncoming-car-red.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "oncoming-van-cream",
+      "/assets/art/oncoming-van-cream.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "power-acceleration",
+      "/assets/art/power-acceleration.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "power-invincibility",
+      "/assets/art/power-invincibility.png",
+    );
+  });
+
+  it("places oncoming traffic on a lane-sized collision body", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const body = {
+      setSize: vi.fn(),
+      setOffset: vi.fn(),
+    };
+    body.setSize.mockReturnValue(body);
+    body.setOffset.mockReturnValue(body);
+    const vehicle: Record<string, any> = { body, y: 227 };
+    vehicle.setDisplaySize = vi.fn(() => vehicle);
+    vehicle.setDepth = vi.fn(() => vehicle);
+    const image = vi.fn(() => vehicle);
+    const addToHazards = vi.fn();
+    scene.physics = { add: { image } };
+    scene.hazards = { add: addToHazards };
+    scene.roadGradient = 0;
+
+    (scene.spawnOncomingVehicle as (
+      lane: number,
+      x: number,
+      sequenceId: number,
+      variant: "car" | "van",
+    ) => void)(1, 700, 12, "car");
+
+    expect(image).toHaveBeenCalledWith(700, 227, "oncoming-car-red");
+    expect(vehicle.eventType).toBe("oncoming-car");
+    expect(vehicle.sequenceId).toBe(12);
+    expect(vehicle.roadLane).toBe(1);
+    expect(vehicle.roadYOffset).toBe(-23);
+    expect(vehicle.roadSpeedMultiplier).toBeCloseTo(1.42);
+    expect(vehicle.setDisplaySize).toHaveBeenCalledWith(104, 78);
+    expect(body.setSize).toHaveBeenCalledWith(390, 140, false);
+    expect(body.setOffset).toHaveBeenCalledWith(60, 160);
+    expect(addToHazards).toHaveBeenCalledWith(vehicle);
+  });
+
+  it("maps legacy save keys to the new Acceleration and Invincibility art", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const spawned: Record<string, any>[] = [];
+    const image = vi.fn((x: number, y: number, texture: string) => {
+      const object: Record<string, any> = {
+        x,
+        y,
+        texture,
+        scaleX: 1,
+        scaleY: 1,
+        body: { setSize: vi.fn() },
+      };
+      object.setDisplaySize = vi.fn(() => object);
+      object.setDepth = vi.fn(() => object);
+      spawned.push(object);
+      return object;
+    });
+    scene.physics = { add: { image } };
+    scene.pickups = { add: vi.fn() };
+    scene.tweens = { add: vi.fn() };
+    scene.roadGradient = 0;
+
+    (scene.spawnPowerUp as (
+      type: "lucky-bidon" | "jump",
+      lane: number,
+      x: number,
+      choiceId: number,
+    ) => void)("lucky-bidon", 1, 400, 7);
+    (scene.spawnPowerUp as (
+      type: "lucky-bidon" | "jump",
+      lane: number,
+      x: number,
+      choiceId: number,
+    ) => void)("jump", 2, 500, 8);
+
+    expect(image.mock.calls[0]?.[2]).toBe("power-acceleration");
+    expect(image.mock.calls[1]?.[2]).toBe("power-invincibility");
+    expect(spawned[0]?.eventType).toBe("lucky-bidon");
+    expect(spawned[1]?.eventType).toBe("jump");
   });
 
   it("reacts to a store race reset before advancing another frame", () => {
@@ -76,9 +270,9 @@ describe("GameScene", () => {
 
   it("clears every spawned road object and temporary rider on reset", () => {
     const scene = new GameScene() as unknown as Record<string, any>;
-    const pickupCompanion = { destroy: vi.fn() };
-    const pickup = { companion: pickupCompanion };
+    const pickup = {};
     const hazard = {};
+    const ambientFan = { destroy: vi.fn() };
     const pickups = {
       getChildren: vi.fn(() => [pickup]),
       clear: vi.fn(),
@@ -126,6 +320,8 @@ describe("GameScene", () => {
     Object.assign(scene, {
       pickups,
       hazards,
+      fans: [ambientFan],
+      fanSpawnDistance: 1,
       tweens: { killTweensOf: vi.fn() },
       draftCyclist,
       draftTimerText,
@@ -137,8 +333,6 @@ describe("GameScene", () => {
       draftWake,
       draftWindStreaks: [draftWindStreak],
       time: { now: 500 },
-      flowBar: { width: 72 },
-      flowText: { setText: vi.fn() },
       encounterText,
       scenery: { tilePositionX: 99 },
       upperRoadside: { tilePositionX: 66 },
@@ -157,9 +351,11 @@ describe("GameScene", () => {
 
     (scene.resetRaceWorld as () => void)();
 
-    expect(pickupCompanion.destroy).toHaveBeenCalledOnce();
     expect(pickups.clear).toHaveBeenCalledWith(true, true);
     expect(hazards.clear).toHaveBeenCalledWith(true, true);
+    expect(ambientFan.destroy).toHaveBeenCalledOnce();
+    expect(scene.fans).toEqual([]);
+    expect(scene.fanSpawnDistance).toBe(70);
     expect(draftCyclist.destroy).toHaveBeenCalledOnce();
     expect(draftTimerText.destroy).toHaveBeenCalledOnce();
     expect(domestique.destroy).toHaveBeenCalledOnce();
@@ -218,14 +414,99 @@ describe("GameScene", () => {
     expect(collect).toHaveBeenCalledWith(loot);
   });
 
+  it("waits for every active road object to clear before the next encounter", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const pickup = { active: true };
+    const hazard = { active: true };
+    scene.pickups = { getChildren: () => [pickup] };
+    scene.hazards = { getChildren: () => [hazard] };
+
+    expect(scene.isEncounterRoadClear()).toBe(false);
+    pickup.active = false;
+    expect(scene.isEncounterRoadClear()).toBe(false);
+    hazard.active = false;
+    expect(scene.isEncounterRoadClear()).toBe(true);
+  });
+
+  it("lets Invincibility absorb potholes and traffic without breaking challenges", () => {
+    gameStore.resetCareer();
+    gameStore.collectPowerUp("jump");
+    expect(gameStore.activateReservedPowerUp()).toBe(true);
+
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const rewardFlow = vi.fn();
+    const floatText = vi.fn();
+    const destroyRoadObject = vi.fn();
+    const trafficRun = {
+      encounter: "traffic",
+      totalPickups: 5,
+      collectedPickups: 0,
+      failed: false,
+    };
+    const potholeRun = {
+      encounter: "slalom",
+      totalPickups: 5,
+      collectedPickups: 0,
+      failed: false,
+    };
+    Object.assign(scene, {
+      rewardFlow,
+      floatText,
+      destroyRoadObject,
+      challengeRuns: new Map([
+        [1, trafficRun],
+        [2, potholeRun],
+      ]),
+    });
+    const hitTraffic = vi.spyOn(gameStore, "hitTraffic");
+    const hitPothole = vi.spyOn(gameStore, "hitPothole");
+    const traffic = {
+      active: true,
+      eventType: "oncoming-car",
+      sequenceId: 1,
+      x: 120,
+      y: 230,
+    };
+    const pothole = {
+      active: true,
+      eventType: "pothole",
+      sequenceId: 2,
+      x: 120,
+      y: 270,
+    };
+
+    try {
+      (scene.hitHazard as (object: unknown) => void)(traffic);
+      (scene.hitHazard as (object: unknown) => void)(pothole);
+
+      expect(hitTraffic).not.toHaveBeenCalled();
+      expect(hitPothole).not.toHaveBeenCalled();
+      expect(rewardFlow).toHaveBeenNthCalledWith(1, 20, "TRAFFIC SHIELD");
+      expect(rewardFlow).toHaveBeenNthCalledWith(2, 12, "POTHOLE SHIELD");
+      expect(floatText).toHaveBeenCalledTimes(2);
+      expect(floatText).toHaveBeenCalledWith(
+        expect.any(Number),
+        expect.any(Number),
+        "INVINCIBLE!",
+        "#ffe26f",
+      );
+      expect(destroyRoadObject).toHaveBeenCalledWith(traffic);
+      expect(destroyRoadObject).toHaveBeenCalledWith(pothole);
+      expect(trafficRun.failed).toBe(false);
+      expect(potholeRun.failed).toBe(false);
+    } finally {
+      hitTraffic.mockRestore();
+      hitPothole.mockRestore();
+      gameStore.resetCareer();
+    }
+  });
+
   it("destroys every power-up choice and cancels its visual tweens", () => {
     const scene = new GameScene() as unknown as Record<string, any>;
     const children: Record<string, any>[] = [];
-    const makePickup = (choiceId: number, withCompanion = false) => {
-      const companion = withCompanion ? { destroy: vi.fn() } : undefined;
+    const makePickup = (choiceId: number) => {
       const pickup: Record<string, any> = {
         powerUpChoiceId: choiceId,
-        companion,
       };
       pickup.destroy = vi.fn(() => {
         children.splice(children.indexOf(pickup), 1);
@@ -233,8 +514,7 @@ describe("GameScene", () => {
       children.push(pickup);
       return pickup;
     };
-    const first = makePickup(7, true);
-    const firstCompanion = first.companion;
+    const first = makePickup(7);
     const second = makePickup(7);
     const unrelated = makePickup(8);
     const killTweensOf = vi.fn();
@@ -248,10 +528,8 @@ describe("GameScene", () => {
     expect(first.destroy).toHaveBeenCalledOnce();
     expect(second.destroy).toHaveBeenCalledOnce();
     expect(unrelated.destroy).not.toHaveBeenCalled();
-    expect(firstCompanion.destroy).toHaveBeenCalledOnce();
     expect(killTweensOf).toHaveBeenCalledWith(first);
     expect(killTweensOf).toHaveBeenCalledWith(second);
-    expect(killTweensOf).toHaveBeenCalledWith(firstCompanion);
     expect(children).toEqual([unrelated]);
   });
 });

@@ -9,12 +9,18 @@ const ROAD_VISUAL_RISE_PER_GRADIENT = 720;
 export type RideEncounter =
   | "bonus-line"
   | "slalom"
-  | "fan-corridor"
   | "feed-zone"
   | "sprint"
   | "hairpins"
+  | "traffic"
   | "power-up"
   | "draft";
+
+export interface EncounterChallengeRules {
+  cleanRewardMultiplier: number;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  flowReward: number;
+}
 
 export interface DraftRules {
   laneTolerancePx: number;
@@ -34,6 +40,14 @@ export const roadPowerUpChoices: readonly PowerUpType[] = [
   "lucky-bidon",
   "jump",
 ];
+
+export const trafficGauntletPattern = [
+  { hazardLanes: [1], rewardLane: 2 },
+  { hazardLanes: [0, 2], rewardLane: 1 },
+  { hazardLanes: [2], rewardLane: 0 },
+  { hazardLanes: [0, 2], rewardLane: 1 },
+  { hazardLanes: [1], rewardLane: 2 },
+] as const;
 
 export const lootMixForStage = (stage: number): LootMix => {
   const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
@@ -79,7 +93,21 @@ export const formatDraftTimer = (seconds: number): string =>
   `${Math.max(0, Math.ceil(seconds))}s`;
 
 export const roadScrollSpeed = (speedKmh: number): number =>
-  Math.max(32, speedKmh * 5.2);
+  Math.max(54, speedKmh * 8);
+
+export const oncomingTrafficSpeedMultiplier = (stage: number): number =>
+  1.34 + Math.max(1, Math.min(5, Math.round(stage))) * 0.08;
+
+export const encounterDelayRange = (
+  stage: number,
+): readonly [number, number] => {
+  const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
+  const difficultyOffset = (normalizedStage - 1) * 260;
+  return [
+    5_400 - difficultyOffset,
+    7_400 - difficultyOffset,
+  ];
+};
 
 export const roadScrollDistance = (
   scrollSpeed: number,
@@ -122,6 +150,22 @@ export const fanFrameAt = (
   Math.floor((Math.max(0, timeMs) + phaseOffsetMs) / 260) % 2 === 0
     ? "fan-a"
     : "fan-b";
+
+export const roadsideFanGroupSize = (
+  random: () => number = Math.random,
+): 1 | 2 | 3 => {
+  const roll = Math.max(0, Math.min(0.999_999, random()));
+  if (roll < 0.72) return 1;
+  if (roll < 0.94) return 2;
+  return 3;
+};
+
+export const roadsideFanClusterGap = (
+  random: () => number = Math.random,
+): number => {
+  const roll = Math.max(0, Math.min(1, random()));
+  return Math.round(190 + roll * 140);
+};
 
 export const encounterStartX = (
   encounter: RideEncounter,
@@ -187,12 +231,52 @@ export const isRemainingSequencePickup = (
 export const encounterLabel: Record<RideEncounter, string> = {
   "bonus-line": "BONUS LINE",
   slalom: "BROKEN ROAD",
-  "fan-corridor": "FAN CORRIDOR",
   "feed-zone": "FEED ZONE",
   sprint: "SPRINT SEGMENT",
   hairpins: "HAIRPINS",
+  traffic: "ONCOMING TRAFFIC",
   "power-up": "POWER-UP — PICK ONE",
   draft: "RIDER AHEAD — CATCH THE DRAFT",
+};
+
+export const encounterChallengeRules: Partial<
+  Record<RideEncounter, EncounterChallengeRules>
+> = {
+  "bonus-line": {
+    cleanRewardMultiplier: 1,
+    difficulty: 1,
+    flowReward: 8,
+  },
+  "feed-zone": {
+    cleanRewardMultiplier: 1.5,
+    difficulty: 1,
+    flowReward: 10,
+  },
+  sprint: {
+    cleanRewardMultiplier: 3,
+    difficulty: 2,
+    flowReward: 16,
+  },
+  slalom: {
+    cleanRewardMultiplier: 4,
+    difficulty: 3,
+    flowReward: 20,
+  },
+  hairpins: {
+    cleanRewardMultiplier: 6,
+    difficulty: 4,
+    flowReward: 24,
+  },
+  traffic: {
+    cleanRewardMultiplier: 8,
+    difficulty: 5,
+    flowReward: 30,
+  },
+  draft: {
+    cleanRewardMultiplier: 6,
+    difficulty: 4,
+    flowReward: 24,
+  },
 };
 
 export const availableEncounters = (
@@ -201,9 +285,9 @@ export const availableEncounters = (
   const encounters: RideEncounter[] = [
     "bonus-line",
     "slalom",
-    "fan-corridor",
     "feed-zone",
     "sprint",
+    "traffic",
     "power-up",
     "draft",
   ];
@@ -227,8 +311,10 @@ export const nextEncounter = (
   random: () => number = Math.random,
 ): RideEncounter => {
   if (encounterCount === 0) return "bonus-line";
-  if (encounterCount === 1) return "draft";
+  if (encounterCount === 1) return "traffic";
   if (encounterCount === 2) return "power-up";
+  if (encounterCount === 3) return "slalom";
+  if (encounterCount === 4) return "draft";
   return chooseEncounter(stage, random);
 };
 
@@ -236,7 +322,7 @@ export const clampFlow = (flow: number): number =>
   Math.max(0, Math.min(100, flow));
 
 export const flowMultiplier = (flow: number): number =>
-  1 + Math.floor(clampFlow(flow) / 20) * 0.2;
+  1 + Math.floor(clampFlow(flow) / 20) * 0.4;
 
 export const addFlow = (flow: number, amount: number): number =>
   clampFlow(flow + amount);

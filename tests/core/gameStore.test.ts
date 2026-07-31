@@ -13,6 +13,9 @@ import {
   powerUpDefinitions,
   stages,
   terrainSpeedMultiplier,
+  TOTAL_TOUR_DISTANCE_KM,
+  TOUR_DURATION_MULTIPLIER,
+  type SaveState,
 } from "../../src/core/gameStore";
 
 describe("riding economy", () => {
@@ -35,10 +38,10 @@ describe("riding economy", () => {
     const cashReward = store.collectBag("cash");
     const state = store.getSnapshot();
 
-    expect(sweatReward).toBe(8);
-    expect(cashReward).toBe(18);
-    expect(state.sweat).toBe(8);
-    expect(state.cash).toBe(18);
+    expect(sweatReward).toBe(56);
+    expect(cashReward).toBe(80);
+    expect(state.sweat).toBe(56);
+    expect(state.cash).toBe(80);
   });
 
   it("applies the active Flow multiplier to roadside bags", () => {
@@ -46,8 +49,8 @@ describe("riding economy", () => {
 
     const reward = store.collectBag("cash", 1.6);
 
-    expect(reward).toBe(29);
-    expect(store.getSnapshot().cash).toBe(29);
+    expect(reward).toBe(129);
+    expect(store.getSnapshot().cash).toBe(129);
   });
 
   it("makes passive Cash spendable immediately", () => {
@@ -72,34 +75,61 @@ describe("riding economy", () => {
     expect(Number.isInteger(state.cash)).toBe(true);
   });
 
-  it("loses between 10 and 20 percent of total Cash", () => {
+  it("loses four to eight seconds of current Cash production", () => {
     const minimumRoll = createTestStore({ cash: 1_000 }, () => 0).store;
     const maximumRoll = createTestStore(
       { cash: 1_000 },
       () => 0.999999,
     ).store;
 
-    expect(minimumRoll.hitPothole()).toBe(100);
-    expect(maximumRoll.hitPothole()).toBe(200);
+    expect(minimumRoll.hitPothole()).toBe(11);
+    expect(maximumRoll.hitPothole()).toBe(22);
   });
 
-  it("makes upgraded tires reduce pothole losses", () => {
-    const unprotected = createTestStore({ cash: 1_000 }, () => 0.999999).store;
-    const protectedStore = createTestStore(
-      {
-        cash: 1_000,
-        upgrades: {
-          tires: 3,
-        },
+  it("makes traffic collisions more expensive than potholes", () => {
+    const pothole = createTestStore({ cash: 1_000 }, () => 0).store;
+    const traffic = createTestStore({ cash: 1_000 }, () => 0).store;
+
+    expect(traffic.hitTraffic()).toBe(38);
+    expect(traffic.getSnapshot().cash).toBe(962);
+    expect(traffic.hitTraffic()).toBeGreaterThan(pothole.hitPothole());
+  });
+
+  it("pays clean challenge bursts in both currencies at the current rate", () => {
+    const { store } = createTestStore();
+
+    const easy = store.completeChallenge(1);
+    const traffic = store.completeChallenge(8);
+
+    expect(easy).toEqual({
+      sweat: 67,
+      cash: 64,
+      productionSeconds: 24,
+    });
+    expect(traffic).toEqual({
+      sweat: 538,
+      cash: 515,
+      productionSeconds: 192,
+    });
+    expect(store.getSnapshot()).toMatchObject({
+      sweat: 605,
+      cash: 579,
+    });
+  });
+
+  it("makes tires, suspension, and mechanics protect against potholes", () => {
+    const unprotected = createTestStore().store.getSnapshot();
+    const protectedState = createTestStore({
+      upgrades: {
+        tires: 25,
+        suspension: 25,
+        mechanic: 25,
       },
-      () => 0.999999,
-    ).store;
+    }).store.getSnapshot();
 
-    const unprotectedLoss = unprotected.hitPothole();
-    const protectedLoss = protectedStore.hitPothole();
-
-    expect(protectedLoss).toBeLessThan(unprotectedLoss);
-    expect(protectedLoss).toBeGreaterThanOrEqual(100);
+    expect(unprotected.stats.potholeProtection).toBe(0);
+    expect(protectedState.stats.potholeProtection).toBeGreaterThan(0.5);
+    expect(protectedState.stats.potholeProtection).toBeLessThanOrEqual(0.9);
   });
 
   it("normalizes legacy fractional balances to whole units", () => {
@@ -136,16 +166,38 @@ describe("stage and offline progression", () => {
     expect(store.getSnapshot().stage).toBe(2);
   });
 
+  it("extends Tour duration without weakening speed or income", () => {
+    const { store } = createTestStore();
+    const before = store.getSnapshot();
+
+    store.tick(0.25);
+    const after = store.getSnapshot();
+
+    expect(TOUR_DURATION_MULTIPLIER).toBe(1.5);
+    expect(after.stageDistanceM).toBeCloseTo(
+      ((before.stats.effectivePaceKmh / 3.6) * 0.25) /
+        TOUR_DURATION_MULTIPLIER,
+    );
+    expect(after.stats.speedKmh).toBeCloseTo(before.stats.speedKmh);
+    expect(after.stats.sweatPerSecond).toBeCloseTo(
+      before.stats.sweatPerSecond,
+    );
+    expect(after.stats.cashPerSecond).toBeCloseTo(
+      before.stats.cashPerSecond,
+    );
+  });
+
   it("reaches the climbing sector after the Paris to Bordeaux opener", () => {
     const { store, advance } = createTestStore();
 
-    advance(181);
+    advance(275);
 
     const state = store.getSnapshot();
     expect(state.stage).toBe(2);
     expect(state.stageDefinition.start).toBe("Bordeaux");
     expect(state.stageDefinition.finish).toBe("Clermont-Ferrand");
-    expect(state.stageDefinition.name).toBe("Massif Central approach");
+    expect(state.stageDefinition.name).toBe("Périgord gravel approach");
+    expect(state.stageDefinition.surface).toBe("gravel");
     expect(state.stageDistanceM).toBeGreaterThanOrEqual(0);
   });
 
@@ -162,7 +214,7 @@ describe("stage and offline progression", () => {
     expect(state.cash).toBeGreaterThanOrEqual(50);
   });
 
-  it("ends on Alpe and resets the whole career for a fresh ride", () => {
+  it("ends on Alpe and can keep upgrades for a richer victory lap", () => {
     const { store, advance } = createTestStore({
       stage: 5,
       highestStage: 5,
@@ -208,19 +260,26 @@ describe("stage and offline progression", () => {
     expect(state.raceFinished).toBe(false);
     expect(state.raceRevision).toBe(finishedRaceRevision + 1);
     expect(state.stage).toBe(1);
-    expect(state.tourNumber).toBe(1);
-    expect(state.highestStage).toBe(1);
-    expect(state.sweat).toBe(0);
-    expect(state.cash).toBe(0);
-    expect(state.distanceM).toBe(0);
+    expect(state.tourNumber).toBe(4);
+    expect(state.highestStage).toBe(5);
+    expect(state.toursThisSeason).toBe(1);
+    expect(state.toursCompleted).toBe(1);
+    expect(state.sweat).toBeGreaterThan(12_345);
+    expect(state.cash).toBeGreaterThanOrEqual(678);
+    expect(state.distanceM).toBe(finishedDistance);
     expect(state.stageDistanceM).toBe(0);
     expect(state.sectorElapsedSeconds).toBe(0);
     expect(state.raceStageTimes).toEqual({});
-    expect(state.sectorRecords).toEqual({});
+    expect(state.sectorRecords["5"]).toBeDefined();
     expect(state.reservedPowerUp).toBeNull();
     expect(state.activePowerUp).toBeNull();
-    expect(state.upgrades).toEqual({});
-    expect(store.isBranchUnlocked("team")).toBe(false);
+    expect(state.upgrades).toMatchObject({
+      power: 3,
+      endurance: 2,
+      fueling: 1,
+      domestique: 1,
+    });
+    expect(store.isBranchUnlocked("team")).toBe(true);
   });
 
   it("migrates old Stage 6 saves to the new five-sector finale", () => {
@@ -231,6 +290,162 @@ describe("stage and offline progression", () => {
     const state = store.getSnapshot();
     expect(state.stage).toBe(5);
     expect(state.stageDefinition.finish).toBe("Alpe d'Huez");
+  });
+
+  it("migrates version-one component levels and legacy ride Cash", () => {
+    const legacy = {
+      version: 1,
+      cash: 5,
+      rideCash: 9,
+      upgrades: {
+        "aluminium-frame": 1,
+        "carbon-frame": 1,
+        "reinforced-tires": 1,
+        "performance-tires": 1,
+      },
+    } as unknown as Partial<SaveState>;
+    const { store } = createTestStore(legacy);
+
+    const state = store.getSnapshot();
+    expect(state.version).toBe(3);
+    expect(state.cash).toBe(14);
+    expect(state.upgrades.frame).toBe(2);
+    expect(state.upgrades.tires).toBe(2);
+    expect(state.upgrades["aluminium-frame"]).toBeUndefined();
+    expect(state.upgrades["reinforced-tires"]).toBeUndefined();
+  });
+
+  it("preserves proportional progress when compressing version-two upgrades", () => {
+    const legacy = {
+      version: 2,
+      upgrades: {
+        hydration: 12,
+        power: 25,
+        wheels: 50,
+        helmet: 100,
+      },
+    } as unknown as Partial<SaveState>;
+    const { store } = createTestStore(legacy);
+
+    expect(store.getSnapshot()).toMatchObject({
+      version: 3,
+      upgrades: {
+        hydration: 1,
+        power: 3,
+        wheels: 2,
+        helmet: 2,
+      },
+    });
+  });
+
+  it("salvages valid progress when individual save fields are corrupt", () => {
+    const corrupt = {
+      stage: "peloton",
+      stageDistanceM: "puncture",
+      distanceM: Number.POSITIVE_INFINITY,
+      seasonDistanceKm: "unknown",
+      lifetimeDistanceKm: Number.NaN,
+      sweat: "many",
+      cash: 42,
+      palmares: "legendary",
+      totalPalmares: Number.NaN,
+      palmaresUpgrades: { "tour-legend": "all of them" },
+      lastSavedAt: "yesterday-ish",
+    } as unknown as Partial<SaveState>;
+    const { store, advance } = createTestStore(corrupt);
+
+    let state = store.getSnapshot();
+    expect(state.stage).toBe(1);
+    expect(state.stageDistanceM).toBe(0);
+    expect(state.distanceM).toBe(0);
+    expect(state.seasonDistanceKm).toBe(0);
+    expect(state.lifetimeDistanceKm).toBe(0);
+    expect(state.sweat).toBe(0);
+    expect(state.cash).toBe(42);
+    expect(state.palmares).toBe(0);
+    expect(state.totalPalmares).toBe(0);
+    expect(state.palmaresUpgrades["tour-legend"]).toBe(0);
+
+    advance(1);
+    state = store.getSnapshot();
+    expect(Number.isFinite(state.stats.effectivePaceKmh)).toBe(true);
+    expect(state.distanceM).toBeGreaterThan(0);
+  });
+
+  it("turns a completed Tour into permanent Palmarès and a faster Season", () => {
+    const { store } = createTestStore({
+      stage: 5,
+      highestStage: 5,
+      stageDistanceM: stages[4].distanceM,
+      raceFinished: true,
+      seasonDistanceKm: TOTAL_TOUR_DISTANCE_KM,
+      lifetimeDistanceKm: TOTAL_TOUR_DISTANCE_KM,
+      toursCompleted: 1,
+      toursThisSeason: 1,
+      sweat: 5_000,
+      cash: 4_000,
+      upgrades: { power: 10, "aero-socks": 10 },
+      sectorRecords: {
+        "1": {
+          totalSeconds: 100,
+          splits: [0, 50, 100],
+        },
+      },
+    });
+
+    expect(store.getSnapshot().pendingPalmares).toBe(10);
+    expect(store.startNextSeason()).toBe(true);
+
+    let state = store.getSnapshot();
+    expect(state.season).toBe(2);
+    expect(state.tourNumber).toBe(1);
+    expect(state.stage).toBe(1);
+    expect(state.palmares).toBe(10);
+    expect(state.totalPalmares).toBe(10);
+    expect(state.toursCompleted).toBe(1);
+    expect(state.toursThisSeason).toBe(0);
+    expect(state.seasonDistanceKm).toBe(0);
+    expect(state.lifetimeDistanceKm).toBe(TOTAL_TOUR_DISTANCE_KM);
+    expect(state.upgrades).toEqual({});
+    expect(state.sectorRecords["1"]).toBeDefined();
+    expect(state.stats.palmaresMultiplier).toBe(2);
+
+    expect(store.purchasePalmares("tour-legend")).toBe(true);
+    state = store.getSnapshot();
+    expect(state.palmares).toBe(7);
+    expect(state.palmaresUpgrades["tour-legend"]).toBe(1);
+    expect(state.stats.palmaresMultiplier).toBe(4);
+  });
+
+  it("uses Palmarès preparation and race radio on later Seasons", () => {
+    const { store, advance } = createTestStore({
+      stage: 5,
+      highestStage: 5,
+      stageDistanceM: stages[4].distanceM,
+      raceFinished: true,
+      seasonDistanceKm: TOTAL_TOUR_DISTANCE_KM,
+      toursCompleted: 1,
+      toursThisSeason: 1,
+      palmaresUpgrades: {
+        "head-start": 1,
+        "race-radio": 1,
+        "sticky-bidons": 1,
+      },
+      automationEnabled: true,
+    });
+
+    expect(store.startNextSeason()).toBe(true);
+    let state = store.getSnapshot();
+    expect(state.sweat).toBeGreaterThan(150);
+    expect(state.cash).toBe(state.sweat);
+    expect(state.stats.automationUnlocked).toBe(true);
+    expect(state.stats.pickupMagnet).toBe(true);
+
+    advance(3);
+    state = store.getSnapshot();
+    expect(Object.values(state.upgrades).some((level) => level > 0)).toBe(
+      true,
+    );
   });
 
   it("migrates a completed legacy finale into the race results", () => {
@@ -312,7 +527,7 @@ describe("stage and offline progression", () => {
 
     const slower = createTestStore({
       stageDistanceM: 400,
-      sectorElapsedSeconds: 75,
+      sectorElapsedSeconds: 110,
     }).store.getSnapshot();
     expect(slower.leaderboard.status).toBe("behind");
     expect(slower.leaderboard.deltaSeconds).toBeGreaterThan(0);
@@ -352,6 +567,59 @@ describe("stage and offline progression", () => {
 
     expect(starter.stats.speedKmh).toBe(18);
     expect(improved.stats.speedKmh).toBeGreaterThanOrEqual(20.5);
+  });
+
+  it("lets milestone multipliers explode Tour pace without exploding road speed", () => {
+    const base = createTestStore().store.getSnapshot();
+    const upgraded = createTestStore({
+      upgrades: {
+        power: 5,
+        endurance: 5,
+        hydration: 3,
+        fueling: 3,
+      },
+    }).store.getSnapshot();
+
+    expect(upgraded.stats.speedKmh).toBeLessThan(base.stats.speedKmh * 2);
+    expect(upgraded.stats.effectivePaceKmh).toBeGreaterThan(100_000);
+    expect(upgraded.stats.paceMultiplier).toBeGreaterThan(5_000);
+  });
+
+  it("uses Flow as an active multiplier on pace and both incomes", () => {
+    const { store } = createTestStore();
+    const base = store.getSnapshot();
+
+    store.setActiveFlowMultiplier(3);
+    const flowing = store.getSnapshot();
+
+    expect(flowing.stats.speedKmh).toBe(base.stats.speedKmh);
+    expect(flowing.stats.effectivePaceKmh).toBeCloseTo(
+      base.stats.effectivePaceKmh * 3,
+    );
+    expect(flowing.stats.sweatPerSecond).toBeCloseTo(
+      base.stats.sweatPerSecond * 3,
+    );
+    expect(flowing.stats.cashPerSecond).toBeGreaterThan(
+      base.stats.cashPerSecond * 2,
+    );
+  });
+
+  it("makes the Périgord gravel sector demand tires and suspension", () => {
+    const unprepared = createTestStore({ stage: 2 }).store.getSnapshot();
+    const prepared = createTestStore({
+      stage: 2,
+      upgrades: {
+        "gravel-tires": 25,
+        suspension: 25,
+        "chain-lube": 10,
+      },
+    }).store.getSnapshot();
+
+    expect(unprepared.stageDefinition.surface).toBe("gravel");
+    expect(unprepared.stats.surfaceMultiplier).toBeCloseTo(0.66);
+    expect(prepared.stats.gravelMitigation).toBeGreaterThan(0.5);
+    expect(prepared.stats.surfaceMultiplier).toBeGreaterThan(0.82);
+    expect(prepared.stats.speedKmh).toBeGreaterThan(unprepared.stats.speedKmh);
   });
 
   it("makes steep gradients increasingly punishing", () => {
@@ -444,8 +712,8 @@ describe("stage and offline progression", () => {
     const calm = createTestStore({ stage: 1, upgrades }).store.getSnapshot();
     const mistral = createTestStore({ stage: 4, upgrades }).store.getSnapshot();
 
-    expect(calm.stats.speedKmh).toBeCloseTo(20.2, 1);
-    expect(mistral.stats.speedKmh).toBeCloseTo(14.54, 1);
+    expect(calm.stats.speedKmh).toBeGreaterThan(20);
+    expect(mistral.stats.speedKmh / calm.stats.speedKmh).toBeCloseTo(0.72);
   });
 
   it("crosses France through the intended terrain sequence", () => {
@@ -493,16 +761,18 @@ describe("stage and offline progression", () => {
   it("reduces headwind with aero socks, an aero helmet, and carbon wheels", () => {
     const upgrades = {
       "road-bike": 1,
-      "aero-socks": 3,
-      helmet: 3,
-      wheels: 2,
+      "aero-socks": 25,
+      helmet: 25,
+      wheels: 25,
     };
     const flat = createTestStore({ stage: 1, upgrades }).store.getSnapshot();
     const windy = createTestStore({ stage: 4, upgrades }).store.getSnapshot();
 
-    expect(windy.stats.windMitigation).toBeCloseTo(0.3);
-    expect(windy.stats.effectiveWindPenalty).toBeCloseTo(0.196);
-    expect(windy.stats.speedKmh / flat.stats.speedKmh).toBeCloseTo(0.804);
+    expect(windy.stats.windMitigation).toBeGreaterThan(0.35);
+    expect(windy.stats.effectiveWindPenalty).toBeLessThan(0.19);
+    expect(windy.stats.speedKmh / flat.stats.speedKmh).toBeCloseTo(
+      1 - windy.stats.effectiveWindPenalty,
+    );
   });
 
   it("gains speed and wind shelter while temporarily drafting", () => {
@@ -511,21 +781,14 @@ describe("stage and offline progression", () => {
 
     store.setTemporaryDraftBonus(0.5);
     const drafting = store.getSnapshot();
-    const baseDraftingSweatPerSecond =
-      (0.08 + drafting.stats.speedKmh / 250) *
-      drafting.stageDefinition.sweatYield;
-
     expect(drafting.stats.draftMultiplier).toBe(1.5);
     expect(solo.stats.sweatMultiplier).toBe(1);
-    expect(drafting.stats.sweatPerSecond).toBeCloseTo(
-      baseDraftingSweatPerSecond + 100 / 15,
+    expect(drafting.stats.sweatMultiplier).toBe(2);
+    expect(drafting.stats.sweatPerSecond).toBeGreaterThan(
+      solo.stats.sweatPerSecond * 2,
     );
-    expect(drafting.stats.sweatMultiplier).toBeCloseTo(
-      drafting.stats.sweatPerSecond / baseDraftingSweatPerSecond,
-    );
-    expect(drafting.stats.cashPerSecond).toBeCloseTo(
-      (drafting.stats.speedKmh / 3_600) *
-        drafting.stageDefinition.cashPerKm,
+    expect(drafting.stats.cashPerSecond).toBeGreaterThan(
+      solo.stats.cashPerSecond,
     );
     expect(drafting.stats.speedKmh / solo.stats.speedKmh).toBeGreaterThan(
       1.7,
@@ -535,14 +798,17 @@ describe("stage and offline progression", () => {
     );
   });
 
-  it("awards roughly 100 Sweat for a full random-rider draft", () => {
-    const { store, advance } = createTestStore();
+  it("makes a full random-rider draft beat solo production", () => {
+    const solo = createTestStore();
+    const drafting = createTestStore();
+    drafting.store.setTemporaryDraftBonus(0.5);
 
-    store.setTemporaryDraftBonus(0.5);
-    advance(15);
+    solo.advance(15);
+    drafting.advance(15);
 
-    expect(store.getSnapshot().sweat).toBeGreaterThanOrEqual(100);
-    expect(store.getSnapshot().sweat).toBeLessThanOrEqual(104);
+    expect(drafting.store.getSnapshot().sweat).toBeGreaterThan(
+      solo.store.getSnapshot().sweat * 2,
+    );
   });
 
   it("turns a full draft into a visible course-distance gain", () => {
@@ -615,56 +881,91 @@ describe("power-up reserve", () => {
     expect(store.getSnapshot().reservedPowerUp).toBe("jump");
   });
 
-  it("activates Super Draft for ten seconds with speed and wind shelter", () => {
-    const { store, advance } = createTestStore({ stage: 4 });
+  it("only activates Super Draft on a live wheel and makes it the strongest boost", () => {
+    const { store, advance } = createTestStore();
     const solo = store.getSnapshot();
 
     store.collectPowerUp("super-draft");
+    expect(store.activateReservedPowerUp()).toBe(false);
+    expect(store.getSnapshot().reservedPowerUp).toBe("super-draft");
+
+    store.setTemporaryDraftBonus(0.5);
+    const drafting = store.getSnapshot();
     expect(store.activateReservedPowerUp()).toBe(true);
     const boosted = store.getSnapshot();
 
     expect(boosted.reservedPowerUp).toBeNull();
     expect(boosted.activePowerUp?.type).toBe("super-draft");
+    expect(boosted.activePowerUp?.remainingSeconds).toBe(8);
     expect(boosted.stats.draftMultiplier).toBe(1.5);
-    expect(boosted.stats.sweatMultiplier).toBe(1);
-    expect(boosted.stats.speedKmh).toBeGreaterThan(solo.stats.speedKmh * 1.8);
-    expect(boosted.stats.effectiveWindPenalty).toBeLessThan(0.03);
+    expect(drafting.stats.speedKmh).toBeCloseTo(solo.stats.speedKmh * 1.5);
+    expect(boosted.stats.speedKmh).toBeCloseTo(solo.stats.speedKmh * 4);
+    expect(boosted.stats.sweatPerSecond).toBeGreaterThan(
+      drafting.stats.sweatPerSecond * 2,
+    );
+    expect(powerUpDefinitions["super-draft"].speedMultiplier).toBeGreaterThan(
+      powerUpDefinitions["lucky-bidon"].speedMultiplier,
+    );
 
-    advance(10);
+    store.setTemporaryDraftBonus(0);
+    expect(store.getSnapshot().activePowerUp).toBeNull();
+
+    store.collectPowerUp("super-draft");
+    store.setTemporaryDraftBonus(0.5);
+    store.activateReservedPowerUp();
+    advance(8);
     expect(store.getSnapshot().activePowerUp).toBeNull();
   });
 
-  it("activates a short Jump without changing rider speed", () => {
+  it("runs reliable Acceleration at 2.5× speed and income for ten seconds", () => {
+    const { store, advance } = createTestStore();
+    const base = store.getSnapshot().stats;
+
+    store.collectPowerUp("lucky-bidon");
+    expect(store.activateReservedPowerUp()).toBe(true);
+    const accelerated = store.getSnapshot();
+
+    expect(accelerated.activePowerUp).toMatchObject({
+      type: "lucky-bidon",
+      remainingSeconds: 10,
+    });
+    expect(accelerated.stats.speedKmh).toBeCloseTo(base.speedKmh * 2.5);
+    expect(accelerated.stats.sweatPerSecond).toBeGreaterThan(
+      base.sweatPerSecond * 2.5,
+    );
+    expect(accelerated.stats.cashPerSecond).toBeGreaterThan(
+      base.cashPerSecond * 2.5,
+    );
+
+    advance(9.75);
+    expect(store.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
+    advance(0.25);
+    expect(store.getSnapshot().activePowerUp).toBeNull();
+  });
+
+  it("activates eight seconds of hazard immunity without changing rider speed", () => {
     const { store, advance } = createTestStore();
     const baseSpeed = store.getSnapshot().stats.speedKmh;
 
-    expect(powerUpDefinitions.jump.potholeImmunity).toBe(true);
+    expect(powerUpDefinitions.jump.hazardImmunity).toBe(true);
+    expect(powerUpDefinitions.jump.description).toContain("traffic");
     store.collectPowerUp("jump");
     store.activateReservedPowerUp();
 
     expect(store.getSnapshot().activePowerUp?.type).toBe("jump");
     expect(store.getSnapshot().stats.speedKmh).toBe(baseSpeed);
 
-    advance(1.25);
+    advance(7.75);
+    expect(store.getSnapshot().activePowerUp?.type).toBe("jump");
+    advance(0.25);
     expect(store.getSnapshot().activePowerUp).toBeNull();
-  });
-
-  it("makes Lucky Bidon attract pickups without changing bag value", () => {
-    const { store } = createTestStore();
-
-    expect(powerUpDefinitions["lucky-bidon"].pickupMagnet).toBe(true);
-    store.collectPowerUp("lucky-bidon");
-    store.activateReservedPowerUp();
-    const reward = store.collectBag("cash");
-
-    expect(store.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
-    expect(reward).toBe(18);
   });
 
   it("keeps a reserved power-up while another one is active", () => {
     const { store } = createTestStore();
 
     store.collectPowerUp("super-draft");
+    store.setTemporaryDraftBonus(0.5);
     store.activateReservedPowerUp();
     store.collectPowerUp("jump");
     store.collectPowerUp("lucky-bidon");

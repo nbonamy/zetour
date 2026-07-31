@@ -2,7 +2,7 @@ export const RIDE_WORLD_WIDTH = 640;
 export const RIDE_WORLD_HEIGHT = 360;
 export const RIDE_RENDER_SCALE = 2;
 export const CYCLIST_LANE_OFFSET_Y = -34;
-export const ROAD_HAZARD_LANE_OFFSET_Y = 0;
+export const ROAD_HAZARD_LANE_OFFSET_Y = -6;
 
 export type CyclistRole = "player" | "draft" | "domestique";
 
@@ -17,19 +17,6 @@ export const cyclistFrameTexture = (
         ? "draft-rider"
         : "domestique-rider";
   return `${prefix}-${alternatePedal ? "b" : "a"}`;
-};
-
-export const jumpHeightAt = (
-  remainingSeconds: number,
-  durationSeconds: number,
-  maximumHeight = 26,
-): number => {
-  if (durationSeconds <= 0) return 0;
-  const progress = Math.max(
-    0,
-    Math.min(1, 1 - remainingSeconds / durationSeconds),
-  );
-  return Math.sin(progress * Math.PI) * Math.max(0, maximumHeight);
 };
 
 export interface PowerUpPulse {
@@ -103,6 +90,9 @@ export const cyclistLaneY = (laneCenterY: number): number =>
 
 export const roadHazardLaneY = (laneCenterY: number): number =>
   laneCenterY + ROAD_HAZARD_LANE_OFFSET_Y;
+
+export const groundedRoadObjectOffsetY = (displayHeight: number): number =>
+  -Math.max(0, displayHeight) / 2;
 
 export const syncRoadBodyPosition = (
   body: ExternallyControlledRoadBody | null | undefined,

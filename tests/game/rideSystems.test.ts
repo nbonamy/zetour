@@ -10,6 +10,8 @@ import {
   domestiqueFormationX,
   draftAlignmentGap,
   draftRulesForStage,
+  encounterChallengeRules,
+  encounterDelayRange,
   encounterStartX,
   fanFrameAt,
   flowMultiplier,
@@ -20,14 +22,18 @@ import {
   lootSequenceForStage,
   moveLane,
   nextEncounter,
+  oncomingTrafficSpeedMultiplier,
   outsideDraftTargetX,
   roadAngleDegrees,
   roadOffsetAtX,
   roadPowerUpChoices,
+  roadsideFanClusterGap,
+  roadsideFanGroupSize,
   roadScrollDistance,
   roadScrollSpeed,
   roadTileScrollDelta,
   roadVisualRise,
+  trafficGauntletPattern,
 } from "../../src/game/rideSystems";
 
 describe("active ride systems", () => {
@@ -78,9 +84,9 @@ describe("active ride systems", () => {
 
   it("builds Flow into a capped reward multiplier", () => {
     expect(flowMultiplier(0)).toBe(1);
-    expect(flowMultiplier(20)).toBe(1.2);
-    expect(flowMultiplier(67)).toBe(1.6);
-    expect(flowMultiplier(100)).toBe(2);
+    expect(flowMultiplier(20)).toBe(1.4);
+    expect(flowMultiplier(67)).toBe(2.2);
+    expect(flowMultiplier(100)).toBe(3);
     expect(addFlow(94, 15)).toBe(100);
     expect(decayFlow(10, 1)).toBe(5);
   });
@@ -97,11 +103,57 @@ describe("active ride systems", () => {
     expect(chooseEncounter(stages[4], () => 0.999999)).toBe("hairpins");
   });
 
-  it("opens with a bonus line, a rider, then a guaranteed power-up choice", () => {
+  it("opens with income, traffic, a power-up, slalom, then drafting", () => {
     expect(nextEncounter(stages[0], 0, () => 0.8)).toBe("bonus-line");
-    expect(nextEncounter(stages[0], 1, () => 0.8)).toBe("draft");
+    expect(nextEncounter(stages[0], 1, () => 0.8)).toBe("traffic");
     expect(nextEncounter(stages[0], 2, () => 0)).toBe("power-up");
-    expect(nextEncounter(stages[0], 3, () => 0)).toBe("bonus-line");
+    expect(nextEncounter(stages[0], 3, () => 0)).toBe("slalom");
+    expect(nextEncounter(stages[0], 4, () => 0)).toBe("draft");
+    expect(nextEncounter(stages[0], 5, () => 0)).toBe("bonus-line");
+  });
+
+  it("pays difficult clean sequences far more than passive lines", () => {
+    expect(encounterChallengeRules["bonus-line"]).toMatchObject({
+      difficulty: 1,
+      cleanRewardMultiplier: 1,
+    });
+    expect(encounterChallengeRules.slalom).toMatchObject({
+      difficulty: 3,
+      cleanRewardMultiplier: 4,
+    });
+    expect(encounterChallengeRules.hairpins).toMatchObject({
+      difficulty: 4,
+      cleanRewardMultiplier: 6,
+    });
+    expect(encounterChallengeRules.traffic).toMatchObject({
+      difficulty: 5,
+      cleanRewardMultiplier: 8,
+    });
+  });
+
+  it("gives traffic a readable route through single cars and two-car walls", () => {
+    const hazardLanes = trafficGauntletPattern.map(
+      ({ hazardLanes: lanes }) => [...lanes],
+    );
+    expect(hazardLanes).toEqual(
+      [[1], [0, 2], [2], [0, 2], [1]],
+    );
+    const rewardLanes = trafficGauntletPattern.map(
+      ({ rewardLane }) => rewardLane,
+    );
+    expect(rewardLanes).toEqual([2, 1, 0, 1, 2]);
+    expect(new Set(hazardLanes.flat())).toEqual(new Set([0, 1, 2]));
+    expect(
+      trafficGauntletPattern.every(
+        ({ hazardLanes: lanes, rewardLane }) =>
+          lanes.length <= 2 && ![...lanes].includes(rewardLane),
+      ),
+    ).toBe(true);
+    expect(
+      rewardLanes.slice(1).every(
+        (lane, index) => Math.abs(lane - rewardLanes[index]) === 1,
+      ),
+    ).toBe(true);
   });
 
   it("tightens drafting tolerance from Sector 1 through Sector 5", () => {
@@ -173,14 +225,22 @@ describe("active ride systems", () => {
   });
 
   it("makes scenery speed proportional to rider speed", () => {
-    expect(roadScrollSpeed(18)).toBeCloseTo(93.6);
-    expect(roadScrollSpeed(27)).toBeCloseTo(140.4);
+    expect(roadScrollSpeed(0)).toBe(54);
+    expect(roadScrollSpeed(18)).toBeCloseTo(144);
+    expect(roadScrollSpeed(27)).toBeCloseTo(216);
     expect(roadScrollSpeed(27) / roadScrollSpeed(18)).toBeCloseTo(1.5);
     expect(roadScrollDistance(104, 500)).toBe(52);
     expect(roadScrollDistance(104, -20)).toBe(0);
     expect(roadTileScrollDelta(104, 500, 0.38) * 0.38).toBeCloseTo(
       52,
     );
+  });
+
+  it("makes oncoming traffic faster and encounter gaps tighter by sector", () => {
+    expect(oncomingTrafficSpeedMultiplier(1)).toBeCloseTo(1.42);
+    expect(oncomingTrafficSpeedMultiplier(5)).toBeCloseTo(1.74);
+    expect(encounterDelayRange(1)).toEqual([5_400, 7_400]);
+    expect(encounterDelayRange(5)).toEqual([4_360, 6_360]);
   });
 
   it("advances roadside objects from right to left using frame time", () => {
@@ -206,9 +266,20 @@ describe("active ride systems", () => {
     expect(fanFrameAt(0, 260)).toBe("fan-b");
   });
 
+  it("keeps ambient fans sparse with occasional small groups", () => {
+    expect(roadsideFanGroupSize(() => 0)).toBe(1);
+    expect(roadsideFanGroupSize(() => 0.719)).toBe(1);
+    expect(roadsideFanGroupSize(() => 0.72)).toBe(2);
+    expect(roadsideFanGroupSize(() => 0.939)).toBe(2);
+    expect(roadsideFanGroupSize(() => 0.94)).toBe(3);
+    expect(roadsideFanClusterGap(() => 0)).toBe(190);
+    expect(roadsideFanClusterGap(() => 0.5)).toBe(260);
+    expect(roadsideFanClusterGap(() => 1)).toBe(330);
+  });
+
   it("starts the bonus line visibly while other encounters enter from offscreen", () => {
     expect(encounterStartX("bonus-line")).toBe(560);
-    expect(encounterStartX("fan-corridor")).toBe(700);
+    expect(encounterStartX("sprint")).toBe(700);
   });
 
   it("turns real gradients into a rising road anchored under the rider", () => {

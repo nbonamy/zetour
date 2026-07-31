@@ -96,6 +96,9 @@ describe("visual QA overrides", () => {
 
   it("forces a known encounter and draft lane for live gameplay QA", () => {
     expect(
+      parseVisualQaOverrides("?qaEncounter=traffic"),
+    ).toMatchObject({ encounter: "traffic" });
+    expect(
       parseVisualQaOverrides(
         "?qaEncounter=draft&qaDraftLane=1",
       ),

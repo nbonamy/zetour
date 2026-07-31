@@ -7,6 +7,7 @@ import {
   type PowerUpType,
 } from "../core/gameStore";
 import { RANDOM_RIDER_DRAFT_BONUS } from "../core/drafting";
+import { formatCompactNumber } from "../core/format";
 import {
   addFlow,
   advanceLoopingRoadMarkerX,
@@ -15,6 +16,8 @@ import {
   domestiqueFormationX,
   draftAlignmentGap,
   draftRulesForStage,
+  encounterChallengeRules,
+  encounterDelayRange,
   encounterLabel,
   encounterStartX,
   fanFrameAt,
@@ -25,12 +28,17 @@ import {
   lootSequenceForStage,
   moveLane,
   nextEncounter,
+  oncomingTrafficSpeedMultiplier,
   outsideDraftTargetX,
   roadAngleDegrees,
   roadOffsetAtX,
   roadPowerUpChoices,
+  roadsideFanClusterGap,
+  roadsideFanGroupSize,
+  roadScrollDistance,
   roadScrollSpeed,
   roadTileScrollDelta,
+  trafficGauntletPattern,
   type RideEncounter,
 } from "./rideSystems";
 import {
@@ -41,7 +49,7 @@ import {
   cyclistFrameTexture,
   cyclistLaneY,
   draftStreakStateAt,
-  jumpHeightAt,
+  groundedRoadObjectOffsetY,
   laneCentersBetween,
   powerUpPulseAt,
   roadHazardLaneY,
@@ -50,17 +58,33 @@ import {
 import { readVisualQaOverrides } from "./visualQa";
 
 type RoadObject = Phaser.Physics.Arcade.Image & {
-  eventType?: "sweat" | "cash" | "pothole" | PowerUpType;
-  companion?: Phaser.GameObjects.Image;
-  companionVariant?: number;
+  eventType?:
+    | "sweat"
+    | "cash"
+    | "pothole"
+    | "oncoming-car"
+    | "oncoming-van"
+    | PowerUpType;
   sequenceId?: number;
   sequenceIndex?: number;
   sequenceFailed?: boolean;
   powerUpChoiceId?: number;
   roadLane?: number;
   roadYOffset?: number;
-  companionBaseY?: number;
-  companionFrameOffset?: number;
+  roadSpeedMultiplier?: number;
+};
+
+interface ChallengeRun {
+  encounter: RideEncounter;
+  totalPickups: number;
+  collectedPickups: number;
+  failed: boolean;
+}
+
+type RoadsideFan = Phaser.GameObjects.Image & {
+  roadsideBaseY: number;
+  fanVariant: number;
+  frameOffset: number;
 };
 
 const WIDTH = RIDE_WORLD_WIDTH;
@@ -86,18 +110,23 @@ const UPPER_ROADSIDE_HEIGHT = 26;
 const UPPER_ROADSIDE_TEXTURE_HEIGHT = 68;
 const LOWER_ROADSIDE_HEIGHT = 118;
 const ROAD_TILE_SCALE = 0.32;
+const BAG_SIZE = 28;
+const POWER_UP_SIZE = 34;
+const TRAFFIC_WIDTH = 104;
+const TRAFFIC_HEIGHT = 78;
+const TRAFFIC_GROUND_OFFSET_Y = -23;
+const ENCOUNTER_TEXT_Y = 164;
 const FAN_WIDTH = 32;
 const FAN_HEIGHT = 42;
 const FAN_VARIANT_COUNT = 4;
+const INITIAL_FAN_SPAWN_DISTANCE = 70;
+const MAX_ACTIVE_FANS = 8;
 const DRAFT_LABEL_OFFSET_Y = 42;
 const ROAD_MARKER_SPACING = 64;
 const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
 const ROAD_MARKER_MAX_X =
   Math.ceil((WIDTH + ROAD_MARKER_SPACING) / ROAD_MARKER_SPACING) *
   ROAD_MARKER_SPACING;
-const FLOW_TRACK_X = 166;
-const FLOW_TRACK_Y = 114;
-const FLOW_TRACK_WIDTH = 120;
 const RANDOM_RIDER_DRAFT_PERCENT = Math.round(
   RANDOM_RIDER_DRAFT_BONUS * 100,
 );
@@ -111,6 +140,10 @@ const isPowerUpType = (
   type: RoadObject["eventType"],
 ): type is PowerUpType =>
   type !== undefined && Object.hasOwn(powerUpDefinitions, type);
+const isTrafficHazard = (
+  type: RoadObject["eventType"],
+): type is "oncoming-car" | "oncoming-van" =>
+  type === "oncoming-car" || type === "oncoming-van";
 
 export class GameScene extends Phaser.Scene {
   private rider!: Phaser.Physics.Arcade.Sprite;
@@ -125,19 +158,20 @@ export class GameScene extends Phaser.Scene {
   private roadGraphics!: Phaser.GameObjects.Graphics;
   private roadTexture!: Phaser.GameObjects.TileSprite;
   private encounterText!: Phaser.GameObjects.Text;
-  private flowText!: Phaser.GameObjects.Text;
-  private flowBar!: Phaser.GameObjects.Rectangle;
   private draftWake!: Phaser.GameObjects.Graphics;
   private draftWindStreaks: Phaser.GameObjects.Rectangle[] = [];
   private windStreaks: Phaser.GameObjects.Rectangle[] = [];
   private roadParticles: Phaser.GameObjects.Rectangle[] = [];
   private laneMarkers: Phaser.GameObjects.Rectangle[] = [];
+  private fans: RoadsideFan[] = [];
+  private fanSpawnDistance = INITIAL_FAN_SPAWN_DISTANCE;
   private roadGradient = 0;
   private targetLane = 1;
   private riderRoadY = cyclistLaneY(LANE_Y[1]);
   private encounterCountdown = VISUAL_QA.encounter ? 0 : 1_200;
   private encounterCount = 0;
   private pickupSequenceCount = 0;
+  private challengeRuns = new Map<number, ChallengeRun>();
   private animationCountdown = 120;
   private riderFrame = false;
   private lastSteerAt = 0;
@@ -155,6 +189,7 @@ export class GameScene extends Phaser.Scene {
   private drafting = false;
   private droppedFromDraft = false;
   private sceneryStage = 0;
+  private roadSurface: GameSnapshot["stageDefinition"]["surface"] = "road";
   private raceRevision = 0;
 
   constructor() {
@@ -172,9 +207,11 @@ export class GameScene extends Phaser.Scene {
       "bag-sweat",
       "bag-cash",
       "power-super-draft",
-      "power-lucky-bidon",
-      "power-jump",
+      "power-acceleration",
+      "power-invincibility",
       "pothole",
+      "oncoming-car-red",
+      "oncoming-van-cream",
     ];
     for (let variant = 1; variant <= FAN_VARIANT_COUNT; variant += 1) {
       pngTextures.push(`fan-${variant}-a`, `fan-${variant}-b`);
@@ -188,6 +225,10 @@ export class GameScene extends Phaser.Scene {
     this.load.image("roadside-upper", "/assets/art/roadside-upper.png");
     this.load.image("roadside-lower", "/assets/art/roadside-lower.jpg");
     this.load.image("road-texture", "/assets/art/road-texture.jpg");
+    this.load.image(
+      "road-texture-gravel",
+      "/assets/art/road-texture-gravel.jpg",
+    );
   }
 
   create(): void {
@@ -262,6 +303,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.updateRoadIncline(gradient);
     this.updateLaneMarkers(scrollSpeed, delta);
+    this.updateRoadsideFans(scrollSpeed, delta);
     this.windStreaks.forEach((streak, index) => {
       streak.setVisible(windPenalty > 0);
       streak.setAlpha(Math.min(0.8, 0.2 + windPenalty * 2.5));
@@ -295,14 +337,11 @@ export class GameScene extends Phaser.Scene {
     );
     this.updateDomestiques(delta);
 
-    const activePowerUpDefinition = snapshot.activePowerUp
-      ? powerUpDefinitions[snapshot.activePowerUp.type]
-      : null;
     this.updateRoadObjects(
       this.pickups,
       scrollSpeed,
       delta,
-      activePowerUpDefinition?.pickupMagnet ?? false,
+      snapshot.stats.pickupMagnet,
     );
     this.updateRoadObjects(this.hazards, scrollSpeed, delta);
     this.updateFlow(delta, snapshot.stats.flowDecayPerSecond);
@@ -320,7 +359,11 @@ export class GameScene extends Phaser.Scene {
       gradient,
     );
     this.encounterCountdown -= delta;
-    if (this.encounterCountdown <= 0 && !this.draftCyclist) {
+    if (
+      this.encounterCountdown <= 0 &&
+      !this.draftCyclist &&
+      this.isEncounterRoadClear()
+    ) {
       const encounter =
         VISUAL_QA.encounter ??
         nextEncounter(
@@ -329,7 +372,11 @@ export class GameScene extends Phaser.Scene {
         );
       this.startEncounter(encounter);
       this.encounterCount += 1;
-      this.encounterCountdown = Phaser.Math.Between(8_500, 12_000);
+      const [minimumDelay, maximumDelay] = encounterDelayRange(snapshot.stage);
+      this.encounterCountdown = Phaser.Math.Between(
+        minimumDelay,
+        maximumDelay,
+      );
     }
 
     this.animationCountdown -= delta;
@@ -357,16 +404,15 @@ export class GameScene extends Phaser.Scene {
       group.getChildren().forEach((child) => {
         const object = child as RoadObject;
         this.tweens.killTweensOf(object);
-        if (object.companion) {
-          this.tweens.killTweensOf(object.companion);
-          object.companion.destroy();
-        }
       });
       group.clear(true, true);
     };
 
     clearRoadObjects(this.pickups);
     clearRoadObjects(this.hazards);
+    this.fans.forEach((fan) => fan.destroy());
+    this.fans = [];
+    this.fanSpawnDistance = INITIAL_FAN_SPAWN_DISTANCE;
 
     this.draftCyclist?.destroy();
     this.draftTimerText?.destroy();
@@ -401,14 +447,14 @@ export class GameScene extends Phaser.Scene {
     this.encounterCountdown = VISUAL_QA.encounter ? 0 : 1_200;
     this.encounterCount = 0;
     this.pickupSequenceCount = 0;
+    this.challengeRuns.clear();
     this.animationCountdown = 120;
     this.riderFrame = false;
     this.lastSteerAt = 0;
     this.flow = 0;
+    gameStore.setActiveFlowMultiplier(1);
     this.combo = 0;
     this.lastFlowActionAt = this.time.now;
-    this.flowBar.width = 0;
-    this.flowText.setText("FLOW x1.0");
     this.encounterText.setText("").setAlpha(0);
 
     this.draftLane = 1;
@@ -548,7 +594,7 @@ export class GameScene extends Phaser.Scene {
     this.updateRoadIncline(0, true);
 
     this.encounterText = this.add
-      .text(WIDTH / 2, 92, "", {
+      .text(WIDTH / 2, ENCOUNTER_TEXT_Y, "", {
         fontFamily: CANVAS_FONT,
         fontSize: "12px",
         color: "#f5d66f",
@@ -557,63 +603,39 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(25);
-    const flowPlate = this.add.graphics().setDepth(19);
-    flowPlate
-      .fillStyle(0x2d1b14, 0.9)
-      .fillRoundedRect(
-        FLOW_TRACK_X - 8,
-        FLOW_TRACK_Y - 9,
-        FLOW_TRACK_WIDTH + 16,
-        29,
-        6,
-      )
-      .lineStyle(2, 0x9b6a42, 0.95)
-      .strokeRoundedRect(
-        FLOW_TRACK_X - 8,
-        FLOW_TRACK_Y - 9,
-        FLOW_TRACK_WIDTH + 16,
-        29,
-        6,
-      );
-    this.add
-      .rectangle(
-        FLOW_TRACK_X + FLOW_TRACK_WIDTH,
-        FLOW_TRACK_Y,
-        FLOW_TRACK_WIDTH + 2,
-        8,
-        0x3a241b,
-        0.82,
-      )
-      .setOrigin(1, 0.5)
-      .setDepth(20);
-    this.flowBar = this.add
-      .rectangle(FLOW_TRACK_X, FLOW_TRACK_Y, 0, 4, 0xe3ad32)
-      .setOrigin(0, 0.5)
-      .setDepth(21);
-    this.flowText = this.add
-      .text(
-        FLOW_TRACK_X + FLOW_TRACK_WIDTH,
-        FLOW_TRACK_Y + 9,
-        "FLOW x1.0",
-        {
-          fontFamily: CANVAS_FONT,
-          fontSize: "9px",
-          color: "#fff0ce",
-          stroke: "#3a241b",
-          strokeThickness: 3,
-        },
-      )
-      .setOrigin(1, 0)
-      .setDepth(21);
   }
 
   private updateStageScenery(stage: GameSnapshot["stageDefinition"]): void {
     if (this.sceneryStage === stage.number) return;
     this.sceneryStage = stage.number;
+    this.roadSurface = stage.surface;
     const stageNumber = Phaser.Math.Clamp(stage.number, 1, 5);
     this.scenery.setTexture(`stage-${stageNumber}`);
+    this.roadTexture
+      .setTexture(
+        stage.surface === "gravel"
+          ? "road-texture-gravel"
+          : "road-texture",
+      )
+      .setTint(stage.surface === "gravel" ? 0xe5c38f : 0xd1b998)
+      .setAlpha(stage.surface === "gravel" ? 0.86 : 0.58);
+    this.laneMarkers.forEach((marker) =>
+      marker.setFillStyle(
+        stage.surface === "gravel" ? 0xf1d7a2 : 0xe5c98e,
+        stage.surface === "gravel" ? 0.4 : 1,
+      ),
+    );
+    this.roadParticles.forEach((particle) =>
+      particle.setFillStyle(
+        stage.surface === "gravel" ? 0xffe3ab : 0xf3dfb6,
+        stage.surface === "gravel" ? 0.26 : 0.16,
+      ),
+    );
+    this.updateRoadIncline(this.roadGradient, true);
     this.showEncounter(
-      `${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`,
+      stage.surface === "gravel"
+        ? `GRAVEL SECTOR · ${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`
+        : `${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`,
       2_400,
     );
   }
@@ -663,10 +685,11 @@ export class GameScene extends Phaser.Scene {
     const leftOffset = roadOffsetAtX(0, gradient);
     const rightOffset = roadOffsetAtX(WIDTH, gradient);
     const point = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
+    const gravel = this.roadSurface === "gravel";
 
     this.roadGraphics
       .clear()
-      .fillStyle(0x5d5751)
+      .fillStyle(gravel ? 0x846a4e : 0x5d5751)
       .fillPoints(
         [
           point(0, ROAD_TOP_Y + leftOffset),
@@ -676,7 +699,7 @@ export class GameScene extends Phaser.Scene {
         ],
         true,
       )
-      .lineStyle(2, 0xe1c690)
+      .lineStyle(2, gravel ? 0xe4c17f : 0xe1c690)
       .lineBetween(
         0,
         ROAD_TOP_Y + leftOffset,
@@ -741,6 +764,60 @@ export class GameScene extends Phaser.Scene {
     return baseY + roadOffsetAtX(x, this.roadGradient);
   }
 
+  private spawnFanCluster(
+    groupSize = roadsideFanGroupSize(),
+    startX = WIDTH + FAN_WIDTH,
+  ): void {
+    const availableSlots = Math.max(0, MAX_ACTIVE_FANS - this.fans.length);
+    const fanCount = Math.min(groupSize, availableSlots);
+    if (fanCount === 0) return;
+
+    const baseY = ROAD_TOP_Y - 4;
+    let x = startX;
+
+    for (let index = 0; index < fanCount; index += 1) {
+      if (index > 0) {
+        x += FAN_WIDTH + Phaser.Math.Between(6, 14);
+      }
+      const variant = Phaser.Math.Between(1, FAN_VARIANT_COUNT);
+      const roadsideBaseY = baseY + Phaser.Math.Between(-2, 2);
+      const fan = this.add.image(
+        x,
+        this.roadY(roadsideBaseY, x),
+        `fan-${variant}-a`,
+      ) as RoadsideFan;
+      fan.roadsideBaseY = roadsideBaseY;
+      fan.fanVariant = variant;
+      fan.frameOffset = Phaser.Math.Between(0, 520);
+      fan
+        .setDisplaySize(FAN_WIDTH, FAN_HEIGHT)
+        .setOrigin(0.5, 1)
+        .setDepth(6);
+      this.fans.push(fan);
+    }
+  }
+
+  private updateRoadsideFans(scrollSpeed: number, delta: number): void {
+    const scrollDistance = roadScrollDistance(scrollSpeed, delta);
+    this.fans = this.fans.filter((fan) => {
+      fan.setX(fan.x - scrollDistance);
+      fan.setY(this.roadY(fan.roadsideBaseY, fan.x));
+      const frame = fanFrameAt(this.time.now, fan.frameOffset).endsWith("-a")
+        ? "a"
+        : "b";
+      fan.setTexture(`fan-${fan.fanVariant}-${frame}`);
+      if (fan.x >= -FAN_WIDTH) return true;
+      fan.destroy();
+      return false;
+    });
+
+    this.fanSpawnDistance -= scrollDistance;
+    if (this.fanSpawnDistance <= 0) {
+      this.spawnFanCluster();
+      this.fanSpawnDistance += roadsideFanClusterGap();
+    }
+  }
+
   private spawnPickup(
     type: "sweat" | "cash",
     lane = Phaser.Math.Between(0, 2),
@@ -749,31 +826,20 @@ export class GameScene extends Phaser.Scene {
     sequenceIndex?: number,
   ): void {
     const texture = type === "sweat" ? "bag-sweat" : "bag-cash";
+    const roadYOffset = groundedRoadObjectOffsetY(BAG_SIZE);
     const object = this.physics.add.image(
       x,
-      this.roadY(LANE_Y[lane], x),
+      this.roadY(LANE_Y[lane] + roadYOffset, x),
       texture,
     ) as RoadObject;
     object.eventType = type;
     object.sequenceId = sequenceId;
     object.sequenceIndex = sequenceIndex;
     object.roadLane = lane;
-    object.roadYOffset = 0;
-    object.setDisplaySize(28, 28).setDepth(8);
+    object.roadYOffset = roadYOffset;
+    object.setDisplaySize(BAG_SIZE, BAG_SIZE).setDepth(8);
     object.body?.setSize(24, 24);
     this.pickups.add(object);
-
-    const fanY = ROAD_TOP_Y - 4;
-    const fanVariant = Phaser.Math.Between(1, FAN_VARIANT_COUNT);
-    const fan = this.add
-      .image(x, this.roadY(fanY, x), `fan-${fanVariant}-a`)
-      .setDisplaySize(FAN_WIDTH, FAN_HEIGHT)
-      .setOrigin(0.5, 1)
-      .setDepth(6);
-    object.companion = fan;
-    object.companionVariant = fanVariant;
-    object.companionBaseY = fanY;
-    object.companionFrameOffset = (sequenceIndex ?? lane) * 130;
   }
 
   private spawnPowerUp(
@@ -782,17 +848,18 @@ export class GameScene extends Phaser.Scene {
     x: number,
     choiceId: number,
   ): void {
+    const roadYOffset = groundedRoadObjectOffsetY(POWER_UP_SIZE);
     const object = this.physics.add.image(
       x,
-      this.roadY(LANE_Y[lane], x),
-      `power-${type}`,
+      this.roadY(LANE_Y[lane] + roadYOffset, x),
+      powerUpDefinitions[type].assetKey,
     ) as RoadObject;
     object.eventType = type;
     object.powerUpChoiceId = choiceId;
     object.roadLane = lane;
-    object.roadYOffset = 0;
+    object.roadYOffset = roadYOffset;
     object
-      .setDisplaySize(34, 34)
+      .setDisplaySize(POWER_UP_SIZE, POWER_UP_SIZE)
       .setDepth(9 + object.y / 1_000);
     object.body?.setSize(26, 26);
     this.pickups.add(object);
@@ -812,6 +879,7 @@ export class GameScene extends Phaser.Scene {
   private spawnPothole(
     lane = Phaser.Math.Between(0, 2),
     x = WIDTH + 24,
+    sequenceId?: number,
   ): void {
     const pothole = this.physics.add.image(
       x,
@@ -819,6 +887,7 @@ export class GameScene extends Phaser.Scene {
       "pothole",
     ) as RoadObject;
     pothole.eventType = "pothole";
+    pothole.sequenceId = sequenceId;
     pothole.roadLane = lane;
     pothole.roadYOffset = ROAD_HAZARD_LANE_OFFSET_Y;
     pothole
@@ -826,6 +895,36 @@ export class GameScene extends Phaser.Scene {
       .setDepth(9 + pothole.y / 1_000);
     pothole.body?.setSize(46, 14);
     this.hazards.add(pothole);
+  }
+
+  private spawnOncomingVehicle(
+    lane: number,
+    x: number,
+    sequenceId: number,
+    variant: "car" | "van" = Math.random() < 0.62 ? "car" : "van",
+  ): void {
+    const texture =
+      variant === "car" ? "oncoming-car-red" : "oncoming-van-cream";
+    const eventType =
+      variant === "car" ? "oncoming-car" : "oncoming-van";
+    const roadYOffset = TRAFFIC_GROUND_OFFSET_Y;
+    const vehicle = this.physics.add.image(
+      x,
+      this.roadY(LANE_Y[lane] + roadYOffset, x),
+      texture,
+    ) as RoadObject;
+    vehicle.eventType = eventType;
+    vehicle.sequenceId = sequenceId;
+    vehicle.roadLane = lane;
+    vehicle.roadYOffset = roadYOffset;
+    vehicle.roadSpeedMultiplier = oncomingTrafficSpeedMultiplier(
+      gameStore.getSnapshot().stage,
+    );
+    vehicle
+      .setDisplaySize(TRAFFIC_WIDTH, TRAFFIC_HEIGHT)
+      .setDepth(9 + vehicle.y / 1_000);
+    vehicle.body?.setSize(390, 140, false).setOffset(60, 160);
+    this.hazards.add(vehicle);
   }
 
   private updateRoadObjects(
@@ -839,7 +938,13 @@ export class GameScene extends Phaser.Scene {
       if (object.sequenceFailed) return;
 
       object.setVelocity(0, 0);
-      object.setX(advanceRoadObjectX(object.x, scrollSpeed, delta));
+      object.setX(
+        advanceRoadObjectX(
+          object.x,
+          scrollSpeed * (object.roadSpeedMultiplier ?? 1),
+          delta,
+        ),
+      );
       if (object.roadLane !== undefined) {
         object.setY(
           this.roadY(
@@ -849,24 +954,11 @@ export class GameScene extends Phaser.Scene {
         );
         syncRoadBodyPosition(object.body);
       }
-      if (object.eventType === "pothole") {
+      if (
+        object.eventType === "pothole" ||
+        isTrafficHazard(object.eventType)
+      ) {
         object.setAngle(roadAngleDegrees(this.roadGradient));
-      }
-      if (object.companion) {
-        object.companion.x = object.x;
-        object.companion.y = this.roadY(
-          object.companionBaseY ?? object.companion.y,
-          object.x,
-        );
-        const frame = fanFrameAt(
-          this.time.now,
-          object.companionFrameOffset,
-        ).endsWith("-a")
-          ? "a"
-          : "b";
-        object.companion.setTexture(
-          `fan-${object.companionVariant ?? 1}-${frame}`,
-        );
       }
       if (
         pickupMagnet &&
@@ -878,7 +970,8 @@ export class GameScene extends Phaser.Scene {
         return;
       }
       if (
-        object.eventType === "pothole" &&
+        (object.eventType === "pothole" ||
+          isTrafficHazard(object.eventType)) &&
         !object.getData("passedRider") &&
         object.x <= this.rider.x
       ) {
@@ -886,7 +979,12 @@ export class GameScene extends Phaser.Scene {
         const gap = Math.abs(object.y - this.rider.y);
         const activelySteering = this.time.now - this.lastSteerAt < 5_000;
         if (activelySteering && gap >= 24 && gap <= 78) {
-          this.rewardFlow(15, "NEAR MISS");
+          this.rewardFlow(
+            isTrafficHazard(object.eventType) ? 22 : 15,
+            isTrafficHazard(object.eventType)
+              ? "TRAFFIC NEAR MISS"
+              : "NEAR MISS",
+          );
         }
       }
       if (
@@ -904,13 +1002,16 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private isEncounterRoadClear(): boolean {
+    return [this.pickups, this.hazards].every((group) =>
+      group
+        .getChildren()
+        .every((child) => !(child as RoadObject).active),
+    );
+  }
+
   private destroyRoadObject(object: RoadObject): void {
     this.tweens.killTweensOf(object);
-    if (object.companion) {
-      this.tweens.killTweensOf(object.companion);
-      object.companion.destroy();
-      object.companion = undefined;
-    }
     object.destroy();
   }
 
@@ -918,7 +1019,8 @@ export class GameScene extends Phaser.Scene {
     if (
       !object.active ||
       object.sequenceFailed ||
-      object.eventType === "pothole"
+      object.eventType === "pothole" ||
+      isTrafficHazard(object.eventType)
     ) {
       return;
     }
@@ -935,12 +1037,9 @@ export class GameScene extends Phaser.Scene {
       this.clearPowerUpChoice(object.powerUpChoiceId);
       return;
     }
-    const multiplier = flowMultiplier(this.flow);
     const bagType = object.eventType === "sweat" ? "sweat" : "cash";
-    const amount = gameStore.collectBag(
-      bagType,
-      multiplier,
-    );
+    const sequenceId = object.sequenceId;
+    const amount = gameStore.collectBag(bagType);
     this.rewardFlow(10, `COMBO ${this.combo + 1}`);
     this.floatText(
       object.x,
@@ -949,6 +1048,39 @@ export class GameScene extends Phaser.Scene {
       bagType === "sweat" ? "#71f5cc" : "#ffe26f",
     );
     this.destroyRoadObject(object);
+    if (sequenceId !== undefined) {
+      this.recordChallengePickup(sequenceId);
+    }
+  }
+
+  private recordChallengePickup(sequenceId: number): void {
+    const challenge = this.challengeRuns.get(sequenceId);
+    if (!challenge) return;
+
+    challenge.collectedPickups += 1;
+    if (challenge.collectedPickups < challenge.totalPickups) return;
+
+    const rules = encounterChallengeRules[challenge.encounter];
+    this.challengeRuns.delete(sequenceId);
+    if (!rules || challenge.failed) {
+      this.showEncounter(
+        `${encounterLabel[challenge.encounter]} SURVIVED · CLEAN BONUS LOST`,
+        1_600,
+      );
+      return;
+    }
+
+    const reward = gameStore.completeChallenge(
+      rules.cleanRewardMultiplier,
+    );
+    this.rewardFlow(
+      rules.flowReward,
+      `CLEAN ×${rules.cleanRewardMultiplier}`,
+    );
+    this.showEncounter(
+      `CLEAN ×${rules.cleanRewardMultiplier} · +${formatCompactNumber(reward.sweat)} SWEAT · +$${formatCompactNumber(reward.cash)}`,
+      2_200,
+    );
   }
 
   private clearPowerUpChoice(choiceId: number | undefined): void {
@@ -967,6 +1099,9 @@ export class GameScene extends Phaser.Scene {
     const sequenceId = missedPickup.sequenceId;
     const missedIndex = missedPickup.sequenceIndex;
     if (sequenceId === undefined || missedIndex === undefined) return;
+
+    const challenge = this.challengeRuns.get(sequenceId);
+    if (challenge) challenge.failed = true;
 
     this.destroyRoadObject(missedPickup);
 
@@ -987,10 +1122,9 @@ export class GameScene extends Phaser.Scene {
       pickup.setVelocity(0, 0);
       if (pickup.body) pickup.body.enable = false;
       pickup.setTint(0xff8d7d);
-      pickup.companion?.setTint(0xff8d7d);
 
       this.tweens.add({
-        targets: pickup.companion ? [pickup, pickup.companion] : [pickup],
+        targets: pickup,
         alpha: 0.15,
         duration: 120,
         yoyo: true,
@@ -999,42 +1133,93 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    this.showEncounter("SEQUENCE MISSED — BONUSES LOST", 1_200);
+    const rules = challenge
+      ? encounterChallengeRules[challenge.encounter]
+      : undefined;
+    this.challengeRuns.delete(sequenceId);
+    this.showEncounter(
+      challenge && rules
+        ? `${encounterLabel[challenge.encounter]} MISSED · CLEAN ×${rules.cleanRewardMultiplier} LOST`
+        : "SEQUENCE MISSED — BONUSES LOST",
+      1_400,
+    );
   }
 
   private hitHazard(object: RoadObject): void {
     if (!object.active) return;
 
+    const trafficCollision = isTrafficHazard(object.eventType);
     const activePowerUp = gameStore.getSnapshot().activePowerUp;
     if (
       activePowerUp &&
-      powerUpDefinitions[activePowerUp.type].potholeImmunity
+      powerUpDefinitions[activePowerUp.type].hazardImmunity &&
+      (object.eventType === "pothole" || trafficCollision)
     ) {
-      this.rewardFlow(12, "CLEAN JUMP");
-      this.floatText(object.x, object.y - 18, "CLEARED!", "#ffe26f");
+      this.rewardFlow(
+        trafficCollision ? 20 : 12,
+        trafficCollision ? "TRAFFIC SHIELD" : "POTHOLE SHIELD",
+      );
+      this.floatText(object.x, object.y - 18, "INVINCIBLE!", "#ffe26f");
       this.destroyRoadObject(object);
       return;
     }
 
-    const lost = gameStore.hitPothole();
+    const challenge =
+      object.sequenceId === undefined
+        ? undefined
+        : this.challengeRuns.get(object.sequenceId);
+    if (challenge && !challenge.failed) {
+      challenge.failed = true;
+      const rules = encounterChallengeRules[challenge.encounter];
+      if (rules) {
+        this.showEncounter(
+          `COLLISION · CLEAN ×${rules.cleanRewardMultiplier} LOST`,
+          1_500,
+        );
+      }
+    }
+
+    const lost = trafficCollision
+      ? gameStore.hitTraffic()
+      : gameStore.hitPothole();
     this.flow = 0;
+    gameStore.setActiveFlowMultiplier(1);
     this.combo = 0;
     this.lastFlowActionAt = this.time.now;
-    this.floatText(object.x, object.y - 18, `-$${lost}`, "#ff8d7d");
-    this.cameras.main.shake(120, 0.008);
+    this.floatText(
+      object.x,
+      object.y - 18,
+      `-$${formatCompactNumber(lost)}`,
+      "#ff8d7d",
+    );
+    this.cameras.main.shake(
+      trafficCollision ? 210 : 120,
+      trafficCollision ? 0.014 : 0.008,
+    );
     this.rider.setTint(0xff9b91);
     this.time.delayedCall(240, () => this.rider.clearTint());
     this.destroyRoadObject(object);
   }
 
   private startEncounter(encounter: RideEncounter): void {
-    this.showEncounter(encounterLabel[encounter]);
+    const challengeRules = encounterChallengeRules[encounter];
+    this.showEncounter(
+      challengeRules
+        ? `${encounterLabel[encounter]} · CLEAN ×${challengeRules.cleanRewardMultiplier}`
+        : encounterLabel[encounter],
+    );
     const startX = encounterStartX(encounter, WIDTH);
     const sequenceId = this.pickupSequenceCount;
     this.pickupSequenceCount += 1;
     const spawnLootSequence = (
       placements: Array<{ lane: number; x: number }>,
     ): void => {
+      this.challengeRuns.set(sequenceId, {
+        encounter,
+        totalPickups: placements.length,
+        collectedPickups: 0,
+        failed: false,
+      });
       const loot = lootSequenceForStage(
         gameStore.getSnapshot().stage,
         placements.length,
@@ -1053,13 +1238,13 @@ export class GameScene extends Phaser.Scene {
             x: startX + index * 92,
           })),
         );
-        this.spawnPothole((lane + 1) % 3, startX + 145);
-        this.spawnPothole((lane + 2) % 3, startX + 330);
+        this.spawnPothole((lane + 1) % 3, startX + 145, sequenceId);
+        this.spawnPothole((lane + 2) % 3, startX + 330, sequenceId);
         break;
       }
       case "slalom": {
         const placements = [0, 1, 2, 1, 0].map((lane, index) => {
-          this.spawnPothole(lane, startX + index * 82);
+          this.spawnPothole(lane, startX + index * 82, sequenceId);
           return {
             lane: (lane + 1) % 3,
             x: startX + index * 82 + 40,
@@ -1068,14 +1253,6 @@ export class GameScene extends Phaser.Scene {
         spawnLootSequence(placements);
         break;
       }
-      case "fan-corridor":
-        spawnLootSequence(
-          Array.from({ length: 6 }, (_, index) => ({
-            lane: index % 3,
-            x: startX + index * 70,
-          })),
-        );
-        break;
       case "feed-zone": {
         const lane = Phaser.Math.Between(0, 2);
         spawnLootSequence(
@@ -1090,7 +1267,11 @@ export class GameScene extends Phaser.Scene {
         const placements = Array.from({ length: 7 }, (_, index) => {
           const lane = index % 2 === 0 ? 1 : Phaser.Math.Between(0, 2);
           if (index === 2 || index === 5) {
-            this.spawnPothole((lane + 1) % 3, startX + index * 68 + 30);
+            this.spawnPothole(
+              (lane + 1) % 3,
+              startX + index * 68 + 30,
+              sequenceId,
+            );
           }
           return { lane, x: startX + index * 68 };
         });
@@ -1099,11 +1280,27 @@ export class GameScene extends Phaser.Scene {
       }
       case "hairpins": {
         const placements = [0, 2, 0, 2, 1].map((lane, index) => {
-          this.spawnPothole(lane, startX + index * 84);
+          this.spawnPothole(lane, startX + index * 84, sequenceId);
           return {
             lane: lane === 0 ? 2 : 0,
             x: startX + index * 84 + 42,
           };
+        });
+        spawnLootSequence(placements);
+        break;
+      }
+      case "traffic": {
+        const placements = trafficGauntletPattern.map((column, index) => {
+          const x = startX + index * 132;
+          column.hazardLanes.forEach((lane, laneIndex) => {
+            this.spawnOncomingVehicle(
+              lane,
+              x,
+              sequenceId,
+              (index + laneIndex) % 3 === 2 ? "van" : "car",
+            );
+          });
+          return { lane: column.rewardLane, x: x + 52 };
         });
         spawnLootSequence(placements);
         break;
@@ -1121,7 +1318,7 @@ export class GameScene extends Phaser.Scene {
 
   private showEncounter(label: string, duration = 2_200): void {
     this.encounterText
-      .setPosition(WIDTH / 2, 92)
+      .setPosition(WIDTH / 2, ENCOUNTER_TEXT_Y)
       .setText(label)
       .setAlpha(1);
     this.time.delayedCall(duration, () => {
@@ -1149,13 +1346,7 @@ export class GameScene extends Phaser.Scene {
       if (this.flow === 0) this.combo = 0;
     }
     const multiplier = flowMultiplier(this.flow);
-    this.flowBar.width = (this.flow / 100) * FLOW_TRACK_WIDTH;
-    const draftTimer = this.drafting
-      ? ` · DRAFT +${RANDOM_RIDER_DRAFT_PERCENT}% ${Math.ceil(this.draftTimeRemaining)}s`
-      : "";
-    this.flowText.setText(
-      `FLOW x${multiplier.toFixed(1)}${this.combo > 1 ? ` · ${this.combo}` : ""}${draftTimer}`,
-    );
+    gameStore.setActiveFlowMultiplier(multiplier);
   }
 
   private spawnDraftCyclist(): void {
@@ -1227,7 +1418,11 @@ export class GameScene extends Phaser.Scene {
         this.draftTimerText?.destroy();
         this.draftTimerText = undefined;
         this.draftCyclist = undefined;
-        this.encounterCountdown = Phaser.Math.Between(4_000, 6_500);
+        const [minimumDelay, maximumDelay] = encounterDelayRange(stage);
+        this.encounterCountdown = Phaser.Math.Between(
+          minimumDelay,
+          maximumDelay,
+        );
       }
       return;
     }
@@ -1317,8 +1512,16 @@ export class GameScene extends Phaser.Scene {
     this.drafting = false;
     this.droppedFromDraft = true;
     gameStore.setTemporaryDraftBonus(0);
+    const challengeRules = encounterChallengeRules.draft;
+    const reward = gameStore.completeChallenge(
+      challengeRules?.cleanRewardMultiplier ?? 6,
+    );
+    this.rewardFlow(challengeRules?.flowReward ?? 24, "DRAFT CLEAN");
     this.draftTimerText?.setText("0s");
-    this.showEncounter("RIDER ACCELERATES AWAY", 1_500);
+    this.showEncounter(
+      `DRAFT CLEAN ×${challengeRules?.cleanRewardMultiplier ?? 6} · +${formatCompactNumber(reward.sweat)} SWEAT · +$${formatCompactNumber(reward.cash)}`,
+      2_200,
+    );
   }
 
   private positionDraftTimer(cyclist: Phaser.GameObjects.Sprite): void {
@@ -1458,15 +1661,6 @@ export class GameScene extends Phaser.Scene {
       this.powerUpHalo.setVisible(false);
       this.powerUpSparks.forEach((spark) => spark.setVisible(false));
       return;
-    }
-
-    if (activePowerUp.type === "jump") {
-      this.rider.y =
-        this.riderRoadY -
-        jumpHeightAt(
-          activePowerUp.remainingSeconds,
-          powerUpDefinitions.jump.durationSeconds,
-        );
     }
 
     const color = POWER_UP_COLORS[activePowerUp.type].hex;
