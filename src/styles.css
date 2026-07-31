@@ -2118,7 +2118,7 @@ kbd {
 .hud-panel {
   display: flex;
   min-width: 0;
-  width: calc(100% - 8px);
+  width: calc(100% - 19px);
   height: 96px;
   align-items: center;
   gap: 10px;
@@ -2136,14 +2136,14 @@ kbd {
 
 .hud-speed {
   justify-self: start;
-  margin: 15px 0 0 4px;
+  margin: 15px 0 0 15px;
 }
 
 .hud-distance {
-  width: calc(100% - 8px);
+  width: calc(100% - 19px);
   justify-content: flex-end;
   justify-self: end;
-  margin: 15px 4px 0 0;
+  margin: 15px 15px 0 0;
 }
 
 .speed-dial {
