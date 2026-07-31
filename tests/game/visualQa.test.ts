@@ -7,9 +7,11 @@ describe("visual QA overrides", () => {
       parseVisualQaOverrides("?qaStage=2&qaGradient=-0.05"),
     ).toEqual({
       domestiques: null,
+      drafting: false,
       flow: null,
       gradient: -0.05,
       paused: false,
+      powerUp: null,
       stage: 2,
     });
   });
@@ -19,18 +21,22 @@ describe("visual QA overrides", () => {
       parseVisualQaOverrides("?qaStage=99&qaGradient=0.8"),
     ).toEqual({
       domestiques: null,
+      drafting: false,
       flow: null,
       gradient: 0.12,
       paused: false,
+      powerUp: null,
       stage: 5,
     });
     expect(
       parseVisualQaOverrides("?qaStage=nope&qaGradient=nope"),
     ).toEqual({
       domestiques: null,
+      drafting: false,
       flow: null,
       gradient: null,
       paused: false,
+      powerUp: null,
       stage: null,
     });
   });
@@ -53,6 +59,23 @@ describe("visual QA overrides", () => {
     ).toMatchObject({
       domestiques: 3,
       flow: 0,
+    });
+  });
+
+  it("selects active drafting effects and rejects unknown power-ups", () => {
+    expect(
+      parseVisualQaOverrides(
+        "?qaDrafting=true&qaPowerUp=super-draft",
+      ),
+    ).toMatchObject({
+      drafting: true,
+      powerUp: "super-draft",
+    });
+    expect(
+      parseVisualQaOverrides("?qaDrafting=0&qaPowerUp=rocket"),
+    ).toMatchObject({
+      drafting: false,
+      powerUp: null,
     });
   });
 });

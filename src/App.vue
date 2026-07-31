@@ -45,7 +45,14 @@ const reservedPowerUp = computed(() =>
     : null,
 );
 const activePowerUp = computed(() =>
-  snapshot.value.activePowerUp
+  visualQa.powerUp
+    ? {
+        type: visualQa.powerUp,
+        ...powerUpDefinitions[visualQa.powerUp],
+        remainingSeconds:
+          powerUpDefinitions[visualQa.powerUp].durationSeconds * 0.6,
+      }
+    : snapshot.value.activePowerUp
     ? {
         type: snapshot.value.activePowerUp.type,
         ...powerUpDefinitions[snapshot.value.activePowerUp.type],

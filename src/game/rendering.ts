@@ -32,6 +32,51 @@ export const jumpHeightAt = (
   return Math.sin(progress * Math.PI) * Math.max(0, maximumHeight);
 };
 
+export interface PowerUpPulse {
+  groundScale: number;
+  haloScale: number;
+  sparkAlpha: number;
+  strokeAlpha: number;
+}
+
+export const powerUpPulseAt = (timeMs: number): PowerUpPulse => {
+  const phase = (Math.max(0, timeMs) / 900) * Math.PI * 2;
+  const wave = (Math.sin(phase) + 1) / 2;
+  return {
+    groundScale: 0.97 + wave * 0.09,
+    haloScale: 0.98 + wave * 0.08,
+    sparkAlpha: 0.42 + wave * 0.42,
+    strokeAlpha: 0.58 + wave * 0.3,
+  };
+};
+
+export interface DraftStreakState {
+  alpha: number;
+  width: number;
+  xOffset: number;
+  yOffset: number;
+}
+
+export const draftStreakStateAt = (
+  timeMs: number,
+  index: number,
+  count = 12,
+): DraftStreakState => {
+  const safeCount = Math.max(1, Math.floor(count));
+  const safeIndex = Math.max(0, Math.floor(index));
+  const travel =
+    ((Math.max(0, timeMs) * 0.00072 + safeIndex / safeCount) % 1 + 1) %
+    1;
+  const bands = [-28, -20, -12, 12, 20, 28] as const;
+  const band = bands[safeIndex % bands.length];
+  return {
+    alpha: 0.12 + Math.sin(travel * Math.PI) * 0.48,
+    width: 10 + travel * 25,
+    xOffset: 155 - travel * 230,
+    yOffset: band * (0.68 + travel * 0.55),
+  };
+};
+
 export interface ExternallyControlledRoadBody {
   moves?: boolean;
   updateFromGameObject: () => unknown;

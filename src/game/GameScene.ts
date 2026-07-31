@@ -39,8 +39,10 @@ import {
   ROAD_HAZARD_LANE_OFFSET_Y,
   cyclistFrameTexture,
   cyclistLaneY,
+  draftStreakStateAt,
   jumpHeightAt,
   laneCentersBetween,
+  powerUpPulseAt,
   roadHazardLaneY,
   syncRoadBodyPosition,
 } from "./rendering";
@@ -109,6 +111,8 @@ const isPowerUpType = (
 export class GameScene extends Phaser.Scene {
   private rider!: Phaser.Physics.Arcade.Sprite;
   private powerUpAura!: Phaser.GameObjects.Ellipse;
+  private powerUpHalo!: Phaser.GameObjects.Ellipse;
+  private powerUpSparks: Phaser.GameObjects.Arc[] = [];
   private pickups!: Phaser.Physics.Arcade.Group;
   private hazards!: Phaser.Physics.Arcade.Group;
   private scenery!: Phaser.GameObjects.TileSprite;
@@ -119,6 +123,8 @@ export class GameScene extends Phaser.Scene {
   private encounterText!: Phaser.GameObjects.Text;
   private flowText!: Phaser.GameObjects.Text;
   private flowBar!: Phaser.GameObjects.Rectangle;
+  private draftWake!: Phaser.GameObjects.Graphics;
+  private draftWindStreaks: Phaser.GameObjects.Rectangle[] = [];
   private windStreaks: Phaser.GameObjects.Rectangle[] = [];
   private roadParticles: Phaser.GameObjects.Rectangle[] = [];
   private laneMarkers: Phaser.GameObjects.Rectangle[] = [];
@@ -267,8 +273,18 @@ export class GameScene extends Phaser.Scene {
       response,
     );
     this.rider.y = this.riderRoadY;
-    this.rider.setDepth(10 + this.riderRoadY / 1_000);
-    this.updatePowerUpFeedback(snapshot.activePowerUp);
+    this.rider
+      .setAngle(roadAngleDegrees(gradient))
+      .setDepth(10 + this.riderRoadY / 1_000);
+    const visualActivePowerUp: GameSnapshot["activePowerUp"] =
+      VISUAL_QA.powerUp
+        ? {
+            type: VISUAL_QA.powerUp,
+            remainingSeconds:
+              powerUpDefinitions[VISUAL_QA.powerUp].durationSeconds * 0.6,
+          }
+        : snapshot.activePowerUp;
+    this.updatePowerUpFeedback(visualActivePowerUp);
     syncRoadBodyPosition(this.rider.body);
     this.syncDomestiques(
       VISUAL_QA.domestiques ?? snapshot.upgrades.domestique ?? 0,
@@ -287,6 +303,12 @@ export class GameScene extends Phaser.Scene {
     this.updateRoadObjects(this.hazards, scrollSpeed, delta);
     this.updateFlow(delta, snapshot.stats.flowDecayPerSecond);
     this.updateDraft(delta, snapshot.stage);
+    const superDraftVisible =
+      visualActivePowerUp?.type === "super-draft";
+    this.updateDraftWindFeedback(
+      this.drafting || VISUAL_QA.drafting || superDraftVisible,
+      superDraftVisible ? POWER_UP_COLORS["super-draft"].hex : 0xffe7b6,
+    );
     this.updateSpeedFeedback(
       delta,
       scrollSpeed,
@@ -359,7 +381,16 @@ export class GameScene extends Phaser.Scene {
     this.powerUpAura
       .setVisible(false)
       .setPosition(this.rider.x - 2, this.rider.y + 24)
-      .setAngle(0);
+      .setAngle(0)
+      .setScale(1);
+    this.powerUpHalo
+      .setVisible(false)
+      .setPosition(this.rider.x, this.rider.y)
+      .setAngle(0)
+      .setScale(1);
+    this.powerUpSparks.forEach((spark) => spark.setVisible(false));
+    this.draftWake.clear().setVisible(false);
+    this.draftWindStreaks.forEach((streak) => streak.setVisible(false));
 
     this.encounterCountdown = 1_200;
     this.encounterCount = 0;
@@ -452,6 +483,18 @@ export class GameScene extends Phaser.Scene {
           0xfff0ce,
         )
         .setDepth(2)
+        .setVisible(false),
+    );
+    this.draftWake = this.add
+      .graphics()
+      .setDepth(9.15)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setVisible(false);
+    this.draftWindStreaks = Array.from({ length: 12 }, () =>
+      this.add
+        .rectangle(0, 0, 20, 2, 0xffe7b6)
+        .setDepth(9.2)
+        .setBlendMode(Phaser.BlendModes.ADD)
         .setVisible(false),
     );
 
@@ -571,10 +614,21 @@ export class GameScene extends Phaser.Scene {
 
   private createRider(): void {
     this.powerUpAura = this.add
-      .ellipse(112, cyclistLaneY(LANE_Y[1]) + 24, 68, 38, 0x71f5cc, 0.12)
-      .setStrokeStyle(3, 0x71f5cc, 0.8)
-      .setDepth(9)
+      .ellipse(112, cyclistLaneY(LANE_Y[1]) + 29, 82, 25, 0x71f5cc, 0.1)
+      .setStrokeStyle(2, 0x71f5cc, 0.78)
+      .setDepth(9.05)
       .setVisible(false);
+    this.powerUpHalo = this.add
+      .ellipse(112, cyclistLaneY(LANE_Y[1]), 104, 70, 0x71f5cc, 0.035)
+      .setStrokeStyle(2, 0x71f5cc, 0.72)
+      .setDepth(9.1)
+      .setVisible(false);
+    this.powerUpSparks = Array.from({ length: 8 }, () =>
+      this.add
+        .circle(0, 0, 2, 0x71f5cc, 0.8)
+        .setDepth(12)
+        .setVisible(false),
+    );
     this.rider = this.physics.add.sprite(
       112,
       cyclistLaneY(LANE_Y[1]),
@@ -1321,10 +1375,67 @@ export class GameScene extends Phaser.Scene {
       );
       particle.setAngle(roadAngleDegrees(gradient));
     });
-    this.rider.setAngle(roadAngleDegrees(gradient));
     if (speedKmh > 32 && Math.random() < delta / 2_000) {
       this.cameras.main.shake(65, 0.0015);
     }
+  }
+
+  private updateDraftWindFeedback(active: boolean, color: number): void {
+    if (!active) {
+      this.draftWake.clear().setVisible(false);
+      this.draftWindStreaks.forEach((streak) =>
+        streak.setVisible(false),
+      );
+      return;
+    }
+
+    const roadAngle = roadAngleDegrees(this.roadGradient);
+    this.draftWindStreaks.forEach((streak, index) => {
+      const state = draftStreakStateAt(
+        this.time.now,
+        index,
+        this.draftWindStreaks.length,
+      );
+      const x = this.rider.x + state.xOffset;
+      streak
+        .setVisible(true)
+        .setPosition(
+          x,
+          this.roadY(this.riderRoadY + state.yOffset, x),
+        )
+        .setDisplaySize(state.width, 1.6)
+        .setAngle(roadAngle)
+        .setFillStyle(color, 1)
+        .setAlpha(state.alpha);
+    });
+
+    const frontX = this.rider.x + 166;
+    const middleX = this.rider.x + 42;
+    const rearX = this.rider.x - 72;
+    const frontY = this.roadY(this.riderRoadY, frontX);
+    const middleY = this.roadY(this.riderRoadY, middleX);
+    const rearY = this.roadY(this.riderRoadY, rearX);
+    this.draftWake
+      .clear()
+      .setVisible(true)
+      .lineStyle(3, color, 0.08);
+    [-1, 1].forEach((direction) => {
+      this.draftWake
+        .beginPath()
+        .moveTo(frontX, frontY + direction * 11)
+        .lineTo(middleX, middleY + direction * 18)
+        .lineTo(rearX, rearY + direction * 31)
+        .strokePath();
+    });
+    this.draftWake.lineStyle(1, color, 0.32);
+    [-1, 1].forEach((direction) => {
+      this.draftWake
+        .beginPath()
+        .moveTo(frontX, frontY + direction * 11)
+        .lineTo(middleX, middleY + direction * 18)
+        .lineTo(rearX, rearY + direction * 31)
+        .strokePath();
+    });
   }
 
   private updatePowerUpFeedback(
@@ -1332,6 +1443,8 @@ export class GameScene extends Phaser.Scene {
   ): void {
     if (!activePowerUp) {
       this.powerUpAura.setVisible(false);
+      this.powerUpHalo.setVisible(false);
+      this.powerUpSparks.forEach((spark) => spark.setVisible(false));
       return;
     }
 
@@ -1345,13 +1458,48 @@ export class GameScene extends Phaser.Scene {
     }
 
     const color = POWER_UP_COLORS[activePowerUp.type].hex;
+    const pulse = powerUpPulseAt(this.time.now);
     this.powerUpAura
       .setVisible(true)
-      .setPosition(this.rider.x - 2, this.rider.y + 24)
+      .setPosition(this.rider.x - 2, this.riderRoadY + 29)
       .setAngle(this.rider.angle)
       .setFillStyle(color, 0.1)
-      .setStrokeStyle(3, color, 0.65 + Math.sin(this.time.now / 90) * 0.2)
-      .setScale(1 + Math.sin(this.time.now / 120) * 0.06);
+      .setStrokeStyle(2, color, pulse.strokeAlpha)
+      .setScale(pulse.groundScale);
+    this.powerUpHalo
+      .setVisible(true)
+      .setPosition(this.rider.x, this.rider.y)
+      .setAngle(this.rider.angle)
+      .setFillStyle(color, 0.045)
+      .setStrokeStyle(2, color, pulse.strokeAlpha * 0.86)
+      .setScale(pulse.haloScale);
+
+    const rotation = this.rider.rotation;
+    const cosRotation = Math.cos(rotation);
+    const sinRotation = Math.sin(rotation);
+    this.powerUpSparks.forEach((spark, index) => {
+      const orbit =
+        this.time.now / 620 +
+        (index / this.powerUpSparks.length) * Math.PI * 2;
+      const localX = Math.cos(orbit) * 50;
+      const localY = Math.sin(orbit) * 31;
+      spark
+        .setVisible(true)
+        .setPosition(
+          this.rider.x +
+            localX * cosRotation -
+            localY * sinRotation,
+          this.rider.y +
+            localX * sinRotation +
+            localY * cosRotation,
+        )
+        .setFillStyle(color, 1)
+        .setAlpha(
+          pulse.sparkAlpha *
+            (0.72 + (index % 3) * 0.1),
+        )
+        .setScale(0.72 + (index % 3) * 0.17);
+    });
   }
 
   private floatText(x: number, y: number, label: string, color: string): void {

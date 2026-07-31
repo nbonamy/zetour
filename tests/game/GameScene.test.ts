@@ -108,6 +108,17 @@ describe("GameScene", () => {
     powerUpAura.setVisible = vi.fn(() => powerUpAura);
     powerUpAura.setPosition = vi.fn(() => powerUpAura);
     powerUpAura.setAngle = vi.fn(() => powerUpAura);
+    powerUpAura.setScale = vi.fn(() => powerUpAura);
+    const powerUpHalo: Record<string, any> = {};
+    powerUpHalo.setVisible = vi.fn(() => powerUpHalo);
+    powerUpHalo.setPosition = vi.fn(() => powerUpHalo);
+    powerUpHalo.setAngle = vi.fn(() => powerUpHalo);
+    powerUpHalo.setScale = vi.fn(() => powerUpHalo);
+    const powerUpSpark = { setVisible: vi.fn() };
+    const draftWake: Record<string, any> = {};
+    draftWake.clear = vi.fn(() => draftWake);
+    draftWake.setVisible = vi.fn(() => draftWake);
+    const draftWindStreak = { setVisible: vi.fn() };
     const encounterText: Record<string, any> = {};
     encounterText.setText = vi.fn(() => encounterText);
     encounterText.setAlpha = vi.fn(() => encounterText);
@@ -121,6 +132,10 @@ describe("GameScene", () => {
       domestiques: [domestique],
       rider,
       powerUpAura,
+      powerUpHalo,
+      powerUpSparks: [powerUpSpark],
+      draftWake,
+      draftWindStreaks: [draftWindStreak],
       time: { now: 500 },
       flowBar: { width: 72 },
       flowText: { setText: vi.fn() },
@@ -161,6 +176,10 @@ describe("GameScene", () => {
     expect(scene.lowerRoadside.tilePositionX).toBe(0);
     expect(scene.roadTexture.tilePositionX).toBe(0);
     expect(powerUpAura.setVisible).toHaveBeenCalledWith(false);
+    expect(powerUpHalo.setVisible).toHaveBeenCalledWith(false);
+    expect(powerUpSpark.setVisible).toHaveBeenCalledWith(false);
+    expect(draftWake.setVisible).toHaveBeenCalledWith(false);
+    expect(draftWindStreak.setVisible).toHaveBeenCalledWith(false);
   });
 
   it("magnet-collects loot near the rider without checking its lane", () => {

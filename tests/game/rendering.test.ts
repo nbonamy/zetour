@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CYCLIST_LANE_OFFSET_Y,
   cyclistFrameTexture,
+  draftStreakStateAt,
+  powerUpPulseAt,
   RIDE_RENDER_SCALE,
   RIDE_WORLD_HEIGHT,
   RIDE_WORLD_WIDTH,
@@ -32,6 +34,31 @@ describe("ride rendering", () => {
     expect(jumpHeightAt(1.2, 1.2)).toBeCloseTo(0);
     expect(jumpHeightAt(0.6, 1.2)).toBeCloseTo(26);
     expect(jumpHeightAt(0, 1.2)).toBeCloseTo(0);
+  });
+
+  it("keeps active power-up pulses subtle and continuously visible", () => {
+    [0, 225, 450, 675].forEach((timeMs) => {
+      const pulse = powerUpPulseAt(timeMs);
+      expect(pulse.groundScale).toBeGreaterThanOrEqual(0.97);
+      expect(pulse.groundScale).toBeLessThanOrEqual(1.06);
+      expect(pulse.haloScale).toBeGreaterThanOrEqual(0.98);
+      expect(pulse.haloScale).toBeLessThanOrEqual(1.06);
+      expect(pulse.sparkAlpha).toBeGreaterThanOrEqual(0.42);
+      expect(pulse.strokeAlpha).toBeLessThanOrEqual(0.88);
+    });
+  });
+
+  it("fans slipstream streaks out behind the rider as they travel", () => {
+    const entering = draftStreakStateAt(0, 0);
+    const trailing = draftStreakStateAt(1_000, 0);
+
+    expect(entering.xOffset).toBe(155);
+    expect(trailing.xOffset).toBeLessThan(entering.xOffset);
+    expect(Math.abs(trailing.yOffset)).toBeGreaterThan(
+      Math.abs(entering.yOffset),
+    );
+    expect(trailing.width).toBeGreaterThan(entering.width);
+    expect(trailing.alpha).toBeGreaterThan(0.12);
   });
 
   it("renders the logical ride world at double resolution", () => {
