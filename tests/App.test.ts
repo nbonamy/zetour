@@ -209,6 +209,22 @@ describe("App", () => {
     app.unmount();
   });
 
+  it("keeps Flow out of the road view and explains it inside the speed HUD", () => {
+    gameStore.setActiveFlowMultiplier(1.8);
+    const app = createApp(App);
+    const host = document.querySelector("#test-app");
+    if (!host) throw new Error("Missing test host");
+    app.mount(host);
+
+    const flowBonus = document.querySelector<HTMLElement>(".flow-bonus");
+    expect(flowBonus?.textContent).toContain("Flow ×1.8");
+    expect(flowBonus?.title).toContain("boost Tour pace and income");
+    expect(document.querySelectorAll(".flow-bonus")).toHaveLength(1);
+    expect(document.querySelector(".effective-pace i")).toBeNull();
+    expect(document.querySelector(".game-canvas .flow-bonus")).toBeNull();
+    app.unmount();
+  });
+
   it("shows the final leaderboard and starts a rewarded next Season", async () => {
     for (
       let index = 0;

@@ -104,6 +104,9 @@ export const cyclistLaneY = (laneCenterY: number): number =>
 export const roadHazardLaneY = (laneCenterY: number): number =>
   laneCenterY + ROAD_HAZARD_LANE_OFFSET_Y;
 
+export const groundedRoadObjectOffsetY = (displayHeight: number): number =>
+  -Math.max(0, displayHeight) / 2;
+
 export const syncRoadBodyPosition = (
   body: ExternallyControlledRoadBody | null | undefined,
 ): void => {

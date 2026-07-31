@@ -3,6 +3,7 @@ import {
   CYCLIST_LANE_OFFSET_Y,
   cyclistFrameTexture,
   draftStreakStateAt,
+  groundedRoadObjectOffsetY,
   powerUpPulseAt,
   RIDE_RENDER_SCALE,
   RIDE_WORLD_HEIGHT,
@@ -83,7 +84,13 @@ describe("ride rendering", () => {
     ]);
   });
 
-  it("centers hazards on the same lane coordinate as pickups", () => {
+  it("rests pickup artwork on the lane baseline instead of below it", () => {
+    expect(groundedRoadObjectOffsetY(28)).toBe(-14);
+    expect(250 + groundedRoadObjectOffsetY(28) + 28 / 2).toBe(250);
+    expect(groundedRoadObjectOffsetY(34)).toBe(-17);
+  });
+
+  it("keeps ground hazards centered on the lane baseline", () => {
     expect(ROAD_HAZARD_LANE_OFFSET_Y).toBe(0);
     expect(roadHazardLaneY(212.5)).toBe(212.5);
     expect(roadHazardLaneY(250)).toBe(250);

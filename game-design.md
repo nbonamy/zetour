@@ -189,7 +189,9 @@ flashes before disappearing.
 
 Successful pickups, deliberate near-misses, and drafting build Flow. Flow rises
 from ×1 to ×3, multiplies effective pace and both production rates, decays after
-quiet play, and resets on collision. It is neither saved nor spent.
+quiet play, and resets on collision. It is neither saved nor spent. The road
+view never carries a permanent Flow plate; a compact explanatory badge appears
+inside the speed HUD only while the multiplier is above ×1.
 
 Hydration upgrades slow Flow decay.
 

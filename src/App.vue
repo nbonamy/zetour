@@ -273,7 +273,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               <b class="effective-pace">
                 Tour pace
                 {{ format(snapshot.stats.effectivePaceKmh) }} km/h
-                <i>{{ formatMultiplier(snapshot.stats.paceMultiplier) }}</i>
+                <span
+                  v-if="snapshot.stats.flowMultiplier > 1"
+                  class="flow-bonus"
+                  title="Clean pickups, near-misses, and drafting boost Tour pace and income. A collision resets the bonus."
+                >
+                  Flow {{ formatMultiplier(snapshot.stats.flowMultiplier) }}
+                </span>
               </b>
               <small>{{ gradeLabel }} · {{ windLabel }}</small>
             </div>

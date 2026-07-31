@@ -11,6 +11,9 @@ vi.mock("phaser", () => ({
         mocks.createdKeys.push(key);
       }
     },
+    Math: {
+      Between: vi.fn(() => 1),
+    },
   },
 }));
 
@@ -23,6 +26,38 @@ describe("GameScene", () => {
     new GameScene();
 
     expect(mocks.createdKeys).toEqual(["ride"]);
+  });
+
+  it("rests bag artwork on the selected lane baseline", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const body = { setSize: vi.fn() };
+    const bag: Record<string, any> = { body };
+    bag.setDisplaySize = vi.fn(() => bag);
+    bag.setDepth = vi.fn(() => bag);
+    const fan: Record<string, any> = {};
+    fan.setDisplaySize = vi.fn(() => fan);
+    fan.setOrigin = vi.fn(() => fan);
+    fan.setDepth = vi.fn(() => fan);
+    const image = vi.fn((...args: unknown[]) =>
+      String(args[2]).startsWith("fan-") ? fan : bag,
+    );
+    const addToPickups = vi.fn();
+    scene.physics = { add: { image } };
+    scene.add = { image };
+    scene.pickups = { add: addToPickups };
+    scene.roadGradient = 0;
+
+    (scene.spawnPickup as (
+      type: "sweat" | "cash",
+      lane: number,
+      x: number,
+    ) => void)("cash", 1, 400);
+
+    expect(image).toHaveBeenCalledWith(400, 236, "bag-cash");
+    expect(bag.roadLane).toBe(1);
+    expect(bag.roadYOffset).toBe(-14);
+    expect(bag.setDisplaySize).toHaveBeenCalledWith(28, 28);
+    expect(addToPickups).toHaveBeenCalledWith(bag);
   });
 
   it("preloads the complete painted ride asset pack", () => {
@@ -141,8 +176,6 @@ describe("GameScene", () => {
       draftWake,
       draftWindStreaks: [draftWindStreak],
       time: { now: 500 },
-      flowBar: { width: 72 },
-      flowText: { setText: vi.fn() },
       encounterText,
       scenery: { tilePositionX: 99 },
       upperRoadside: { tilePositionX: 66 },

@@ -44,6 +44,7 @@ import {
   cyclistFrameTexture,
   cyclistLaneY,
   draftStreakStateAt,
+  groundedRoadObjectOffsetY,
   jumpHeightAt,
   laneCentersBetween,
   powerUpPulseAt,
@@ -89,6 +90,8 @@ const UPPER_ROADSIDE_HEIGHT = 26;
 const UPPER_ROADSIDE_TEXTURE_HEIGHT = 68;
 const LOWER_ROADSIDE_HEIGHT = 118;
 const ROAD_TILE_SCALE = 0.32;
+const BAG_SIZE = 28;
+const POWER_UP_SIZE = 34;
 const FAN_WIDTH = 32;
 const FAN_HEIGHT = 42;
 const FAN_VARIANT_COUNT = 4;
@@ -98,9 +101,6 @@ const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
 const ROAD_MARKER_MAX_X =
   Math.ceil((WIDTH + ROAD_MARKER_SPACING) / ROAD_MARKER_SPACING) *
   ROAD_MARKER_SPACING;
-const FLOW_TRACK_X = 166;
-const FLOW_TRACK_Y = 114;
-const FLOW_TRACK_WIDTH = 120;
 const RANDOM_RIDER_DRAFT_PERCENT = Math.round(
   RANDOM_RIDER_DRAFT_BONUS * 100,
 );
@@ -128,8 +128,6 @@ export class GameScene extends Phaser.Scene {
   private roadGraphics!: Phaser.GameObjects.Graphics;
   private roadTexture!: Phaser.GameObjects.TileSprite;
   private encounterText!: Phaser.GameObjects.Text;
-  private flowText!: Phaser.GameObjects.Text;
-  private flowBar!: Phaser.GameObjects.Rectangle;
   private draftWake!: Phaser.GameObjects.Graphics;
   private draftWindStreaks: Phaser.GameObjects.Rectangle[] = [];
   private windStreaks: Phaser.GameObjects.Rectangle[] = [];
@@ -417,8 +415,6 @@ export class GameScene extends Phaser.Scene {
     gameStore.setActiveFlowMultiplier(1);
     this.combo = 0;
     this.lastFlowActionAt = this.time.now;
-    this.flowBar.width = 0;
-    this.flowText.setText("FLOW x1.0");
     this.encounterText.setText("").setAlpha(0);
 
     this.draftLane = 1;
@@ -567,54 +563,6 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(25);
-    const flowPlate = this.add.graphics().setDepth(19);
-    flowPlate
-      .fillStyle(0x2d1b14, 0.9)
-      .fillRoundedRect(
-        FLOW_TRACK_X - 8,
-        FLOW_TRACK_Y - 9,
-        FLOW_TRACK_WIDTH + 16,
-        29,
-        6,
-      )
-      .lineStyle(2, 0x9b6a42, 0.95)
-      .strokeRoundedRect(
-        FLOW_TRACK_X - 8,
-        FLOW_TRACK_Y - 9,
-        FLOW_TRACK_WIDTH + 16,
-        29,
-        6,
-      );
-    this.add
-      .rectangle(
-        FLOW_TRACK_X + FLOW_TRACK_WIDTH,
-        FLOW_TRACK_Y,
-        FLOW_TRACK_WIDTH + 2,
-        8,
-        0x3a241b,
-        0.82,
-      )
-      .setOrigin(1, 0.5)
-      .setDepth(20);
-    this.flowBar = this.add
-      .rectangle(FLOW_TRACK_X, FLOW_TRACK_Y, 0, 4, 0xe3ad32)
-      .setOrigin(0, 0.5)
-      .setDepth(21);
-    this.flowText = this.add
-      .text(
-        FLOW_TRACK_X + FLOW_TRACK_WIDTH,
-        FLOW_TRACK_Y + 9,
-        "FLOW x1.0",
-        {
-          fontFamily: CANVAS_FONT,
-          fontSize: "9px",
-          color: "#fff0ce",
-          stroke: "#3a241b",
-          strokeThickness: 3,
-        },
-      )
-      .setOrigin(1, 0)
-      .setDepth(21);
   }
 
   private updateStageScenery(stage: GameSnapshot["stageDefinition"]): void {
@@ -784,17 +732,18 @@ export class GameScene extends Phaser.Scene {
     sequenceIndex?: number,
   ): void {
     const texture = type === "sweat" ? "bag-sweat" : "bag-cash";
+    const roadYOffset = groundedRoadObjectOffsetY(BAG_SIZE);
     const object = this.physics.add.image(
       x,
-      this.roadY(LANE_Y[lane], x),
+      this.roadY(LANE_Y[lane] + roadYOffset, x),
       texture,
     ) as RoadObject;
     object.eventType = type;
     object.sequenceId = sequenceId;
     object.sequenceIndex = sequenceIndex;
     object.roadLane = lane;
-    object.roadYOffset = 0;
-    object.setDisplaySize(28, 28).setDepth(8);
+    object.roadYOffset = roadYOffset;
+    object.setDisplaySize(BAG_SIZE, BAG_SIZE).setDepth(8);
     object.body?.setSize(24, 24);
     this.pickups.add(object);
 
@@ -817,17 +766,18 @@ export class GameScene extends Phaser.Scene {
     x: number,
     choiceId: number,
   ): void {
+    const roadYOffset = groundedRoadObjectOffsetY(POWER_UP_SIZE);
     const object = this.physics.add.image(
       x,
-      this.roadY(LANE_Y[lane], x),
+      this.roadY(LANE_Y[lane] + roadYOffset, x),
       `power-${type}`,
     ) as RoadObject;
     object.eventType = type;
     object.powerUpChoiceId = choiceId;
     object.roadLane = lane;
-    object.roadYOffset = 0;
+    object.roadYOffset = roadYOffset;
     object
-      .setDisplaySize(34, 34)
+      .setDisplaySize(POWER_UP_SIZE, POWER_UP_SIZE)
       .setDepth(9 + object.y / 1_000);
     object.body?.setSize(26, 26);
     this.pickups.add(object);
@@ -1182,13 +1132,6 @@ export class GameScene extends Phaser.Scene {
     }
     const multiplier = flowMultiplier(this.flow);
     gameStore.setActiveFlowMultiplier(multiplier);
-    this.flowBar.width = (this.flow / 100) * FLOW_TRACK_WIDTH;
-    const draftTimer = this.drafting
-      ? ` · DRAFT +${RANDOM_RIDER_DRAFT_PERCENT}% ${Math.ceil(this.draftTimeRemaining)}s`
-      : "";
-    this.flowText.setText(
-      `FLOW x${multiplier.toFixed(1)}${this.combo > 1 ? ` · ${this.combo}` : ""}${draftTimer}`,
-    );
   }
 
   private spawnDraftCyclist(): void {

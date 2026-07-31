@@ -60,7 +60,8 @@ requirement for passive or offline progress.
 - Completing a full random-rider draft grants five Sweat bags at the current
   production rate.
 - Successful pickups, near-misses, and drafting build Flow up to ×3. Flow
-  multiplies Tour pace and both production rates.
+  multiplies Tour pace and both production rates. It stays out of the road view
+  and appears as a compact speed-HUD badge only while the bonus is active.
 - Equipment opens in Sector 2, Bike in Sector 3, and Team in Sector 4.
 - Mechanical upgrades include gravel tires, micro-suspension, chain
   lubrication, a race mechanic, a sponsor empire, and a directeur sportif.

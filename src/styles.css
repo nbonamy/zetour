@@ -3151,13 +3151,14 @@ kbd {
   white-space: nowrap;
 }
 
-.effective-pace i {
-  padding: 2px 4px;
-  border: 1px solid #a87725;
+.flow-bonus {
+  padding: 2px 5px;
+  border: 1px solid #d6a32e;
   border-radius: 999px;
-  background: rgba(227, 173, 50, 0.14);
-  color: #ffe991;
-  font-style: normal;
+  background: #8a5723;
+  color: #fff0b5;
+  font-size: 0.9em;
+  line-height: 1;
 }
 
 .hud-tray.has-palmares {
@@ -3584,10 +3585,6 @@ kbd {
     font-size: 7px;
   }
 
-  .effective-pace i {
-    padding: 1px 3px;
-  }
-
   .hud-tray.has-palmares {
     width: min(380px, 52%);
   }
@@ -3602,7 +3599,7 @@ kbd {
     font-size: 5.5px;
   }
 
-  .effective-pace i {
+  .flow-bonus {
     display: none;
   }
 
