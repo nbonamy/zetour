@@ -244,6 +244,13 @@ const onKeydown = (event: KeyboardEvent): void => {
     event.preventDefault();
     toggleManualPause();
   } else if (
+    event.key.toLowerCase() === "r" &&
+    !resetConfirmationOpen.value &&
+    !workshopOpen.value &&
+    !displayedRaceFinished.value
+  ) {
+    requestReset();
+  } else if (
     event.key.toLowerCase() === "w" &&
     !resetConfirmationOpen.value
   ) {
@@ -453,19 +460,23 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
         <footer class="hud-bottom">
           <div class="hud-bottom-side hud-bottom-left">
-            <button type="button" class="reset-trigger" @click="requestReset">
-              Restart race
+            <button
+              type="button"
+              class="reset-trigger hud-control"
+              @click="requestReset"
+            >
+              Restart race <kbd>R</kbd>
             </button>
             <button
               type="button"
-              class="pause-trigger"
+              class="pause-trigger hud-control"
               :class="{ active: manuallyPaused }"
               :aria-pressed="manuallyPaused"
               @click="toggleManualPause"
             >
               {{ manuallyPaused ? "Resume" : "Pause" }} <kbd>P</kbd>
             </button>
-            <span class="steering-hint">
+            <span class="steering-hint hud-control">
               Steer <kbd>↑</kbd> <kbd>↓</kbd>
             </span>
           </div>
@@ -528,7 +539,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
           <button
             type="button"
-            class="workshop-trigger hud-workshop"
+            class="workshop-trigger hud-workshop hud-control"
             @click="openWorkshop"
           >
             Workshop <kbd>W</kbd>

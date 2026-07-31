@@ -79,6 +79,16 @@ describe("App", () => {
     expect(document.body.textContent).not.toContain("km ridden");
     expect(document.body.textContent).toContain("Workshop W");
     expect(document.body.textContent).toContain("Pause P");
+    expect(document.querySelectorAll(".hud-control")).toHaveLength(4);
+    expect(
+      Array.from(
+        document.querySelectorAll(".hud-bottom .hud-control"),
+        (control) =>
+          Array.from(control.querySelectorAll("kbd"), (key) =>
+            key.textContent?.trim(),
+          ),
+      ),
+    ).toEqual([["R"], ["P"], ["↑", "↓"], ["W"]]);
     expect(document.body.textContent).not.toContain("Workshop U");
     expect(
       document.querySelector('[aria-label^="Sweat balance"] strong')?.textContent,
@@ -150,7 +160,7 @@ describe("App", () => {
     app.unmount();
   });
 
-  it("restarts the race and position from zero through the top control", async () => {
+  it("restarts the race and position from zero through the R control", async () => {
     for (let index = 0; index < 40; index += 1) {
       gameStore.tick(0.25);
     }
@@ -163,7 +173,7 @@ describe("App", () => {
     if (!host) throw new Error("Missing test host");
     app.mount(host);
 
-    document.querySelector<HTMLButtonElement>(".reset-trigger")?.click();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
     await nextTick();
     expect(document.body.textContent).toContain("Back to Paris?");
     expect(document.body.textContent).toContain("Your current Tour ends here.");

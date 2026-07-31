@@ -42,6 +42,7 @@ between-Season prestige reward and cannot drop from the road.
 
 - `↑` / `↓`: change lanes.
 - `Space`: activate the reserved power-up.
+- `R`: open the restart confirmation.
 - `P` or `Esc`: pause or resume.
 - `W`: open or close the Career Workshop.
 - The on-screen controls provide the same actions.
