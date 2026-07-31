@@ -79,7 +79,7 @@ describe("UpgradeGraph", () => {
     host.remove();
   });
 
-  it("selects nodes safely and buys only from the explicit detail action", async () => {
+  it("buys an available upgrade by clicking its tile", async () => {
     for (let index = 0; index < 5; index += 1) {
       gameStore.collectBag("sweat");
     }
@@ -96,11 +96,30 @@ describe("UpgradeGraph", () => {
 
     hydration.click();
     await nextTick();
-    expect(gameStore.getSnapshot().upgrades.hydration).toBeUndefined();
+    expect(gameStore.getSnapshot().upgrades.hydration).toBe(1);
 
     host.querySelector<HTMLButtonElement>(".detail-buy")?.click();
     await nextTick();
-    expect(gameStore.getSnapshot().upgrades.hydration).toBe(1);
+    expect(gameStore.getSnapshot().upgrades.hydration).toBe(2);
+    app?.unmount();
+    host.remove();
+  });
+
+  it("selects an unaffordable tile without purchasing it", async () => {
+    mountGraph();
+    const hydration = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Hydration protocol"]',
+    );
+    if (!hydration) throw new Error("Missing Hydration node");
+
+    hydration.click();
+    await nextTick();
+
+    expect(gameStore.getSnapshot().upgrades.hydration).toBeUndefined();
+    expect(host.textContent).toContain("Start with a bidon");
+    expect(host.querySelector<HTMLButtonElement>(".detail-buy")?.disabled).toBe(
+      true,
+    );
     app?.unmount();
     host.remove();
   });

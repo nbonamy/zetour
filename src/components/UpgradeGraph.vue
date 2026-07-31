@@ -171,6 +171,16 @@ const activateNode = (upgrade: UpgradeDefinition): void => {
   selectedId.value = upgrade.id;
 };
 
+const activateAndBuyNode = (upgrade: UpgradeDefinition): void => {
+  activateNode(upgrade);
+  if (
+    visibility(upgrade) === "revealed" &&
+    gameStore.isBranchUnlocked(upgrade.branch)
+  ) {
+    gameStore.purchase(upgrade, purchaseQuantity.value);
+  }
+};
+
 const buySelected = (): void => {
   if (selected.value) {
     gameStore.purchase(selected.value, purchaseQuantity.value);
@@ -303,7 +313,7 @@ onMounted(centerViewport);
           "
           @pointerenter="activateNode(node)"
           @focus="activateNode(node)"
-          @click="activateNode(node)"
+          @click="activateAndBuyNode(node)"
         >
           <span class="node-main">
             <span class="node-icon">
