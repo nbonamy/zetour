@@ -32,6 +32,9 @@ import {
   roadAngleDegrees,
   roadOffsetAtX,
   roadPowerUpChoices,
+  roadsideFanClusterGap,
+  roadsideFanGroupSize,
+  roadScrollDistance,
   roadScrollSpeed,
   roadTileScrollDelta,
   type RideEncounter,
@@ -55,16 +58,18 @@ import { readVisualQaOverrides } from "./visualQa";
 
 type RoadObject = Phaser.Physics.Arcade.Image & {
   eventType?: "sweat" | "cash" | "pothole" | PowerUpType;
-  companion?: Phaser.GameObjects.Image;
-  companionVariant?: number;
   sequenceId?: number;
   sequenceIndex?: number;
   sequenceFailed?: boolean;
   powerUpChoiceId?: number;
   roadLane?: number;
   roadYOffset?: number;
-  companionBaseY?: number;
-  companionFrameOffset?: number;
+};
+
+type RoadsideFan = Phaser.GameObjects.Image & {
+  roadsideBaseY: number;
+  fanVariant: number;
+  frameOffset: number;
 };
 
 const WIDTH = RIDE_WORLD_WIDTH;
@@ -95,6 +100,8 @@ const POWER_UP_SIZE = 34;
 const FAN_WIDTH = 32;
 const FAN_HEIGHT = 42;
 const FAN_VARIANT_COUNT = 4;
+const INITIAL_FAN_SPAWN_DISTANCE = 70;
+const MAX_ACTIVE_FANS = 8;
 const DRAFT_LABEL_OFFSET_Y = 42;
 const ROAD_MARKER_SPACING = 64;
 const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
@@ -133,6 +140,8 @@ export class GameScene extends Phaser.Scene {
   private windStreaks: Phaser.GameObjects.Rectangle[] = [];
   private roadParticles: Phaser.GameObjects.Rectangle[] = [];
   private laneMarkers: Phaser.GameObjects.Rectangle[] = [];
+  private fans: RoadsideFan[] = [];
+  private fanSpawnDistance = INITIAL_FAN_SPAWN_DISTANCE;
   private roadGradient = 0;
   private targetLane = 1;
   private riderRoadY = cyclistLaneY(LANE_Y[1]);
@@ -268,6 +277,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.updateRoadIncline(gradient);
     this.updateLaneMarkers(scrollSpeed, delta);
+    this.updateRoadsideFans(scrollSpeed, delta);
     this.windStreaks.forEach((streak, index) => {
       streak.setVisible(windPenalty > 0);
       streak.setAlpha(Math.min(0.8, 0.2 + windPenalty * 2.5));
@@ -364,16 +374,15 @@ export class GameScene extends Phaser.Scene {
       group.getChildren().forEach((child) => {
         const object = child as RoadObject;
         this.tweens.killTweensOf(object);
-        if (object.companion) {
-          this.tweens.killTweensOf(object.companion);
-          object.companion.destroy();
-        }
       });
       group.clear(true, true);
     };
 
     clearRoadObjects(this.pickups);
     clearRoadObjects(this.hazards);
+    this.fans.forEach((fan) => fan.destroy());
+    this.fans = [];
+    this.fanSpawnDistance = INITIAL_FAN_SPAWN_DISTANCE;
 
     this.draftCyclist?.destroy();
     this.draftTimerText?.destroy();
@@ -724,6 +733,60 @@ export class GameScene extends Phaser.Scene {
     return baseY + roadOffsetAtX(x, this.roadGradient);
   }
 
+  private spawnFanCluster(
+    groupSize = roadsideFanGroupSize(),
+    startX = WIDTH + FAN_WIDTH,
+  ): void {
+    const availableSlots = Math.max(0, MAX_ACTIVE_FANS - this.fans.length);
+    const fanCount = Math.min(groupSize, availableSlots);
+    if (fanCount === 0) return;
+
+    const baseY = ROAD_TOP_Y - 4;
+    let x = startX;
+
+    for (let index = 0; index < fanCount; index += 1) {
+      if (index > 0) {
+        x += FAN_WIDTH + Phaser.Math.Between(6, 14);
+      }
+      const variant = Phaser.Math.Between(1, FAN_VARIANT_COUNT);
+      const roadsideBaseY = baseY + Phaser.Math.Between(-2, 2);
+      const fan = this.add.image(
+        x,
+        this.roadY(roadsideBaseY, x),
+        `fan-${variant}-a`,
+      ) as RoadsideFan;
+      fan.roadsideBaseY = roadsideBaseY;
+      fan.fanVariant = variant;
+      fan.frameOffset = Phaser.Math.Between(0, 520);
+      fan
+        .setDisplaySize(FAN_WIDTH, FAN_HEIGHT)
+        .setOrigin(0.5, 1)
+        .setDepth(6);
+      this.fans.push(fan);
+    }
+  }
+
+  private updateRoadsideFans(scrollSpeed: number, delta: number): void {
+    const scrollDistance = roadScrollDistance(scrollSpeed, delta);
+    this.fans = this.fans.filter((fan) => {
+      fan.setX(fan.x - scrollDistance);
+      fan.setY(this.roadY(fan.roadsideBaseY, fan.x));
+      const frame = fanFrameAt(this.time.now, fan.frameOffset).endsWith("-a")
+        ? "a"
+        : "b";
+      fan.setTexture(`fan-${fan.fanVariant}-${frame}`);
+      if (fan.x >= -FAN_WIDTH) return true;
+      fan.destroy();
+      return false;
+    });
+
+    this.fanSpawnDistance -= scrollDistance;
+    if (this.fanSpawnDistance <= 0) {
+      this.spawnFanCluster();
+      this.fanSpawnDistance += roadsideFanClusterGap();
+    }
+  }
+
   private spawnPickup(
     type: "sweat" | "cash",
     lane = Phaser.Math.Between(0, 2),
@@ -746,18 +809,6 @@ export class GameScene extends Phaser.Scene {
     object.setDisplaySize(BAG_SIZE, BAG_SIZE).setDepth(8);
     object.body?.setSize(24, 24);
     this.pickups.add(object);
-
-    const fanY = ROAD_TOP_Y - 4;
-    const fanVariant = Phaser.Math.Between(1, FAN_VARIANT_COUNT);
-    const fan = this.add
-      .image(x, this.roadY(fanY, x), `fan-${fanVariant}-a`)
-      .setDisplaySize(FAN_WIDTH, FAN_HEIGHT)
-      .setOrigin(0.5, 1)
-      .setDepth(6);
-    object.companion = fan;
-    object.companionVariant = fanVariant;
-    object.companionBaseY = fanY;
-    object.companionFrameOffset = (sequenceIndex ?? lane) * 130;
   }
 
   private spawnPowerUp(
@@ -837,22 +888,6 @@ export class GameScene extends Phaser.Scene {
       if (object.eventType === "pothole") {
         object.setAngle(roadAngleDegrees(this.roadGradient));
       }
-      if (object.companion) {
-        object.companion.x = object.x;
-        object.companion.y = this.roadY(
-          object.companionBaseY ?? object.companion.y,
-          object.x,
-        );
-        const frame = fanFrameAt(
-          this.time.now,
-          object.companionFrameOffset,
-        ).endsWith("-a")
-          ? "a"
-          : "b";
-        object.companion.setTexture(
-          `fan-${object.companionVariant ?? 1}-${frame}`,
-        );
-      }
       if (
         pickupMagnet &&
         group === this.pickups &&
@@ -891,11 +926,6 @@ export class GameScene extends Phaser.Scene {
 
   private destroyRoadObject(object: RoadObject): void {
     this.tweens.killTweensOf(object);
-    if (object.companion) {
-      this.tweens.killTweensOf(object.companion);
-      object.companion.destroy();
-      object.companion = undefined;
-    }
     object.destroy();
   }
 
@@ -968,10 +998,9 @@ export class GameScene extends Phaser.Scene {
       pickup.setVelocity(0, 0);
       if (pickup.body) pickup.body.enable = false;
       pickup.setTint(0xff8d7d);
-      pickup.companion?.setTint(0xff8d7d);
 
       this.tweens.add({
-        targets: pickup.companion ? [pickup, pickup.companion] : [pickup],
+        targets: pickup,
         alpha: 0.15,
         duration: 120,
         yoyo: true,
@@ -1050,14 +1079,6 @@ export class GameScene extends Phaser.Scene {
         spawnLootSequence(placements);
         break;
       }
-      case "fan-corridor":
-        spawnLootSequence(
-          Array.from({ length: 6 }, (_, index) => ({
-            lane: index % 3,
-            x: startX + index * 70,
-          })),
-        );
-        break;
       case "feed-zone": {
         const lane = Phaser.Math.Between(0, 2);
         spawnLootSequence(

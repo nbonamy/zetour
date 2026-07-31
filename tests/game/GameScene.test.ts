@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createdKeys: [] as string[],
+  between: vi.fn((minimum: number) => minimum),
 }));
 
 vi.mock("phaser", () => ({
@@ -12,7 +13,7 @@ vi.mock("phaser", () => ({
       }
     },
     Math: {
-      Between: vi.fn(() => 1),
+      Between: mocks.between,
     },
   },
 }));
@@ -34,16 +35,11 @@ describe("GameScene", () => {
     const bag: Record<string, any> = { body };
     bag.setDisplaySize = vi.fn(() => bag);
     bag.setDepth = vi.fn(() => bag);
-    const fan: Record<string, any> = {};
-    fan.setDisplaySize = vi.fn(() => fan);
-    fan.setOrigin = vi.fn(() => fan);
-    fan.setDepth = vi.fn(() => fan);
-    const image = vi.fn((...args: unknown[]) =>
-      String(args[2]).startsWith("fan-") ? fan : bag,
-    );
+    const image = vi.fn(() => bag);
+    const ambientImage = vi.fn();
     const addToPickups = vi.fn();
     scene.physics = { add: { image } };
-    scene.add = { image };
+    scene.add = { image: ambientImage };
     scene.pickups = { add: addToPickups };
     scene.roadGradient = 0;
 
@@ -58,6 +54,72 @@ describe("GameScene", () => {
     expect(bag.roadYOffset).toBe(-14);
     expect(bag.setDisplaySize).toHaveBeenCalledWith(28, 28);
     expect(addToPickups).toHaveBeenCalledWith(bag);
+    expect(ambientImage).not.toHaveBeenCalled();
+  });
+
+  it("spawns ambient fans as an independent roadside group", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const spawnedFans: Record<string, any>[] = [];
+    const image = vi.fn((x: number, y: number, texture: string) => {
+      const fan: Record<string, any> = { x, y, texture };
+      fan.setDisplaySize = vi.fn(() => fan);
+      fan.setOrigin = vi.fn(() => fan);
+      fan.setDepth = vi.fn(() => fan);
+      spawnedFans.push(fan);
+      return fan;
+    });
+    scene.add = { image };
+    scene.fans = [];
+    scene.roadGradient = 0;
+
+    (scene.spawnFanCluster as (size: number, x: number) => void)(3, 700);
+
+    expect(spawnedFans).toHaveLength(3);
+    expect(scene.fans).toEqual(spawnedFans);
+    expect(image.mock.calls.map((call) => call[2])).toEqual([
+      "fan-1-a",
+      "fan-1-a",
+      "fan-1-a",
+    ]);
+    expect(image.mock.calls.map((call) => call[0])).toEqual([700, 738, 776]);
+  });
+
+  it("keeps ambient fans alive until the road scrolls them off-screen", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const fan: Record<string, any> = {
+      x: 45,
+      roadsideBaseY: 190,
+      fanVariant: 1,
+      frameOffset: 0,
+    };
+    fan.setX = vi.fn((x: number) => {
+      fan.x = x;
+      return fan;
+    });
+    fan.setY = vi.fn(() => fan);
+    fan.setTexture = vi.fn(() => fan);
+    fan.destroy = vi.fn();
+    Object.assign(scene, {
+      fans: [fan],
+      fanSpawnDistance: 1_000,
+      roadGradient: 0,
+      time: { now: 0 },
+    });
+
+    (scene.updateRoadsideFans as (speed: number, delta: number) => void)(
+      10,
+      1_000,
+    );
+    expect(fan.x).toBe(35);
+    expect(fan.destroy).not.toHaveBeenCalled();
+    expect(scene.fans).toEqual([fan]);
+
+    (scene.updateRoadsideFans as (speed: number, delta: number) => void)(
+      100,
+      1_000,
+    );
+    expect(fan.destroy).toHaveBeenCalledOnce();
+    expect(scene.fans).toEqual([]);
   });
 
   it("preloads the complete painted ride asset pack", () => {
@@ -115,9 +177,9 @@ describe("GameScene", () => {
 
   it("clears every spawned road object and temporary rider on reset", () => {
     const scene = new GameScene() as unknown as Record<string, any>;
-    const pickupCompanion = { destroy: vi.fn() };
-    const pickup = { companion: pickupCompanion };
+    const pickup = {};
     const hazard = {};
+    const ambientFan = { destroy: vi.fn() };
     const pickups = {
       getChildren: vi.fn(() => [pickup]),
       clear: vi.fn(),
@@ -165,6 +227,8 @@ describe("GameScene", () => {
     Object.assign(scene, {
       pickups,
       hazards,
+      fans: [ambientFan],
+      fanSpawnDistance: 1,
       tweens: { killTweensOf: vi.fn() },
       draftCyclist,
       draftTimerText,
@@ -194,9 +258,11 @@ describe("GameScene", () => {
 
     (scene.resetRaceWorld as () => void)();
 
-    expect(pickupCompanion.destroy).toHaveBeenCalledOnce();
     expect(pickups.clear).toHaveBeenCalledWith(true, true);
     expect(hazards.clear).toHaveBeenCalledWith(true, true);
+    expect(ambientFan.destroy).toHaveBeenCalledOnce();
+    expect(scene.fans).toEqual([]);
+    expect(scene.fanSpawnDistance).toBe(70);
     expect(draftCyclist.destroy).toHaveBeenCalledOnce();
     expect(draftTimerText.destroy).toHaveBeenCalledOnce();
     expect(domestique.destroy).toHaveBeenCalledOnce();
@@ -258,11 +324,9 @@ describe("GameScene", () => {
   it("destroys every power-up choice and cancels its visual tweens", () => {
     const scene = new GameScene() as unknown as Record<string, any>;
     const children: Record<string, any>[] = [];
-    const makePickup = (choiceId: number, withCompanion = false) => {
-      const companion = withCompanion ? { destroy: vi.fn() } : undefined;
+    const makePickup = (choiceId: number) => {
       const pickup: Record<string, any> = {
         powerUpChoiceId: choiceId,
-        companion,
       };
       pickup.destroy = vi.fn(() => {
         children.splice(children.indexOf(pickup), 1);
@@ -270,8 +334,7 @@ describe("GameScene", () => {
       children.push(pickup);
       return pickup;
     };
-    const first = makePickup(7, true);
-    const firstCompanion = first.companion;
+    const first = makePickup(7);
     const second = makePickup(7);
     const unrelated = makePickup(8);
     const killTweensOf = vi.fn();
@@ -285,10 +348,8 @@ describe("GameScene", () => {
     expect(first.destroy).toHaveBeenCalledOnce();
     expect(second.destroy).toHaveBeenCalledOnce();
     expect(unrelated.destroy).not.toHaveBeenCalled();
-    expect(firstCompanion.destroy).toHaveBeenCalledOnce();
     expect(killTweensOf).toHaveBeenCalledWith(first);
     expect(killTweensOf).toHaveBeenCalledWith(second);
-    expect(killTweensOf).toHaveBeenCalledWith(firstCompanion);
     expect(children).toEqual([unrelated]);
   });
 });

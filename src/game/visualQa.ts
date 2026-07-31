@@ -22,7 +22,6 @@ const powerUpTypes: readonly PowerUpType[] = [
 const encounterTypes: readonly RideEncounter[] = [
   "bonus-line",
   "slalom",
-  "fan-corridor",
   "feed-zone",
   "sprint",
   "hairpins",

@@ -176,7 +176,7 @@ speed derived from handling. Encounters arrive as readable sequences rather
 than unrelated random objects:
 
 - bonus lines;
-- fan corridors and feed zones;
+- feed zones;
 - broken-road slaloms;
 - sprints and hairpins;
 - power-up choices;
@@ -184,6 +184,10 @@ than unrelated random objects:
 
 Missing part of a linked pickup sequence invalidates the remaining chain, which
 flashes before disappearing.
+
+Fans are ambient roadside scenery, independent of encounters and rewards. Most
+appear alone, occasional groups contain two or three people, and every fan
+remains visible until the shared road scroll carries them off-screen.
 
 ### Flow
 

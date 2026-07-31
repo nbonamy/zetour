@@ -9,7 +9,6 @@ const ROAD_VISUAL_RISE_PER_GRADIENT = 720;
 export type RideEncounter =
   | "bonus-line"
   | "slalom"
-  | "fan-corridor"
   | "feed-zone"
   | "sprint"
   | "hairpins"
@@ -123,6 +122,22 @@ export const fanFrameAt = (
     ? "fan-a"
     : "fan-b";
 
+export const roadsideFanGroupSize = (
+  random: () => number = Math.random,
+): 1 | 2 | 3 => {
+  const roll = Math.max(0, Math.min(0.999_999, random()));
+  if (roll < 0.72) return 1;
+  if (roll < 0.94) return 2;
+  return 3;
+};
+
+export const roadsideFanClusterGap = (
+  random: () => number = Math.random,
+): number => {
+  const roll = Math.max(0, Math.min(1, random()));
+  return Math.round(190 + roll * 140);
+};
+
 export const encounterStartX = (
   encounter: RideEncounter,
   worldWidth = 640,
@@ -187,7 +202,6 @@ export const isRemainingSequencePickup = (
 export const encounterLabel: Record<RideEncounter, string> = {
   "bonus-line": "BONUS LINE",
   slalom: "BROKEN ROAD",
-  "fan-corridor": "FAN CORRIDOR",
   "feed-zone": "FEED ZONE",
   sprint: "SPRINT SEGMENT",
   hairpins: "HAIRPINS",
@@ -201,7 +215,6 @@ export const availableEncounters = (
   const encounters: RideEncounter[] = [
     "bonus-line",
     "slalom",
-    "fan-corridor",
     "feed-zone",
     "sprint",
     "power-up",

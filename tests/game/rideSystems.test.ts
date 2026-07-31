@@ -24,6 +24,8 @@ import {
   roadAngleDegrees,
   roadOffsetAtX,
   roadPowerUpChoices,
+  roadsideFanClusterGap,
+  roadsideFanGroupSize,
   roadScrollDistance,
   roadScrollSpeed,
   roadTileScrollDelta,
@@ -206,9 +208,20 @@ describe("active ride systems", () => {
     expect(fanFrameAt(0, 260)).toBe("fan-b");
   });
 
+  it("keeps ambient fans sparse with occasional small groups", () => {
+    expect(roadsideFanGroupSize(() => 0)).toBe(1);
+    expect(roadsideFanGroupSize(() => 0.719)).toBe(1);
+    expect(roadsideFanGroupSize(() => 0.72)).toBe(2);
+    expect(roadsideFanGroupSize(() => 0.939)).toBe(2);
+    expect(roadsideFanGroupSize(() => 0.94)).toBe(3);
+    expect(roadsideFanClusterGap(() => 0)).toBe(190);
+    expect(roadsideFanClusterGap(() => 0.5)).toBe(260);
+    expect(roadsideFanClusterGap(() => 1)).toBe(330);
+  });
+
   it("starts the bonus line visibly while other encounters enter from offscreen", () => {
     expect(encounterStartX("bonus-line")).toBe(560);
-    expect(encounterStartX("fan-corridor")).toBe(700);
+    expect(encounterStartX("sprint")).toBe(700);
   });
 
   it("turns real gradients into a rising road anchored under the rider", () => {
