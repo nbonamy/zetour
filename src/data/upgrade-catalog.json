@@ -1,0 +1,2377 @@
+{
+  "branches": {
+    "bike": {
+      "label": "Bike",
+      "unlockLevel": 4
+    },
+    "rider": {
+      "label": "Rider",
+      "unlockLevel": 1
+    },
+    "nutrition": {
+      "label": "Nutrition",
+      "unlockLevel": 1
+    },
+    "equipment": {
+      "label": "Equipment",
+      "unlockLevel": 2
+    },
+    "team": {
+      "label": "Team",
+      "unlockLevel": 6
+    }
+  },
+  "nodes": [
+    {
+      "id": "road-bike",
+      "branch": "bike",
+      "name": "Workshop road bike",
+      "description": "Ditch the city bike, unlock component tuning, and multiply Tour output.",
+      "icon": "🚲",
+      "parent": null,
+      "children": [
+        "frame",
+        "tires",
+        "shifting",
+        "chain-lube"
+      ],
+      "dependencies": [],
+      "tree": {
+        "x": 50,
+        "y": 20
+      },
+      "tiers": [
+        {
+          "name": "Workshop road bike 1",
+          "price": {
+            "amount": 1500,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 8,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 20,
+              "unit": "percent"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frame",
+      "branch": "bike",
+      "name": "Frame laboratory",
+      "description": "Move from alloy to increasingly lighter and more aerodynamic carbon frames.",
+      "icon": "◇",
+      "parent": {
+        "id": "road-bike",
+        "requiredTier": 1
+      },
+      "children": [
+        "wheels"
+      ],
+      "dependencies": [],
+      "legacyLevelScale": 25,
+      "tree": {
+        "x": 20,
+        "y": 48
+      },
+      "tiers": [
+        {
+          "name": "Aluminium race frame",
+          "price": {
+            "amount": 500,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.5,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Entry carbon frame",
+          "price": {
+            "amount": 2000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.1,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Aero carbon frame",
+          "price": {
+            "amount": 8000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.8,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Pro carbon monocoque",
+          "price": {
+            "amount": 32000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.6,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "tires",
+      "branch": "bike",
+      "name": "Road tires",
+      "description": "Faster compounds, lower rolling resistance, fewer expensive explosions.",
+      "icon": "◎",
+      "parent": {
+        "id": "road-bike",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 25,
+      "tree": {
+        "x": 50,
+        "y": 55
+      },
+      "tiers": [
+        {
+          "name": "Training clinchers",
+          "price": {
+            "amount": 50,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 2,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Performance clinchers",
+          "price": {
+            "amount": 150,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.8,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Tubeless race tires",
+          "price": {
+            "amount": 450,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.1,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 3,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Low-resistance race compound",
+          "price": {
+            "amount": 1350,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.1,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "shifting",
+      "branch": "bike",
+      "name": "Drivetrain",
+      "description": "Move through real groupsets from mechanical shifting to wireless electronic control.",
+      "icon": "⚙",
+      "parent": {
+        "id": "road-bike",
+        "requiredTier": 1
+      },
+      "children": [
+        "brakes"
+      ],
+      "dependencies": [],
+      "legacyLevelScale": 25,
+      "tree": {
+        "x": 80,
+        "y": 48
+      },
+      "tiers": [
+        {
+          "name": "Mechanical 11-speed",
+          "price": {
+            "amount": 300,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "output",
+              "amount": 1,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Mechanical 12-speed",
+          "price": {
+            "amount": 1200,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.1,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 1,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Electronic shifting",
+          "price": {
+            "amount": 5000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.3,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Wireless electronic groupset",
+          "price": {
+            "amount": 20000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.6,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "wheels",
+      "branch": "bike",
+      "name": "Wheel program",
+      "description": "Progress from dependable alloy wheels to light and aerodynamic carbon race wheels.",
+      "icon": "◉",
+      "parent": {
+        "id": "frame",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 25,
+      "tree": {
+        "x": 20,
+        "y": 80
+      },
+      "tiers": [
+        {
+          "name": "Basic alloy wheels",
+          "price": {
+            "amount": 200,
+            "unit": "cash"
+          },
+          "gains": [],
+          "breakthrough": true
+        },
+        {
+          "name": "Light aluminium wheels",
+          "price": {
+            "amount": 1000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.7,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Carbon wheels",
+          "price": {
+            "amount": 5000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.4,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 3,
+              "unit": "percent"
+            },
+            {
+              "stat": "windMitigation",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Deep aero carbon wheels",
+          "price": {
+            "amount": 25000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.9,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "windMitigation",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "brakes",
+      "branch": "bike",
+      "name": "Braking confidence",
+      "description": "Better brakes paradoxically make you descend faster. Cycling is weird.",
+      "icon": "⬡",
+      "parent": {
+        "id": "shifting",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 16.666666666666668,
+      "tree": {
+        "x": 80,
+        "y": 80
+      },
+      "tiers": [
+        {
+          "name": "Dual-pivot calipers",
+          "price": {
+            "amount": 200,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Mechanical discs",
+          "price": {
+            "amount": 1000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Hydraulic discs",
+          "price": {
+            "amount": 5000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 12,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 6,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "chain-lube",
+      "branch": "bike",
+      "name": "Chain lubrication",
+      "description": "Move from everyday oil through drip wax to a race-day hot-wax drivetrain.",
+      "icon": "♨",
+      "parent": {
+        "id": "road-bike",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 25,
+      "tree": {
+        "x": 50,
+        "y": 88
+      },
+      "tiers": [
+        {
+          "name": "All-weather oil",
+          "price": {
+            "amount": 10,
+            "unit": "cash"
+          },
+          "gains": [],
+          "breakthrough": true
+        },
+        {
+          "name": "Dry-condition lube",
+          "price": {
+            "amount": 30,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.15,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 1,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Drip wax",
+          "price": {
+            "amount": 100,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.3,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Hot-melt race wax",
+          "price": {
+            "amount": 300,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.55,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 3,
+              "unit": "percent"
+            },
+            {
+              "stat": "gravelMitigation",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "endurance",
+      "branch": "rider",
+      "name": "Endurance",
+      "description": "Build an engine that regards the concept of a finish line as a suggestion.",
+      "icon": "♥",
+      "parent": null,
+      "children": [
+        "body-composition"
+      ],
+      "dependencies": [],
+      "legacyLevelScale": 10,
+      "tree": {
+        "x": 24,
+        "y": 52
+      },
+      "tiers": [
+        {
+          "name": "Aerobic base",
+          "price": {
+            "amount": 100,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 2.5,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 4,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Endurance 2",
+          "price": {
+            "amount": 250,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.8,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 4,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Fatigue resistance",
+          "price": {
+            "amount": 750,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.4,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Endurance 4",
+          "price": {
+            "amount": 2500,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.1,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Grand-tour endurance",
+          "price": {
+            "amount": 10000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.9,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 6,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Endurance 6",
+          "price": {
+            "amount": 50000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.7,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 6,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Endurance 7",
+          "price": {
+            "amount": 500000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.55,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 7,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 6,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Endurance 8",
+          "price": {
+            "amount": 5000000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.45,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 7,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Endurance 9",
+          "price": {
+            "amount": 50000000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.35,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 10,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 8,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Elite stage-race engine",
+          "price": {
+            "amount": 500000000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.25,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 15,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 12,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "branch": "rider",
+      "name": "Sustained power",
+      "description": "More watts everywhere, followed eventually by watts not recognized by science.",
+      "icon": "⚡",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 10,
+      "tree": {
+        "x": 50,
+        "y": 28
+      },
+      "tiers": [
+        {
+          "name": "Tempo power",
+          "price": {
+            "amount": 175,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 4,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Sustained power 2",
+          "price": {
+            "amount": 438,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 2.7,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Threshold power",
+          "price": {
+            "amount": 1313,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 2.1,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 6,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Sustained power 4",
+          "price": {
+            "amount": 4375,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.6,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 6,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Climbing power",
+          "price": {
+            "amount": 17500,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.3,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 7,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Sustained power 6",
+          "price": {
+            "amount": 87500,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 7,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Sustained power 7",
+          "price": {
+            "amount": 875000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.8,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Sustained power 8",
+          "price": {
+            "amount": 8750000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.6,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 9,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Sustained power 9",
+          "price": {
+            "amount": 87500000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.5,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 10,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 6,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Elite race watts",
+          "price": {
+            "amount": 875000000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.4,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 15,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 10,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "hyperbike",
+      "branch": "rider",
+      "name": "Hyperbike moonshot",
+      "description": "The impossible two-billion-dollar machine. Build the economy that can afford it, then break the Tour wide open.",
+      "icon": "✦",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "tree": {
+        "x": 50,
+        "y": 8
+      },
+      "tiers": [
+        {
+          "name": "Hyperbike moonshot 1",
+          "price": {
+            "amount": 2000000000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 2.5,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 900,
+              "unit": "percent"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "technique",
+      "branch": "rider",
+      "name": "Bike handling",
+      "description": "Change lanes faster, descend later, and make terrible road choices look planned.",
+      "icon": "↔",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 10,
+      "tree": {
+        "x": 76,
+        "y": 52
+      },
+      "tiers": [
+        {
+          "name": "Confident line changes",
+          "price": {
+            "amount": 250,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Bike handling 2",
+          "price": {
+            "amount": 1500,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Advanced cornering",
+          "price": {
+            "amount": 9000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 10,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Bike handling 4",
+          "price": {
+            "amount": 54000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 12,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Race-level handling",
+          "price": {
+            "amount": 324000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 15,
+              "unit": "percent"
+            },
+            {
+              "stat": "descending",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "body-composition",
+      "branch": "rider",
+      "name": "Climber build",
+      "description": "Improve power-to-weight without becoming a haunted pair of sunglasses.",
+      "icon": "△",
+      "parent": {
+        "id": "endurance",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 10,
+      "tree": {
+        "x": 25,
+        "y": 80
+      },
+      "tiers": [
+        {
+          "name": "Sustainable race weight",
+          "price": {
+            "amount": 300,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "climbing",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Climber build 2",
+          "price": {
+            "amount": 1800,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "climbing",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Grand-tour condition",
+          "price": {
+            "amount": 10800,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "climbing",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Climber build 4",
+          "price": {
+            "amount": 64800,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "climbing",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Elite climbing condition",
+          "price": {
+            "amount": 388800,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "climbing",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "hydration",
+      "branch": "nutrition",
+      "name": "Hydration protocol",
+      "description": "Turn ad-hoc bottles into a measured plan for electrolytes, heat, and race duration.",
+      "icon": "◍",
+      "parent": null,
+      "children": [
+        "fueling"
+      ],
+      "dependencies": [],
+      "legacyLevelScale": 20,
+      "tree": {
+        "x": 50,
+        "y": 32
+      },
+      "tiers": [
+        {
+          "name": "Planned bottles",
+          "price": {
+            "amount": 125,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            },
+            {
+              "stat": "flowRetention",
+              "amount": 0.2,
+              "unit": "seconds"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Electrolyte mix",
+          "price": {
+            "amount": 750,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "sweat",
+              "amount": 4,
+              "unit": "percent"
+            },
+            {
+              "stat": "flowRetention",
+              "amount": 0.25,
+              "unit": "seconds"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Timed hydration",
+          "price": {
+            "amount": 4500,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "flowRetention",
+              "amount": 0.3,
+              "unit": "seconds"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Hydration protocol 4",
+          "price": {
+            "amount": 27000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "sweat",
+              "amount": 6,
+              "unit": "percent"
+            },
+            {
+              "stat": "flowRetention",
+              "amount": 0.35,
+              "unit": "seconds"
+            }
+          ]
+        },
+        {
+          "name": "Heat-adapted race protocol",
+          "price": {
+            "amount": 162000,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "sweat",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "flowRetention",
+              "amount": 0.4,
+              "unit": "seconds"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "fueling",
+      "branch": "nutrition",
+      "name": "Race fueling",
+      "description": "Bananas become gels; gels become a continuous strategic carbohydrate pipeline.",
+      "icon": "●",
+      "parent": {
+        "id": "hydration",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 20,
+      "tree": {
+        "x": 50,
+        "y": 68
+      },
+      "tiers": [
+        {
+          "name": "Solid-food race plan",
+          "price": {
+            "amount": 200,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "output",
+              "amount": 3,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Gel and drink schedule",
+          "price": {
+            "amount": 1200,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.8,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 4,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "High-carb fueling",
+          "price": {
+            "amount": 7200,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.9,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Race fueling 4",
+          "price": {
+            "amount": 43200,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.8,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 6,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 6,
+              "unit": "percent"
+            }
+          ]
+        },
+        {
+          "name": "Team nutrition protocol",
+          "price": {
+            "amount": 259200,
+            "unit": "sweat"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.5,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 8,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "aero-socks",
+      "branch": "equipment",
+      "name": "Aero socks",
+      "description": "Tiny gains, enormous confidence, increasingly indefensible invoices.",
+      "icon": "♧",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 50,
+      "tree": {
+        "x": 22,
+        "y": 52
+      },
+      "tiers": [
+        {
+          "name": "Performance socks",
+          "price": {
+            "amount": 20,
+            "unit": "cash"
+          },
+          "gains": [],
+          "breakthrough": true
+        },
+        {
+          "name": "Ribbed aero socks",
+          "price": {
+            "amount": 200,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.4,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 1,
+              "unit": "percent"
+            },
+            {
+              "stat": "windMitigation",
+              "amount": 1,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "helmet",
+      "branch": "equipment",
+      "name": "Aero helmet",
+      "description": "Move from a basic road lid through a premium shell to a purpose-built aero helmet.",
+      "icon": "◒",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 50,
+      "tree": {
+        "x": 50,
+        "y": 28
+      },
+      "tiers": [
+        {
+          "name": "Basic road helmet",
+          "price": {
+            "amount": 100,
+            "unit": "cash"
+          },
+          "gains": [],
+          "breakthrough": true
+        },
+        {
+          "name": "Premium road helmet",
+          "price": {
+            "amount": 300,
+            "unit": "cash"
+          },
+          "gains": [],
+          "breakthrough": true
+        },
+        {
+          "name": "Aero road helmet",
+          "price": {
+            "amount": 1000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.5,
+              "unit": "km/h"
+            },
+            {
+              "stat": "windMitigation",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "skinsuit",
+      "branch": "equipment",
+      "name": "Race suit",
+      "description": "Remove wrinkles, seams, dignity, and finally most measurable drag.",
+      "icon": "♜",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 50,
+      "tree": {
+        "x": 78,
+        "y": 52
+      },
+      "tiers": [
+        {
+          "name": "Race-fit kit",
+          "price": {
+            "amount": 150,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 0.2,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 1,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Aero skinsuit",
+          "price": {
+            "amount": 1500,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "flatSpeed",
+              "amount": 1.4,
+              "unit": "km/h"
+            },
+            {
+              "stat": "output",
+              "amount": 4,
+              "unit": "percent"
+            },
+            {
+              "stat": "windMitigation",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "gravel-tires",
+      "branch": "equipment",
+      "name": "Gravel tires",
+      "description": "Turn the Périgord farm tracks from punishment into a shortcut.",
+      "icon": "⊚",
+      "parent": null,
+      "children": [
+        "suspension"
+      ],
+      "dependencies": [],
+      "legacyLevelScale": 16.666666666666668,
+      "tree": {
+        "x": 88,
+        "y": 72
+      },
+      "tiers": [
+        {
+          "name": "All-road tires",
+          "price": {
+            "amount": 100,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "gravelMitigation",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 2,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "File-tread race tires",
+          "price": {
+            "amount": 500,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "gravelMitigation",
+              "amount": 10,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Gravel race casing",
+          "price": {
+            "amount": 2500,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "gravelMitigation",
+              "amount": 12,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "suspension",
+      "branch": "equipment",
+      "name": "Micro-suspension",
+      "description": "Add cockpit compliance, then a suspension stem, then a short-travel gravel fork.",
+      "icon": "≋",
+      "parent": {
+        "id": "gravel-tires",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 16.666666666666668,
+      "tree": {
+        "x": 76,
+        "y": 92
+      },
+      "tiers": [
+        {
+          "name": "Compliant cockpit",
+          "price": {
+            "amount": 300,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "gravelMitigation",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Suspension stem",
+          "price": {
+            "amount": 1500,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 7,
+              "unit": "percent"
+            },
+            {
+              "stat": "gravelMitigation",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 8,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Short-travel gravel fork",
+          "price": {
+            "amount": 7500,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "handling",
+              "amount": 10,
+              "unit": "percent"
+            },
+            {
+              "stat": "gravelMitigation",
+              "amount": 12,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 12,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "domestique",
+      "branch": "team",
+      "name": "Domestique train",
+      "description": "Recruit helpers until the rider is escorted by a small cycling nation.",
+      "icon": "♟",
+      "parent": null,
+      "children": [
+        "team-director"
+      ],
+      "dependencies": [],
+      "legacyLevelScale": 16.666666666666668,
+      "tree": {
+        "x": 50,
+        "y": 38
+      },
+      "tiers": [
+        {
+          "name": "One domestique",
+          "price": {
+            "amount": 10000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "cash",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "draft",
+              "amount": 20,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Two-rider train",
+          "price": {
+            "amount": 100000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "cash",
+              "amount": 8,
+              "unit": "percent"
+            },
+            {
+              "stat": "draft",
+              "amount": 10,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Three-rider train",
+          "price": {
+            "amount": 1000000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "cash",
+              "amount": 12,
+              "unit": "percent"
+            },
+            {
+              "stat": "draft",
+              "amount": 10,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "mechanic",
+      "branch": "team",
+      "name": "Race mechanic",
+      "description": "Maintain the drivetrain and glare personally at every pothole.",
+      "icon": "⚒",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 16.666666666666668,
+      "tree": {
+        "x": 20,
+        "y": 62
+      },
+      "tiers": [
+        {
+          "name": "Club mechanic",
+          "price": {
+            "amount": 5000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "gravelMitigation",
+              "amount": 3,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 8,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Race mechanic",
+          "price": {
+            "amount": 50000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "gravelMitigation",
+              "amount": 4,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 10,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Service-course mechanic",
+          "price": {
+            "amount": 500000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "gravelMitigation",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "potholeProtection",
+              "amount": 12,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "sponsor",
+      "branch": "team",
+      "name": "Sponsor empire",
+      "description": "Grow from local jersey support into a global title partnership.",
+      "icon": "$",
+      "parent": null,
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 25,
+      "tree": {
+        "x": 80,
+        "y": 62
+      },
+      "tiers": [
+        {
+          "name": "Local shop sponsor",
+          "price": {
+            "amount": 25000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "cash",
+              "amount": 10,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Regional brand sponsor",
+          "price": {
+            "amount": 250000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "cash",
+              "amount": 20,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "National team sponsor",
+          "price": {
+            "amount": 2500000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "cash",
+              "amount": 40,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Global title sponsor",
+          "price": {
+            "amount": 25000000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "cash",
+              "amount": 80,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    },
+    {
+      "id": "team-director",
+      "branch": "team",
+      "name": "Directeur sportif",
+      "description": "Coordinate pacing, bottles, tactics, and suspiciously precise tailwinds.",
+      "icon": "♛",
+      "parent": {
+        "id": "domestique",
+        "requiredTier": 1
+      },
+      "children": [],
+      "dependencies": [],
+      "legacyLevelScale": 16.666666666666668,
+      "tree": {
+        "x": 50,
+        "y": 84
+      },
+      "tiers": [
+        {
+          "name": "Team radio",
+          "price": {
+            "amount": 100000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "output",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 3,
+              "unit": "percent"
+            },
+            {
+              "stat": "cash",
+              "amount": 3,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Tactical race director",
+          "price": {
+            "amount": 1000000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "output",
+              "amount": 7,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 4,
+              "unit": "percent"
+            },
+            {
+              "stat": "cash",
+              "amount": 4,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        },
+        {
+          "name": "Full performance staff",
+          "price": {
+            "amount": 10000000,
+            "unit": "cash"
+          },
+          "gains": [
+            {
+              "stat": "output",
+              "amount": 10,
+              "unit": "percent"
+            },
+            {
+              "stat": "sweat",
+              "amount": 5,
+              "unit": "percent"
+            },
+            {
+              "stat": "cash",
+              "amount": 5,
+              "unit": "percent"
+            }
+          ],
+          "breakthrough": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   affordableUpgradeLevels,
-  branchUnlockStages,
+  branchUnlockLevels,
   nextUpgradeMilestone,
   upgradeById,
   upgradeBulkCost,
   upgradeCost,
   upgradeEffectMultiplier,
-  upgradeMilestoneMultiplier,
+  upgradeGainTotal,
   upgrades,
 } from "../../src/core/upgrades";
+import { economyBalance } from "../../src/core/economyBalance";
 import { createTestStore } from "../helpers/createTestStore";
 
 const upgrade = (id: string) => {
@@ -20,28 +21,28 @@ const upgrade = (id: string) => {
 
 describe("incremental upgrade tree", () => {
   it("requires the workshop road bike before component upgrades", () => {
-    const { store } = createTestStore({ stage: 3, cash: 500 });
+    const { store } = createTestStore({ riderXp: 550, cash: 2_000 });
 
     expect(store.purchaseStatus(upgrade("tires")).reason).toBe(
-      "Requires Workshop road bike",
+      "Requires Workshop road bike tier 1",
     );
     expect(store.purchase(upgrade("road-bike"))).toBe(true);
-    expect(store.getSnapshot().cash).toBe(410);
+    expect(store.getSnapshot().cash).toBe(500);
     expect(store.purchaseStatus(upgrade("tires")).available).toBe(true);
   });
 
   it("spends each Tour currency on its intended branches", () => {
     const { store } = createTestStore({
-      stage: 2,
-      sweat: 100,
-      cash: 100,
+      riderXp: 150,
+      sweat: 200,
+      cash: 500,
     });
 
     expect(store.purchase(upgrade("endurance"))).toBe(true);
     expect(store.purchase(upgrade("gravel-tires"))).toBe(true);
     expect(store.getSnapshot()).toMatchObject({
-      sweat: 80,
-      cash: 45,
+      sweat: 100,
+      cash: 400,
       upgrades: {
         endurance: 1,
         "gravel-tires": 1,
@@ -49,13 +50,24 @@ describe("incremental upgrade tree", () => {
     });
   });
 
-  it("compresses the exponential economy into ten meaningful purchases", () => {
+  it("keeps exponential ladders visible without absurd adjacent cliffs", () => {
     const power = upgrade("power");
+    const helmet = upgrade("helmet");
 
-    expect(upgradeCost(power, 0)).toBe(35);
-    expect(upgradeCost(power, 1)).toBeGreaterThan(300);
-    expect(upgradeCost(power, 5)).toBeGreaterThan(5_000_000);
-    expect(upgradeCost(power, 9)).toBeGreaterThan(2_000_000_000);
+    expect(upgradeCost(power, 0)).toBe(175);
+    expect(upgradeCost(power, 1)).toBe(438);
+    expect(upgradeCost(power, 9)).toBe(875_000_000);
+    expect(helmet.costs).toEqual([100, 300, 1_000]);
+    for (const definition of upgrades) {
+      for (let level = 1; level < definition.maxLevel; level += 1) {
+        expect(
+          upgradeCost(definition, level) /
+            upgradeCost(definition, level - 1),
+        ).toBeLessThanOrEqual(
+          economyBalance.pricing.maxAdjacentLevelRatio,
+        );
+      }
+    }
   });
 
   it("supports buying every currently affordable step", () => {
@@ -74,17 +86,14 @@ describe("incremental upgrade tree", () => {
     expect(store.getSnapshot().sweat).toBe(0);
   });
 
-  it("creates deliberately huge production bumps at milestones", () => {
+  it("reads explicit cumulative tier gains from the catalog", () => {
     const power = upgrade("power");
 
     expect(nextUpgradeMilestone(power, 0)?.level).toBe(1);
-    expect(upgradeMilestoneMultiplier(power, 0)).toBe(1);
-    expect(upgradeMilestoneMultiplier(power, 1)).toBe(3);
-    expect(upgradeMilestoneMultiplier(power, 3)).toBe(15);
-    expect(upgradeMilestoneMultiplier(power, 5)).toBe(150);
-    expect(upgradeMilestoneMultiplier(power, 10)).toBe(3_750);
-    expect(upgradeEffectMultiplier(power, 1, "pacePerLevel")).toBeCloseTo(
-      3.9,
+    expect(upgradeGainTotal(power, 1, "flatSpeed")).toBe(4);
+    expect(upgradeGainTotal(power, 2, "flatSpeed")).toBeCloseTo(6.7);
+    expect(upgradeEffectMultiplier(power, 1, "outputPerLevel")).toBeCloseTo(
+      1.05,
     );
   });
 
@@ -100,10 +109,11 @@ describe("incremental upgrade tree", () => {
       ],
     });
     expect(upgrade("helmet")).toMatchObject({
-      maxLevel: 2,
+      maxLevel: 3,
       milestones: [
-        { level: 1, label: "Performance helmet" },
-        { level: 2, label: "Aero road helmet" },
+        { level: 1, label: "Basic road helmet" },
+        { level: 2, label: "Premium road helmet" },
+        { level: 3, label: "Aero road helmet" },
       ],
     });
     expect(upgrade("endurance").maxLevel).toBe(10);
@@ -111,46 +121,46 @@ describe("incremental upgrade tree", () => {
   });
 
   it("includes units in insufficient-funds messages", () => {
-    const { store } = createTestStore({ stage: 3 });
+    const { store } = createTestStore({ riderXp: 550 });
 
     expect(store.purchaseStatus(upgrade("road-bike")).reason).toBe(
-      "Need $90 more",
+      "Need $1.5K more",
     );
     expect(store.purchaseStatus(upgrade("endurance")).reason).toBe(
-      "Need 20 more Sweat",
+      "Need 100 more Sweat",
     );
     expect(store.purchaseStatus(upgrade("hyperbike")).reason).toBe(
       "Need $2B more",
     );
   });
 
-  it("unlocks gravel equipment before the deep bike and team branches", () => {
-    expect(branchUnlockStages).toEqual({
+  it("unlocks workshop branches from Rider Level rather than sector", () => {
+    expect(branchUnlockLevels).toEqual({
       rider: 1,
       nutrition: 1,
       equipment: 2,
-      bike: 3,
-      team: 4,
+      bike: 4,
+      team: 6,
     });
-    const stageTwo = createTestStore({ stage: 2, cash: 500 }).store;
-    const stageThree = createTestStore({ stage: 3, cash: 500 }).store;
-    const stageFour = createTestStore({ stage: 4, cash: 500 }).store;
+    const levelTwo = createTestStore({ riderXp: 150, cash: 500 }).store;
+    const levelFour = createTestStore({ riderXp: 550, cash: 500 }).store;
+    const levelSix = createTestStore({ riderXp: 1_100, cash: 500 }).store;
 
-    expect(stageTwo.isBranchUnlocked("equipment")).toBe(true);
-    expect(stageTwo.purchaseStatus(upgrade("gravel-tires")).available).toBe(
+    expect(levelTwo.isBranchUnlocked("equipment")).toBe(true);
+    expect(levelTwo.purchaseStatus(upgrade("gravel-tires")).available).toBe(
       true,
     );
-    expect(stageTwo.isBranchUnlocked("bike")).toBe(false);
-    expect(stageThree.isBranchUnlocked("bike")).toBe(true);
-    expect(stageThree.isBranchUnlocked("team")).toBe(false);
-    expect(stageFour.isBranchUnlocked("team")).toBe(true);
+    expect(levelTwo.isBranchUnlocked("bike")).toBe(false);
+    expect(levelFour.isBranchUnlocked("bike")).toBe(true);
+    expect(levelFour.isBranchUnlocked("team")).toBe(false);
+    expect(levelSix.isBranchUnlocked("team")).toBe(true);
   });
 
   it("enforces the gravel suspension prerequisite", () => {
-    const { store } = createTestStore({ stage: 2, cash: 1_000 });
+    const { store } = createTestStore({ riderXp: 150, cash: 1_000 });
 
     expect(store.purchaseStatus(upgrade("suspension")).reason).toBe(
-      "Requires Gravel tires",
+      "Requires Gravel tires tier 1",
     );
     expect(store.purchase(upgrade("gravel-tires"))).toBe(true);
     expect(store.purchaseStatus(upgrade("suspension")).available).toBe(true);
@@ -168,6 +178,35 @@ describe("incremental upgrade tree", () => {
     ].forEach((id) => expect(upgradeById(id)).toBeDefined());
   });
 
+  it("stores reciprocal graph dependencies and human-readable tier gains", () => {
+    const frame = upgrade("frame");
+    const wheels = upgrade("wheels");
+    const helmet = upgrade("helmet");
+
+    expect(wheels.parent).toEqual({ id: "frame", requiredTier: 1 });
+    expect(frame.children).toContain("wheels");
+    expect(helmet.tiers[0]).toMatchObject({
+      name: "Basic road helmet",
+      price: { amount: 100, unit: "cash" },
+      gains: [],
+    });
+    expect(helmet.tiers[1].gains).toEqual([]);
+    expect(helmet.tiers[2].gains).toContainEqual({
+      stat: "flatSpeed",
+      amount: 1.5,
+      unit: "km/h",
+    });
+  });
+
+  it("authors exactly 55 km/h of permanent gains for a 25 to 80 curve", () => {
+    const total = upgrades.reduce(
+      (sum, definition) =>
+        sum + upgradeGainTotal(definition, definition.maxLevel, "flatSpeed"),
+      0,
+    );
+    expect(total).toBe(55);
+  });
+
   it("provides a substantial first-sector runway before later branches", () => {
     const { store } = createTestStore({ stage: 1, sweat: 10_000 });
     const firstSector = [
@@ -179,9 +218,7 @@ describe("incremental upgrade tree", () => {
       upgrade("fueling"),
     ];
 
-    for (const definition of firstSector) {
-      store.purchase(definition, "max");
-    }
+    for (const definition of firstSector) store.purchase(definition);
 
     const state = store.getSnapshot();
     firstSector.forEach((definition) => {
@@ -189,9 +226,7 @@ describe("incremental upgrade tree", () => {
       expect(installed).toBeGreaterThan(0);
       expect(installed).toBeLessThanOrEqual(definition.maxLevel);
     });
-    expect(state.upgrades.endurance).toBeLessThan(
-      upgrade("endurance").maxLevel,
-    );
+    expect(state.upgrades.endurance).toBe(1);
     expect(state.sweat).toBeGreaterThan(0);
   });
 });

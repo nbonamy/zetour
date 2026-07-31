@@ -137,13 +137,15 @@ const displayedPendingPalmares = computed(() =>
     ? 10
     : snapshot.value.pendingPalmares,
 );
+const displayedPaceKmh = computed(
+  () => visualQa.speedKmh ?? snapshot.value.stats.effectivePaceKmh,
+);
 const paceGaugeRatio = computed(() =>
   Math.min(
     1,
     Math.max(
       0,
-      Math.log10(1 + snapshot.value.stats.effectivePaceKmh) /
-        Math.log10(100_001),
+      displayedPaceKmh.value / 120,
     ),
   ),
 );
@@ -312,7 +314,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             </div>
             <div class="hud-speed-copy">
               <strong>
-                {{ format(snapshot.stats.effectivePaceKmh) }}
+                {{ format(displayedPaceKmh) }}
                 <em>km/h</em>
               </strong>
               <div class="speed-segments" aria-hidden="true">
@@ -327,7 +329,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                 <span
                   v-if="displayedFlowMultiplier > 1"
                   class="flow-bonus"
-                  title="Clean pickups, near-misses, and drafting boost Tour pace and income. A collision resets the bonus."
+                  title="Clean pickups, near-misses, and drafting boost income. A collision resets the bonus."
                 >
                   Flow {{ formatMultiplier(displayedFlowMultiplier) }}
                 </span>
@@ -491,38 +493,41 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
         <footer class="hud-bottom">
           <div class="hud-bottom-side hud-bottom-left">
-            <button
-              type="button"
-              class="reset-trigger hud-control"
-              @click="requestReset"
-            >
-              Restart race <kbd>R</kbd>
-            </button>
-            <button
-              type="button"
-              class="pause-trigger hud-control"
-              :class="{ active: manuallyPaused }"
-              :aria-pressed="manuallyPaused"
-              @click="toggleManualPause"
-            >
-              {{ manuallyPaused ? "Resume" : "Pause" }} <kbd>P</kbd>
-            </button>
             <span class="steering-hint hud-control">
               Steer <kbd>↑</kbd> <kbd>↓</kbd>
             </span>
+            <button
+              type="button"
+              class="workshop-trigger hud-control"
+              @click="openWorkshop"
+            >
+              Workshop <kbd>W</kbd>
+            </button>
           </div>
 
           <div
             class="hud-tray"
-            :class="{ 'has-palmares': snapshot.totalPalmares > 0 }"
-            aria-label="Resources and power-up reserve"
+            aria-label="Rider level, power-up, Sweat, and Cash"
           >
             <div
-              class="hud-tray-slot"
-              :aria-label="`Sweat balance: ${format(snapshot.sweat)}`"
+              class="hud-tray-slot hud-level-slot"
+              :aria-label="
+                snapshot.riderProgress.nextLevelXp === null
+                  ? `Rider Level ${snapshot.riderProgress.level}, maximum level`
+                  : `Rider Level ${snapshot.riderProgress.level}, ${format(snapshot.riderProgress.xp)} of ${format(snapshot.riderProgress.nextLevelXp)} XP`
+              "
             >
-              <img src="/assets/art/bag-sweat.png" alt="" aria-hidden="true" />
-              <strong>{{ format(snapshot.sweat) }}</strong>
+              <span class="hud-level-display" aria-hidden="true">
+                <b>{{ snapshot.riderProgress.level }}</b>
+                <i>
+                  <span
+                    :style="{
+                      width: `${snapshot.riderProgress.progress * 100}%`,
+                    }"
+                  ></span>
+                </i>
+              </span>
+              <strong>Level {{ snapshot.riderProgress.level }}</strong>
             </div>
             <button
               type="button"
@@ -537,7 +542,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               :aria-label="
                 reservedPowerUp
                   ? `Use ${reservedPowerUp.label}: ${reservedPowerUp.description}`
-                  : 'Power-up reserve empty'
+                  : 'Power-up empty'
               "
               @click="activatePowerUp"
             >
@@ -548,9 +553,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                 aria-hidden="true"
               />
               <span v-else aria-hidden="true">○</span>
-              <strong>{{ reservedPowerUp?.label ?? "Reserve" }}</strong>
+              <strong>{{ reservedPowerUp?.label ?? "Power-up" }}</strong>
               <kbd>Space</kbd>
             </button>
+            <div
+              class="hud-tray-slot"
+              :aria-label="`Sweat balance: ${format(snapshot.sweat)}`"
+            >
+              <img src="/assets/art/bag-sweat.png" alt="" aria-hidden="true" />
+              <strong>{{ format(snapshot.sweat) }}</strong>
+            </div>
             <div
               class="hud-tray-slot"
               :aria-label="`Cash balance: ${format(snapshot.cash)}`"
@@ -558,23 +570,26 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               <img src="/assets/art/bag-cash.png" alt="" aria-hidden="true" />
               <strong>{{ format(snapshot.cash) }}</strong>
             </div>
-            <div
-              v-if="snapshot.totalPalmares > 0"
-              class="hud-tray-slot hud-palmares-slot"
-              :aria-label="`Palmarès balance: ${format(snapshot.palmares)}`"
-            >
-              <span aria-hidden="true">★</span>
-              <strong>{{ format(snapshot.palmares) }}</strong>
-            </div>
           </div>
 
-          <button
-            type="button"
-            class="workshop-trigger hud-workshop hud-control"
-            @click="openWorkshop"
-          >
-            Workshop <kbd>W</kbd>
-          </button>
+          <div class="hud-bottom-side hud-bottom-right">
+            <button
+              type="button"
+              class="pause-trigger hud-control"
+              :class="{ active: manuallyPaused }"
+              :aria-pressed="manuallyPaused"
+              @click="toggleManualPause"
+            >
+              {{ manuallyPaused ? "Resume" : "Pause" }} <kbd>P</kbd>
+            </button>
+            <button
+              type="button"
+              class="reset-trigger hud-control"
+              @click="requestReset"
+            >
+              Restart race <kbd>R</kbd>
+            </button>
+          </div>
         </footer>
       </div>
     </section>

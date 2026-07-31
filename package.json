@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "calibrate:economy": "vite-node scripts/simulate-economy.ts --minutes=120 --runs=3 --seed=42 --strategies=casual,skilled --check",
+    "simulate:economy": "vite-node scripts/simulate-economy.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "vue-tsc --noEmit"

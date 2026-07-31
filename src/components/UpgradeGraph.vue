@@ -9,15 +9,14 @@ import {
 } from "vue";
 import {
   branchLabels,
-  branchUnlockStages,
+  branchUnlockLevels,
   type Branch,
   type PurchaseQuantity,
   type UpgradeDefinition,
   nextUpgradeMilestone,
-  reachedMilestones,
   upgradeById,
   upgradeEffectMultiplier,
-  upgradeMilestoneMultiplier,
+  upgradeGainTotal,
   upgradesByBranch,
 } from "../core/upgrades";
 import { formatCompactNumber, formatMultiplier } from "../core/format";
@@ -156,7 +155,7 @@ const connectionPath = (from: Point, to: Point): string => {
 };
 
 const graphConnections = computed<GraphConnection[]>(() => {
-  void props.snapshot.stage;
+  void props.snapshot.riderProgress.level;
   const branchConnections = branches.map((branch) => {
     const unlocked = gameStore.isBranchUnlocked(branch);
     const hasProgress = upgradesByBranch(branch).some(
@@ -223,15 +222,6 @@ const purchaseOptions = computed(() => {
         option.quantity === 1 || option.status.levels > 1,
     );
 });
-const currentMilestone = computed(() => {
-  if (!selected.value) return undefined;
-  return reachedMilestones(selected.value, level(selected.value)).at(-1);
-});
-const currentMilestoneMultiplier = computed(() =>
-  selected.value
-    ? upgradeMilestoneMultiplier(selected.value, level(selected.value))
-    : 1,
-);
 const nextMilestone = computed(() =>
   selected.value
     ? nextUpgradeMilestone(selected.value, level(selected.value))
@@ -239,32 +229,36 @@ const nextMilestone = computed(() =>
 );
 const installedLevelName = computed(() => {
   if (!selected.value || level(selected.value) === 0) return "Not started";
-  return currentMilestone.value?.label ?? `Step ${level(selected.value)}`;
+  return (
+    selected.value.tiers[level(selected.value) - 1]?.name ??
+    `Step ${level(selected.value)}`
+  );
 });
 const effectSummary = computed(() => {
   const upgrade = selected.value;
   if (!upgrade) return "";
   const currentLevel = level(upgrade);
-  const summaryLevel =
-    upgrade.id === "hyperbike" && currentLevel === 0 ? 1 : currentLevel;
+  const summaryLevel = Math.max(1, currentLevel);
+  const speedGain = upgradeGainTotal(upgrade, summaryLevel, "flatSpeed");
   const effects = [
-    upgrade.effects.pacePerLevel
-      ? `Pace ${formatMultiplier(
-          upgradeEffectMultiplier(upgrade, summaryLevel, "pacePerLevel"),
+    speedGain > 0 ? `Flat speed +${speedGain.toFixed(1)} km/h` : "",
+    upgradeGainTotal(upgrade, summaryLevel, "output") > 0
+      ? `Output ${formatMultiplier(
+          upgradeEffectMultiplier(upgrade, summaryLevel, "outputPerLevel"),
         )}`
       : "",
-    upgrade.effects.sweatPerLevel
+    upgradeGainTotal(upgrade, summaryLevel, "sweat") > 0
       ? `Sweat ${formatMultiplier(
           upgradeEffectMultiplier(upgrade, summaryLevel, "sweatPerLevel"),
         )}`
       : "",
-    upgrade.effects.cashPerLevel
+    upgradeGainTotal(upgrade, summaryLevel, "cash") > 0
       ? `Cash ${formatMultiplier(
           upgradeEffectMultiplier(upgrade, summaryLevel, "cashPerLevel"),
         )}`
       : "",
   ].filter(Boolean);
-  return effects.join(" · ") || "Handling and reliability";
+  return effects.join(" · ") || "No performance gain";
 });
 
 const nodeMarkers = (upgrade: UpgradeDefinition) =>
@@ -564,7 +558,7 @@ onBeforeUnmount(stopWheelZoom);
             </span>
             <strong>{{ branchLabels[branch] }}</strong>
             <small v-if="!gameStore.isBranchUnlocked(branch)">
-              Sector {{ branchUnlockStages[branch] }}
+              Level {{ branchUnlockLevels[branch] }}
             </small>
           </div>
 
@@ -653,8 +647,8 @@ onBeforeUnmount(stopWheelZoom);
 
         <div class="detail-milestones">
           <div class="milestone-heading">
-            <strong>Compounding breakthroughs</strong>
-            <small>Every bonus multiplies the last</small>
+            <strong>Named tiers</strong>
+            <small>Prices and gains come directly from the catalog</small>
           </div>
 
           <div class="milestone-track" aria-label="Upgrade milestones">
@@ -664,14 +658,7 @@ onBeforeUnmount(stopWheelZoom);
               :class="{ filled: marker.level <= level(selected) }"
             >
               <strong>{{ marker.label }}</strong>
-              <small>
-                Step {{ marker.level }} ·
-                {{
-                  formatMultiplier(
-                    upgradeMilestoneMultiplier(selected, marker.level),
-                  )
-                }}
-              </small>
+              <small>Step {{ marker.level }}</small>
             </span>
           </div>
         </div>
@@ -680,9 +667,6 @@ onBeforeUnmount(stopWheelZoom);
           <div class="detail-stat">
             <dt>Installed</dt>
             <dd>{{ installedLevelName }}</dd>
-            <dd v-if="currentMilestone" class="current-level-total">
-              {{ formatMultiplier(currentMilestoneMultiplier) }} total
-            </dd>
           </div>
           <div class="detail-stat detail-level-stat">
             <dt>Progress</dt>
@@ -694,13 +678,7 @@ onBeforeUnmount(stopWheelZoom);
             <dd class="next-level-cost">
               {{ nextMilestone.level - level(selected) }}
               {{ nextMilestone.level - level(selected) === 1 ? "step" : "steps" }}
-              away ·
-              {{
-                formatMultiplier(
-                  upgradeMilestoneMultiplier(selected, nextMilestone.level),
-                )
-              }}
-              total
+              away
             </dd>
           </div>
         </dl>

@@ -218,6 +218,20 @@ def main() -> None:
     for sheet_name, frame_prefix in fan_sheets.items():
         build_two_frame_sheet(sheet_name, frame_prefix, (160, 208), 8, 6)
 
+    bike_fan_sheets = {
+        "fan-cyclist-woman-sheet": "fan-5",
+        "fan-cyclist-older-sheet": "fan-6",
+    }
+    for sheet_name, frame_prefix in bike_fan_sheets.items():
+        build_two_frame_sheet(sheet_name, frame_prefix, (256, 208), 8, 6)
+
+    extra_fan_sheets = {
+        "fan-rocker-sheet": "fan-7",
+        "fan-photographer-sheet": "fan-8",
+    }
+    for sheet_name, frame_prefix in extra_fan_sheets.items():
+        build_two_frame_sheet(sheet_name, frame_prefix, (160, 208), 8, 6)
+
     # Keep the original keys while the runtime and tests transition to variants.
     build_two_frame_sheet("fan-sheet", "fan", (160, 208), 8, 6)
 
@@ -230,6 +244,11 @@ def main() -> None:
     ):
         build_single(pickup, (128, 128), 6)
     build_single("pothole", (192, 80), 4, 4)
+    for vehicle in (
+        "oncoming-car-red-profile",
+        "oncoming-van-cream-profile",
+    ):
+        build_single(vehicle, (512, 256), 8, 5)
 
     for stage in range(1, 6):
         build_panorama(stage)

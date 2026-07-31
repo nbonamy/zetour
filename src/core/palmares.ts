@@ -21,7 +21,7 @@ export const palmaresUpgrades: readonly PalmaresUpgradeDefinition[] = [
     name: "Tour legend",
     icon: "★",
     description:
-      "Double effective Tour pace every level. Absolutely not UCI approved.",
+      "Double Tour production every level. The bicycle still obeys physics.",
     baseCost: 3,
     costScale: 3,
     maxLevel: 12,
@@ -83,7 +83,7 @@ export const palmaresUpgradeCost = (
     Math.round(upgrade.baseCost * upgrade.costScale ** Math.max(0, level)),
   );
 
-export const palmaresPaceMultiplier = (
+export const palmaresProductionMultiplier = (
   levels: Partial<Record<PalmaresUpgradeId, number>>,
 ): number => 2 ** Math.max(0, levels["tour-legend"] ?? 0);
 

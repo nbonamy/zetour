@@ -13,6 +13,7 @@ import {
   encounterChallengeRules,
   encounterDelayRange,
   encounterStartX,
+  createTrafficGauntlet,
   fanFrameAt,
   flowMultiplier,
   formatDraftTimer,
@@ -33,7 +34,7 @@ import {
   roadScrollSpeed,
   roadTileScrollDelta,
   roadVisualRise,
-  trafficGauntletPattern,
+  trafficColumnSpacing,
 } from "../../src/game/rideSystems";
 
 describe("active ride systems", () => {
@@ -131,29 +132,41 @@ describe("active ride systems", () => {
     });
   });
 
-  it("gives traffic a readable route through single cars and two-car walls", () => {
-    const hazardLanes = trafficGauntletPattern.map(
-      ({ hazardLanes: lanes }) => [...lanes],
+  it("randomizes traffic while always preserving a readable route", () => {
+    const lowRolls = createTrafficGauntlet(1, () => 0);
+    const highRolls = createTrafficGauntlet(1, () => 0.999_999);
+
+    expect(highRolls).not.toEqual(lowRolls);
+    [lowRolls, highRolls].forEach((pattern) => {
+      const rewardLanes = pattern.map(({ rewardLane }) => rewardLane);
+      expect(new Set(pattern.flatMap(({ hazardLanes }) => hazardLanes))).toEqual(
+        new Set([0, 1, 2]),
+      );
+      expect(
+        pattern.every(
+          ({ hazardLanes, rewardLane }) =>
+            hazardLanes.length >= 1 &&
+            hazardLanes.length <= 2 &&
+            !hazardLanes.includes(rewardLane),
+        ),
+      ).toBe(true);
+      expect(Math.abs(rewardLanes[0] - 1)).toBeLessThanOrEqual(1);
+      expect(
+        rewardLanes.slice(1).every(
+          (lane, index) => Math.abs(lane - rewardLanes[index]) <= 1,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("spaces traffic by approach speed so fast cars remain avoidable", () => {
+    expect(trafficColumnSpacing(25, 1)).toBe(240);
+    expect(trafficColumnSpacing(80, 5)).toBe(616);
+    const approachSpeed =
+      roadScrollSpeed(80) * oncomingTrafficSpeedMultiplier(5);
+    expect(trafficColumnSpacing(80, 5) / approachSpeed).toBeGreaterThanOrEqual(
+      1.1,
     );
-    expect(hazardLanes).toEqual(
-      [[1], [0, 2], [2], [0, 2], [1]],
-    );
-    const rewardLanes = trafficGauntletPattern.map(
-      ({ rewardLane }) => rewardLane,
-    );
-    expect(rewardLanes).toEqual([2, 1, 0, 1, 2]);
-    expect(new Set(hazardLanes.flat())).toEqual(new Set([0, 1, 2]));
-    expect(
-      trafficGauntletPattern.every(
-        ({ hazardLanes: lanes, rewardLane }) =>
-          lanes.length <= 2 && ![...lanes].includes(rewardLane),
-      ),
-    ).toBe(true);
-    expect(
-      rewardLanes.slice(1).every(
-        (lane, index) => Math.abs(lane - rewardLanes[index]) === 1,
-      ),
-    ).toBe(true);
   });
 
   it("tightens drafting tolerance from Sector 1 through Sector 5", () => {
@@ -225,10 +238,10 @@ describe("active ride systems", () => {
   });
 
   it("makes scenery speed proportional to rider speed", () => {
-    expect(roadScrollSpeed(0)).toBe(54);
-    expect(roadScrollSpeed(18)).toBeCloseTo(144);
-    expect(roadScrollSpeed(27)).toBeCloseTo(216);
-    expect(roadScrollSpeed(27) / roadScrollSpeed(18)).toBeCloseTo(1.5);
+    expect(roadScrollSpeed(0)).toBe(0);
+    expect(roadScrollSpeed(25)).toBeCloseTo(100);
+    expect(roadScrollSpeed(80)).toBeCloseTo(320);
+    expect(roadScrollSpeed(80) / roadScrollSpeed(25)).toBeCloseTo(3.2);
     expect(roadScrollDistance(104, 500)).toBe(52);
     expect(roadScrollDistance(104, -20)).toBe(0);
     expect(roadTileScrollDelta(104, 500, 0.38) * 0.38).toBeCloseTo(
@@ -266,15 +279,17 @@ describe("active ride systems", () => {
     expect(fanFrameAt(0, 260)).toBe("fan-b");
   });
 
-  it("keeps ambient fans sparse with occasional small groups", () => {
+  it("makes ambient spectators frequent and usually grouped", () => {
     expect(roadsideFanGroupSize(() => 0)).toBe(1);
-    expect(roadsideFanGroupSize(() => 0.719)).toBe(1);
-    expect(roadsideFanGroupSize(() => 0.72)).toBe(2);
-    expect(roadsideFanGroupSize(() => 0.939)).toBe(2);
-    expect(roadsideFanGroupSize(() => 0.94)).toBe(3);
-    expect(roadsideFanClusterGap(() => 0)).toBe(190);
-    expect(roadsideFanClusterGap(() => 0.5)).toBe(260);
-    expect(roadsideFanClusterGap(() => 1)).toBe(330);
+    expect(roadsideFanGroupSize(() => 0.239)).toBe(1);
+    expect(roadsideFanGroupSize(() => 0.24)).toBe(2);
+    expect(roadsideFanGroupSize(() => 0.669)).toBe(2);
+    expect(roadsideFanGroupSize(() => 0.67)).toBe(3);
+    expect(roadsideFanGroupSize(() => 0.919)).toBe(3);
+    expect(roadsideFanGroupSize(() => 0.92)).toBe(4);
+    expect(roadsideFanClusterGap(() => 0)).toBe(105);
+    expect(roadsideFanClusterGap(() => 0.5)).toBe(163);
+    expect(roadsideFanClusterGap(() => 1)).toBe(220);
   });
 
   it("starts the bonus line visibly while other encounters enter from offscreen", () => {

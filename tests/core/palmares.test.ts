@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   offlineProductionEfficiency,
-  palmaresPaceMultiplier,
+  palmaresProductionMultiplier,
   palmaresUpgradeById,
   palmaresUpgradeCost,
   pendingPalmaresForDistance,
@@ -16,8 +16,8 @@ describe("Palmarès progression", () => {
   });
 
   it("makes Tour Legend levels double effective pace", () => {
-    expect(palmaresPaceMultiplier({})).toBe(1);
-    expect(palmaresPaceMultiplier({ "tour-legend": 3 })).toBe(8);
+    expect(palmaresProductionMultiplier({})).toBe(1);
+    expect(palmaresProductionMultiplier({ "tour-legend": 3 })).toBe(8);
   });
 
   it("scales permanent upgrade costs and preparation rewards", () => {

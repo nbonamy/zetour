@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BAG_PRODUCTION_SECONDS,
   bagRewardForRate,
+  stageProductionMultiplier,
 } from "../../src/core/economy";
 import {
   upgradeBulkCost,
@@ -18,12 +19,20 @@ const upgrade = (id: string) => {
 describe("incremental economy", () => {
   it("values bags as time at the current production rate", () => {
     expect(BAG_PRODUCTION_SECONDS).toEqual({
-      sweat: 20,
-      cash: 30,
+      sweat: [2.4, 3.6],
+      cash: [3.6, 5.4],
     });
-    expect(bagRewardForRate("sweat", 2)).toBe(40);
-    expect(bagRewardForRate("cash", 2)).toBe(60);
-    expect(bagRewardForRate("cash", 2, 1.5)).toBe(90);
+    expect(bagRewardForRate("sweat", 2)).toBe(6);
+    expect(bagRewardForRate("cash", 2)).toBe(9);
+    expect(bagRewardForRate("cash", 2, 1.5)).toBe(14);
+    expect(bagRewardForRate("sweat", 2, 1, 0)).toBe(5);
+    expect(bagRewardForRate("sweat", 2, 1, 1)).toBe(7);
+  });
+
+  it("makes the same roadside action more valuable in later sectors", () => {
+    expect(stageProductionMultiplier(1)).toBe(1);
+    expect(stageProductionMultiplier(4)).toBe(8);
+    expect(stageProductionMultiplier(5)).toBe(16);
   });
 
   it("starts in the hundreds-per-minute range before multipliers compound", () => {
@@ -37,26 +46,20 @@ describe("incremental economy", () => {
     expect(cashPerMinute).toBeLessThanOrEqual(170);
   });
 
-  it("keeps the first Sweat and Cash milestone in the same price range", () => {
-    const powerMilestoneCost = upgradeBulkCost(upgrade("power"), 0, 1);
-    const aeroMilestoneCost = upgradeBulkCost(
-      upgrade("aero-socks"),
-      0,
-      1,
-    );
-
-    expect(powerMilestoneCost / aeroMilestoneCost).toBeGreaterThan(1);
-    expect(powerMilestoneCost / aeroMilestoneCost).toBeLessThan(2);
+  it("keeps real product prices recognizable", () => {
+    expect(upgradeBulkCost(upgrade("helmet"), 0, 1)).toBe(100);
+    expect(upgradeBulkCost(upgrade("helmet"), 1, 1)).toBe(300);
+    expect(upgradeBulkCost(upgrade("helmet"), 2, 1)).toBe(1_000);
   });
 
   it("makes upgraded production increase the value of every future bag", () => {
     const base = createTestStore().store;
     const upgraded = createTestStore({
-      upgrades: { power: 10, hydration: 10 },
+      upgrades: { power: 10, hydration: 5 },
     }).store;
 
     expect(upgraded.collectBag("sweat")).toBeGreaterThan(
-      base.collectBag("sweat") * 5,
+      base.collectBag("sweat") * 2,
     );
   });
 });

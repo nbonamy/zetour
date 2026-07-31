@@ -15,6 +15,7 @@ describe("visual QA overrides", () => {
       gradient: -0.05,
       paused: false,
       powerUp: null,
+      speedKmh: null,
       stage: 2,
     });
   });
@@ -32,6 +33,7 @@ describe("visual QA overrides", () => {
       gradient: 0.12,
       paused: false,
       powerUp: null,
+      speedKmh: null,
       stage: 5,
     });
     expect(
@@ -46,6 +48,7 @@ describe("visual QA overrides", () => {
       gradient: null,
       paused: false,
       powerUp: null,
+      speedKmh: null,
       stage: null,
     });
   });
@@ -54,6 +57,12 @@ describe("visual QA overrides", () => {
     expect(parseVisualQaOverrides("?qaPaused=1").paused).toBe(true);
     expect(parseVisualQaOverrides("?qaPaused=true").paused).toBe(true);
     expect(parseVisualQaOverrides("?qaPaused=0").paused).toBe(false);
+  });
+
+  it("forces physical speed for scrolling QA without altering the save", () => {
+    expect(parseVisualQaOverrides("?qaSpeed=25").speedKmh).toBe(25);
+    expect(parseVisualQaOverrides("?qaSpeed=500").speedKmh).toBe(200);
+    expect(parseVisualQaOverrides("?qaSpeed=nope").speedKmh).toBeNull();
   });
 
   it("shows a deterministic finished-race view for results QA", () => {

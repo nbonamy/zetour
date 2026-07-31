@@ -22,7 +22,7 @@ describe("UpgradeGraph", () => {
     app.mount(host);
   };
 
-  it("shows the five career branches with their stage gates", () => {
+  it("shows the five career branches with their Rider Level gates", () => {
     mountGraph();
 
     const map = host.querySelector<HTMLElement>(".graph-map");
@@ -123,9 +123,9 @@ describe("UpgradeGraph", () => {
     expect(host.textContent).toContain("Bike");
     expect(host.textContent).toContain("Equipment");
     expect(host.textContent).toContain("Team");
-    expect(host.textContent).toContain("Sector 2");
-    expect(host.textContent).toContain("Sector 3");
-    expect(host.textContent).toContain("Sector 4");
+    expect(host.textContent).toContain("Level 2");
+    expect(host.textContent).toContain("Level 4");
+    expect(host.textContent).toContain("Level 6");
     app?.unmount();
     host.remove();
   });
@@ -177,9 +177,7 @@ describe("UpgradeGraph", () => {
   });
 
   it("buys an available upgrade by clicking its tile", async () => {
-    for (let index = 0; index < 100; index += 1) {
-      gameStore.collectBag("sweat");
-    }
+    gameStore.activateKonamiCheat();
     mountGraph();
     const hydration = host.querySelector<HTMLButtonElement>(
       'button[aria-label="Hydration protocol"]',
@@ -197,10 +195,9 @@ describe("UpgradeGraph", () => {
     expect(host.querySelectorAll(".purchase-option")).toHaveLength(2);
     expect(host.textContent).toContain("Buy next step");
     expect(host.textContent).toContain("Buy all affordable");
-    expect(host.textContent).toContain("×3");
-    expect(host.textContent).toContain("×15");
-    expect(host.textContent).toContain("×150");
-    expect(host.textContent).toContain("×3.8K");
+    expect(host.textContent).toContain("Nutrition · Sweat ×1.03");
+    expect(host.textContent).toContain("Planned bottles");
+    expect(host.textContent).toContain("Heat-adapted race protocol");
 
     hydration.dispatchEvent(new PointerEvent("pointerleave"));
     await nextTick();
@@ -244,7 +241,7 @@ describe("UpgradeGraph", () => {
   it("fills one continuous bar without putting a level in the tile title", () => {
     const hydration = upgradeById("hydration");
     if (!hydration) throw new Error("Missing Hydration upgrade");
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 16; index += 1) {
       gameStore.collectBag("sweat");
     }
     expect(gameStore.purchase(hydration)).toBe(true);
@@ -275,7 +272,9 @@ describe("UpgradeGraph", () => {
     hyperbike.click();
     await nextTick();
 
-    expect(host.textContent).toContain("Pace ×10 · Sweat ×10 · Cash ×10");
+    expect(host.textContent).toContain(
+      "Flat speed +2.5 km/h · Output ×10",
+    );
     expect(
       host.querySelector<HTMLButtonElement>(
         '.purchase-option[data-quantity="1"]',

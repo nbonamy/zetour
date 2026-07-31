@@ -1,133 +1,113 @@
 import { describe, expect, it } from "vitest";
-import { upgrades, type Currency } from "../../src/core/upgrades";
-import { createTestStore } from "../helpers/createTestStore";
+import {
+  continuousRiderLevel,
+  economyStrategies,
+  noEconomyProgression,
+  simulateEconomy,
+} from "../../src/core/economySimulation";
 
-interface PacingResult {
-  firstPurchaseSeconds: number;
-  firstMilestoneSeconds: number;
-  firstThousandPerMinuteSeconds: number;
-  firstMillionPerMinuteSeconds: number;
-  hyperbikeSeconds: number;
-  purchases: number;
-  tours: number;
-  effectivePaceKmh: number;
-  combinedIncomePerMinute: number;
-}
+const skilled = economyStrategies.find(
+  (strategy) => strategy.id === "skilled",
+);
+const casual = economyStrategies.find(
+  (strategy) => strategy.id === "casual",
+);
 
-const simulateActiveCareer = (limitSeconds = 30 * 60): PacingResult => {
-  const { store } = createTestStore();
-  const challengeMultipliers = [1, 8, 3, 4, 6] as const;
-  let elapsedSeconds = 0;
-  let purchaseCountdown = 0;
-  let challengeCountdown = 4;
-  let challengeIndex = 0;
-  let firstPurchaseSeconds = Number.POSITIVE_INFINITY;
-  let firstMilestoneSeconds = Number.POSITIVE_INFINITY;
-  let firstThousandPerMinuteSeconds = Number.POSITIVE_INFINITY;
-  let firstMillionPerMinuteSeconds = Number.POSITIVE_INFINITY;
-  let hyperbikeSeconds = Number.POSITIVE_INFINITY;
-  let purchases = 0;
-
-  while (elapsedSeconds < limitSeconds) {
-    if (store.getSnapshot().raceFinished) store.continueTour();
-
-    if (challengeCountdown <= 0) {
-      store.completeChallenge(
-        challengeMultipliers[challengeIndex % challengeMultipliers.length],
-      );
-      challengeIndex += 1;
-      challengeCountdown += 6.5;
-    }
-
-    if (purchaseCountdown <= 0) {
-      for (const currency of ["sweat", "cash"] satisfies Currency[]) {
-        const candidate = upgrades
-          .map((upgrade) => ({
-            upgrade,
-            status: store.purchaseStatus(upgrade),
-          }))
-          .filter(
-            ({ status }) =>
-              status.available && status.currency === currency,
-          )
-          .sort((left, right) => left.status.cost - right.status.cost)[0];
-
-        if (candidate && store.purchase(candidate.upgrade)) {
-          purchases += 1;
-          firstPurchaseSeconds = Math.min(
-            firstPurchaseSeconds,
-            elapsedSeconds,
-          );
-          const level =
-            store.getSnapshot().upgrades[candidate.upgrade.id] ?? 0;
-          if (level >= 10) {
-            firstMilestoneSeconds = Math.min(
-              firstMilestoneSeconds,
-              elapsedSeconds,
-            );
-          }
-          if (candidate.upgrade.id === "hyperbike") {
-            hyperbikeSeconds = elapsedSeconds;
-          }
-        }
-      }
-      purchaseCountdown += 1.5;
-    }
-
-    const stats = store.getSnapshot().stats;
-    const combinedIncomePerMinute =
-      (stats.sweatPerSecond + stats.cashPerSecond) * 60;
-    if (combinedIncomePerMinute >= 1_000) {
-      firstThousandPerMinuteSeconds = Math.min(
-        firstThousandPerMinuteSeconds,
-        elapsedSeconds,
-      );
-    }
-    if (combinedIncomePerMinute >= 1_000_000) {
-      firstMillionPerMinuteSeconds = Math.min(
-        firstMillionPerMinuteSeconds,
-        elapsedSeconds,
-      );
-    }
-
-    store.tick(0.25);
-    elapsedSeconds += 0.25;
-    purchaseCountdown -= 0.25;
-    challengeCountdown -= 0.25;
-  }
-
-  const snapshot = store.getSnapshot();
-  return {
-    firstPurchaseSeconds,
-    firstMilestoneSeconds,
-    firstThousandPerMinuteSeconds,
-    firstMillionPerMinuteSeconds,
-    hyperbikeSeconds,
-    purchases,
-    tours: snapshot.toursCompleted,
-    effectivePaceKmh: snapshot.stats.effectivePaceKmh,
-    combinedIncomePerMinute:
-      (snapshot.stats.sweatPerSecond + snapshot.stats.cashPerSecond) * 60,
-  };
-};
+if (!skilled || !casual) throw new Error("Missing economy strategy");
 
 describe("incremental progression pacing", () => {
-  it("accelerates from hundreds to millions and reaches the $2B moonshot", () => {
-    const result = simulateActiveCareer();
+  it("hits the standard Rider Level checkpoint after each of Stages 1–4", () => {
+    const result = simulateEconomy({
+      durationSeconds: 30 * 60,
+      seed: 42,
+      strategy: casual,
+      progressionModel: continuousRiderLevel,
+    });
 
-    expect(result.firstPurchaseSeconds).toBeLessThanOrEqual(10);
-    expect(result.firstMilestoneSeconds).toBeLessThanOrEqual(3 * 60);
-    expect(result.firstThousandPerMinuteSeconds).toBeLessThanOrEqual(4 * 60);
-    expect(result.firstMillionPerMinuteSeconds).toBeLessThanOrEqual(25 * 60);
-    expect(result.hyperbikeSeconds).toBeLessThanOrEqual(30 * 60);
-    const availableSteps = upgrades.reduce(
-      (total, upgrade) => total + upgrade.maxLevel,
-      0,
-    );
-    expect(result.purchases).toBeGreaterThanOrEqual(availableSteps * 0.75);
-    expect(result.purchases).toBeLessThanOrEqual(availableSteps);
-    expect(result.tours).toBeGreaterThanOrEqual(2);
-    expect(result.effectivePaceKmh).toBeGreaterThan(100_000);
-    expect(result.combinedIncomePerMinute).toBeGreaterThan(1_000_000);
+    expect(
+      [2, 3, 4, 5].map(
+        (stage) => result.riderProgressAtStageEntry[stage]?.level,
+      ),
+    ).toEqual([3, 5, 8, 10]);
   });
+
+  it(
+    "moves a skilled run from hundreds through millions to the $2B moonshot",
+    () => {
+      const result = simulateEconomy({
+        durationSeconds: 100 * 60,
+        seed: 42,
+        strategy: skilled,
+        progressionModel: continuousRiderLevel,
+      });
+
+      expect(result.firstPurchaseSeconds).toBeGreaterThanOrEqual(5);
+      expect(result.firstPurchaseSeconds).toBeLessThanOrEqual(30);
+      expect(result.balanceTimes.sweat[1_000_000]).toBeGreaterThanOrEqual(
+        10 * 60,
+      );
+      expect(result.balanceTimes.sweat[1_000_000]).toBeLessThanOrEqual(
+        20 * 60,
+      );
+      expect(result.balanceTimes.cash[100_000_000]).toBeGreaterThanOrEqual(
+        15 * 60,
+      );
+      expect(result.balanceTimes.cash[100_000_000]).toBeLessThanOrEqual(
+        35 * 60,
+      );
+      expect(result.hyperbikeSeconds).toBeGreaterThanOrEqual(60 * 60);
+      expect(result.hyperbikeSeconds).toBeLessThanOrEqual(90 * 60);
+      expect(result.firstTourSeconds).toBeGreaterThanOrEqual(20 * 60);
+      expect(result.firstTourSeconds).toBeLessThanOrEqual(30 * 60);
+      expect(result.normalTreeSeconds).toBeGreaterThanOrEqual(45 * 60);
+      expect(result.totalEarned.sweat).toBeGreaterThan(1_000_000_000);
+      expect(result.totalEarned.sweat).toBeLessThan(1_000_000_000_000_000);
+      expect(result.incomeBySource.riding.sweat).toBeGreaterThan(0);
+      expect(result.incomeBySource.bags.sweat).toBeGreaterThan(0);
+      expect(result.incomeBySource.challenges.sweat).toBeGreaterThan(0);
+      const sectorOne = result.incomeByStage[1];
+      const sectorFive = result.incomeByStage[5];
+      expect(sectorOne.bagPickups).toBeGreaterThan(0);
+      expect(sectorFive.bagPickups).toBeGreaterThan(0);
+      expect(
+        sectorFive.income.bags.sweat / sectorFive.bagPickups,
+      ).toBeGreaterThan(
+        sectorOne.income.bags.sweat / sectorOne.bagPickups,
+      );
+      expect(result.progressionLevel).toBeGreaterThanOrEqual(6);
+      expect(result.tours).toBeLessThan(60);
+    },
+    30_000,
+  );
+
+  it(
+    "proves Rider Level materially accelerates the same seeded run",
+    () => {
+      const shared = {
+        durationSeconds: 30 * 60,
+        seed: 42,
+        strategy: skilled,
+      } as const;
+      const levelled = simulateEconomy({
+        ...shared,
+        progressionModel: continuousRiderLevel,
+      });
+      const flat = simulateEconomy({
+        ...shared,
+        progressionModel: noEconomyProgression,
+      });
+
+      expect(levelled.progressionLevel).toBeGreaterThan(1);
+      expect(flat.progressionLevel).toBe(1);
+      expect(levelled.totalEarned.sweat).toBeGreaterThan(
+        flat.totalEarned.sweat * 2,
+      );
+      expect(levelled.balanceTimes.sweat[1_000_000]).not.toBeNull();
+      expect(flat.balanceTimes.sweat[1_000_000]).not.toBeNull();
+      expect(levelled.balanceTimes.sweat[1_000_000] ?? Infinity).toBeLessThan(
+        flat.balanceTimes.sweat[1_000_000] ?? Infinity,
+      );
+    },
+    15_000,
+  );
 });

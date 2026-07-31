@@ -12,6 +12,7 @@ import {
   addFlow,
   advanceLoopingRoadMarkerX,
   advanceRoadObjectX,
+  createTrafficGauntlet,
   decayFlow,
   domestiqueFormationX,
   draftAlignmentGap,
@@ -38,7 +39,7 @@ import {
   roadScrollDistance,
   roadScrollSpeed,
   roadTileScrollDelta,
-  trafficGauntletPattern,
+  trafficColumnSpacing,
   type RideEncounter,
 } from "./rideSystems";
 import {
@@ -83,9 +84,16 @@ interface ChallengeRun {
 
 type RoadsideFan = Phaser.GameObjects.Image & {
   roadsideBaseY: number;
+  roadsideWidth: number;
   fanVariant: number;
   frameOffset: number;
 };
+
+interface FanVariantDefinition {
+  id: number;
+  width: number;
+  height: number;
+}
 
 const WIDTH = RIDE_WORLD_WIDTH;
 const HEIGHT = RIDE_WORLD_HEIGHT;
@@ -112,15 +120,24 @@ const LOWER_ROADSIDE_HEIGHT = 118;
 const ROAD_TILE_SCALE = 0.32;
 const BAG_SIZE = 28;
 const POWER_UP_SIZE = 34;
-const TRAFFIC_WIDTH = 104;
-const TRAFFIC_HEIGHT = 78;
-const TRAFFIC_GROUND_OFFSET_Y = -23;
+const TRAFFIC_WIDTH = 112;
+const TRAFFIC_HEIGHT = 56;
+const TRAFFIC_GROUND_OFFSET_Y = groundedRoadObjectOffsetY(TRAFFIC_HEIGHT);
 const ENCOUNTER_TEXT_Y = 164;
-const FAN_WIDTH = 32;
-const FAN_HEIGHT = 42;
-const FAN_VARIANT_COUNT = 4;
-const INITIAL_FAN_SPAWN_DISTANCE = 70;
-const MAX_ACTIVE_FANS = 8;
+const FAN_WIDTH = 40;
+const FAN_HEIGHT = 53;
+const FAN_VARIANTS: readonly FanVariantDefinition[] = [
+  { id: 1, width: FAN_WIDTH, height: FAN_HEIGHT },
+  { id: 2, width: FAN_WIDTH, height: FAN_HEIGHT },
+  { id: 3, width: FAN_WIDTH, height: FAN_HEIGHT },
+  { id: 4, width: FAN_WIDTH, height: FAN_HEIGHT },
+  { id: 5, width: 65, height: FAN_HEIGHT },
+  { id: 6, width: 65, height: FAN_HEIGHT },
+  { id: 7, width: FAN_WIDTH, height: FAN_HEIGHT },
+  { id: 8, width: FAN_WIDTH, height: FAN_HEIGHT },
+];
+const INITIAL_FAN_SPAWN_DISTANCE = 25;
+const MAX_ACTIVE_FANS = 14;
 const DRAFT_LABEL_OFFSET_Y = 42;
 const ROAD_MARKER_SPACING = 64;
 const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
@@ -210,12 +227,12 @@ export class GameScene extends Phaser.Scene {
       "power-acceleration",
       "power-invincibility",
       "pothole",
-      "oncoming-car-red",
-      "oncoming-van-cream",
+      "oncoming-car-red-profile",
+      "oncoming-van-cream-profile",
     ];
-    for (let variant = 1; variant <= FAN_VARIANT_COUNT; variant += 1) {
-      pngTextures.push(`fan-${variant}-a`, `fan-${variant}-b`);
-    }
+    FAN_VARIANTS.forEach(({ id }) =>
+      pngTextures.push(`fan-${id}-a`, `fan-${id}-b`),
+    );
     pngTextures.forEach((key) =>
       this.load.image(key, `/assets/art/${key}.png`),
     );
@@ -277,7 +294,9 @@ export class GameScene extends Phaser.Scene {
     gameStore.tick(delta / 1_000);
     const snapshot = gameStore.getSnapshot();
     if (snapshot.raceFinished) return;
-    const scrollSpeed = roadScrollSpeed(snapshot.stats.speedKmh);
+    const visualSpeedKmh =
+      VISUAL_QA.speedKmh ?? snapshot.stats.speedKmh;
+    const scrollSpeed = roadScrollSpeed(visualSpeedKmh);
     const gradient = VISUAL_QA.gradient ?? snapshot.currentGradient;
     const stageDefinition =
       VISUAL_QA.stage === null
@@ -355,7 +374,7 @@ export class GameScene extends Phaser.Scene {
     this.updateSpeedFeedback(
       delta,
       scrollSpeed,
-      snapshot.stats.speedKmh,
+      visualSpeedKmh,
       gradient,
     );
     this.encounterCountdown -= delta;
@@ -393,7 +412,9 @@ export class GameScene extends Phaser.Scene {
           cyclistFrameTexture("domestique", this.riderFrame),
         ),
       );
-      this.animationCountdown = Math.max(55, 180 - snapshot.stats.speedKmh * 4);
+      const visualSpeedKmh =
+        VISUAL_QA.speedKmh ?? snapshot.stats.speedKmh;
+      this.animationCountdown = Math.max(55, 180 - visualSpeedKmh * 4);
     }
   }
 
@@ -774,26 +795,33 @@ export class GameScene extends Phaser.Scene {
 
     const baseY = ROAD_TOP_Y - 4;
     let x = startX;
+    let previousWidth = 0;
 
     for (let index = 0; index < fanCount; index += 1) {
+      const definition =
+        FAN_VARIANTS[Phaser.Math.Between(0, FAN_VARIANTS.length - 1)];
       if (index > 0) {
-        x += FAN_WIDTH + Phaser.Math.Between(6, 14);
+        x +=
+          previousWidth / 2 +
+          definition.width / 2 +
+          Phaser.Math.Between(6, 14);
       }
-      const variant = Phaser.Math.Between(1, FAN_VARIANT_COUNT);
       const roadsideBaseY = baseY + Phaser.Math.Between(-2, 2);
       const fan = this.add.image(
         x,
         this.roadY(roadsideBaseY, x),
-        `fan-${variant}-a`,
+        `fan-${definition.id}-a`,
       ) as RoadsideFan;
       fan.roadsideBaseY = roadsideBaseY;
-      fan.fanVariant = variant;
+      fan.roadsideWidth = definition.width;
+      fan.fanVariant = definition.id;
       fan.frameOffset = Phaser.Math.Between(0, 520);
       fan
-        .setDisplaySize(FAN_WIDTH, FAN_HEIGHT)
+        .setDisplaySize(definition.width, definition.height)
         .setOrigin(0.5, 1)
         .setDepth(6);
       this.fans.push(fan);
+      previousWidth = definition.width;
     }
   }
 
@@ -806,7 +834,7 @@ export class GameScene extends Phaser.Scene {
         ? "a"
         : "b";
       fan.setTexture(`fan-${fan.fanVariant}-${frame}`);
-      if (fan.x >= -FAN_WIDTH) return true;
+      if (fan.x >= -(fan.roadsideWidth ?? FAN_WIDTH)) return true;
       fan.destroy();
       return false;
     });
@@ -904,7 +932,9 @@ export class GameScene extends Phaser.Scene {
     variant: "car" | "van" = Math.random() < 0.62 ? "car" : "van",
   ): void {
     const texture =
-      variant === "car" ? "oncoming-car-red" : "oncoming-van-cream";
+      variant === "car"
+        ? "oncoming-car-red-profile"
+        : "oncoming-van-cream-profile";
     const eventType =
       variant === "car" ? "oncoming-car" : "oncoming-van";
     const roadYOffset = TRAFFIC_GROUND_OFFSET_Y;
@@ -923,7 +953,7 @@ export class GameScene extends Phaser.Scene {
     vehicle
       .setDisplaySize(TRAFFIC_WIDTH, TRAFFIC_HEIGHT)
       .setDepth(9 + vehicle.y / 1_000);
-    vehicle.body?.setSize(390, 140, false).setOffset(60, 160);
+    vehicle.body?.setSize(430, 120, false).setOffset(41, 115);
     this.hazards.add(vehicle);
   }
 
@@ -1072,6 +1102,7 @@ export class GameScene extends Phaser.Scene {
 
     const reward = gameStore.completeChallenge(
       rules.cleanRewardMultiplier,
+      rules.difficulty,
     );
     this.rewardFlow(
       rules.flowReward,
@@ -1290,15 +1321,16 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case "traffic": {
-        const placements = trafficGauntletPattern.map((column, index) => {
-          const x = startX + index * 132;
-          column.hazardLanes.forEach((lane, laneIndex) => {
-            this.spawnOncomingVehicle(
-              lane,
-              x,
-              sequenceId,
-              (index + laneIndex) % 3 === 2 ? "van" : "car",
-            );
+        const snapshot = gameStore.getSnapshot();
+        const pattern = createTrafficGauntlet(this.targetLane);
+        const columnSpacing = trafficColumnSpacing(
+          VISUAL_QA.speedKmh ?? snapshot.stats.speedKmh,
+          snapshot.stage,
+        );
+        const placements = pattern.map((column, index) => {
+          const x = startX + index * columnSpacing;
+          column.hazardLanes.forEach((lane) => {
+            this.spawnOncomingVehicle(lane, x, sequenceId);
           });
           return { lane: column.rewardLane, x: x + 52 };
         });
@@ -1515,6 +1547,7 @@ export class GameScene extends Phaser.Scene {
     const challengeRules = encounterChallengeRules.draft;
     const reward = gameStore.completeChallenge(
       challengeRules?.cleanRewardMultiplier ?? 6,
+      challengeRules?.difficulty ?? 4,
     );
     this.rewardFlow(challengeRules?.flowReward ?? 24, "DRAFT CLEAN");
     this.draftTimerText?.setText("0s");

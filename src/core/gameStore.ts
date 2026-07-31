@@ -1,22 +1,22 @@
 import {
   affordableUpgradeLevels,
-  branchUnlockStages,
+  branchUnlockLevels,
   type Branch,
   type Currency,
   type PurchaseQuantity,
   type UpgradeDefinition,
-  logarithmicUpgradeLevel,
   upgradeById,
   upgradeBulkCost,
   upgradeCost,
-  upgradeEffectMultiplier,
-  upgradeProgressionLevel,
+  upgradeGainTotal,
+  upgradePercentMultiplier,
   upgrades,
 } from "./upgrades";
-import { bagRewardForRate } from "./economy";
+import { bagRewardForRate, stageProductionMultiplier } from "./economy";
+import { economyBalance, rangedValue } from "./economyBalance";
 import {
   offlineProductionEfficiency,
-  palmaresPaceMultiplier,
+  palmaresProductionMultiplier,
   palmaresUpgradeById,
   palmaresUpgradeCost,
   pendingPalmaresForDistance,
@@ -24,7 +24,6 @@ import {
   type PalmaresUpgradeId,
 } from "./palmares";
 import {
-  domestiqueDraftBonus,
   RANDOM_RIDER_DRAFT_BONUS,
   RANDOM_RIDER_DRAFT_WIND_SHELTER,
 } from "./drafting";
@@ -40,23 +39,60 @@ import {
   type RecordDeltaStatus,
   type SectorTimeRecord,
 } from "./timeTrial";
-import { formatCompactNumber } from "./format";
+import { formatCompactNumber, formatMultiplier } from "./format";
+import {
+  cleanChallengeXp,
+  PICKUP_XP,
+  POWER_UP_USE_XP,
+  riderProgressForXp,
+  riderXpMultiplierForStage,
+  RIDING_XP_PER_SECOND,
+  TOUR_COMPLETION_XP,
+  type RiderProgress,
+} from "./riderProgression";
 
 // Keep the original key so the Ze Tour rename does not wipe existing careers.
 const SAVE_KEY = "biker-inc-save-v1";
 const SAVE_INTERVAL_MS = 5_000;
 const MAX_OFFLINE_SECONDS = 8 * 60 * 60;
-const BASE_FLAT_SPEED_KMH = 18;
+export const BASE_FLAT_SPEED_KMH =
+  economyBalance.speed.neutralFlatMinKmh;
+export const FULLY_UPGRADED_FLAT_SPEED_KMH =
+  economyBalance.speed.neutralFlatMaxKmh;
 const GRADIENT_LINEAR_DRAG = 8.75;
 const GRADIENT_QUADRATIC_DRAG = 40.6;
 const DESCENT_SPEED_PER_GRADIENT = 16;
 const COURSE_RECORD_FLAT_SPEED_KMH = 26;
-const BASE_SWEAT_PER_SECOND = 2.5;
-const BASE_CASH_PER_SECOND = 2.5;
-export const CHALLENGE_BASE_PRODUCTION_SECONDS = 24;
+const BASE_SWEAT_PER_SECOND =
+  economyBalance.production.baseSweatPerSecond;
+const BASE_CASH_PER_SECOND =
+  economyBalance.production.baseCashPerSecond;
+export const CHALLENGE_BASE_PRODUCTION_SECONDS = 1.5;
 export const TOTAL_TOUR_DISTANCE_KM = 1_615;
-export const TOUR_DURATION_MULTIPLIER = 1.5;
+export const TOUR_DURATION_MULTIPLIER =
+  economyBalance.pacing.routeDurationMultiplier;
 export const KONAMI_RESOURCE_BALANCE = 5_000_000_000;
+export const tourProgressPaceKmh = (effectivePaceKmh: number): number => {
+  return Math.max(
+    0,
+    Number.isFinite(effectivePaceKmh) ? effectivePaceKmh : 0,
+  );
+};
+
+export const permanentFlatSpeedKmh = (
+  levels: Readonly<Record<string, number>>,
+): number =>
+  BASE_FLAT_SPEED_KMH +
+  upgrades.reduce(
+    (total, upgrade) =>
+      total +
+      upgradeGainTotal(
+        upgrade,
+        levels[upgrade.id] ?? 0,
+        "flatSpeed",
+      ),
+    0,
+  );
 
 export interface ChallengeReward {
   sweat: number;
@@ -120,11 +156,15 @@ export const powerUpDefinitions: Record<PowerUpType, PowerUpDefinition> = {
 
 export const gradientSpeedMultiplier = (
   gradient: number,
-  bodyCompositionLevel = 0,
+  climbingMitigation = 0,
 ): number => {
   const safeGradient = Math.max(0, gradient);
+  const normalizedMitigation =
+    climbingMitigation <= 1
+      ? climbingMitigation
+      : climbingMitigation * 0.05;
   const climbingEfficiency =
-    1 - Math.min(0.25, Math.max(0, bodyCompositionLevel) * 0.05);
+    1 - Math.min(0.25, Math.max(0, normalizedMitigation));
   const effectiveGradient = safeGradient * climbingEfficiency;
 
   return Math.max(
@@ -140,15 +180,20 @@ export const gradientSpeedMultiplier = (
 
 export const terrainSpeedMultiplier = (
   gradient: number,
-  bodyCompositionLevel = 0,
-  descentControlLevel = 0,
+  climbingMitigation = 0,
+  descentSpeedBonus = 0,
 ): number => {
   if (gradient >= 0) {
-    return gradientSpeedMultiplier(gradient, bodyCompositionLevel);
+    return gradientSpeedMultiplier(gradient, climbingMitigation);
   }
 
   const descent = Math.min(0.08, Math.abs(gradient));
-  const controlBonus = Math.max(0, descentControlLevel) * 0.025;
+  const controlBonus = Math.max(
+    0,
+    descentSpeedBonus <= 1
+      ? descentSpeedBonus
+      : descentSpeedBonus * 0.025,
+  );
   return 1 + Math.min(1.2, descent * DESCENT_SPEED_PER_GRADIENT + controlBonus);
 };
 
@@ -379,9 +424,10 @@ export const courseRecordForStage = (
 };
 
 export interface SaveState {
-  version: 3;
+  version: 4;
   sweat: number;
   cash: number;
+  riderXp: number;
   distanceM: number;
   lifetimeDistanceKm: number;
   seasonDistanceKm: number;
@@ -424,9 +470,9 @@ export interface RaceResults {
 export interface ComputedStats {
   speedKmh: number;
   effectivePaceKmh: number;
-  paceMultiplier: number;
-  careerPaceMultiplier: number;
+  upgradeOutputMultiplier: number;
   palmaresMultiplier: number;
+  riderLevelMultiplier: number;
   flowMultiplier: number;
   sweatPerSecond: number;
   sweatMultiplier: number;
@@ -464,6 +510,7 @@ export interface GameSnapshot extends SaveState {
   };
   raceResults: RaceResults | null;
   pendingPalmares: number;
+  riderProgress: RiderProgress;
 }
 
 export interface PurchaseStatus {
@@ -491,6 +538,7 @@ interface GameStoreOptions {
   storage?: StorageLike | null;
   now?: () => number;
   random?: () => number;
+  riderProgressionEnabled?: boolean;
 }
 
 type Listener = (snapshot: GameSnapshot) => void;
@@ -588,9 +636,10 @@ const migratedCurrentSplits = (
 };
 
 const initialState = (now: number): SaveState => ({
-  version: 3,
+  version: 4,
   sweat: 0,
   cash: 0,
+  riderXp: 0,
   distanceM: 0,
   lifetimeDistanceKm: 0,
   seasonDistanceKm: 0,
@@ -620,6 +669,7 @@ export class GameStore {
   private readonly storage: StorageLike | null;
   private readonly now: () => number;
   private readonly random: () => number;
+  private readonly riderProgressionEnabled: boolean;
   private listeners = new Set<Listener>();
   private noticeListeners = new Set<NoticeListener>();
   private lastEmitAt = 0;
@@ -641,6 +691,7 @@ export class GameStore {
         : options.storage;
     this.now = options.now ?? Date.now;
     this.random = options.random ?? Math.random;
+    this.riderProgressionEnabled = options.riderProgressionEnabled ?? true;
     this.state = this.load();
     this.applyOfflineProgress();
   }
@@ -715,6 +766,7 @@ export class GameStore {
         this.state.seasonDistanceKm,
         TOTAL_TOUR_DISTANCE_KM,
       ),
+      riderProgress: riderProgressForXp(this.state.riderXp),
     };
   }
 
@@ -737,9 +789,14 @@ export class GameStore {
     if (this.state.raceFinished) return;
 
     const safeDelta = Math.min(deltaSeconds, 0.25);
+    this.awardRiderXp(
+      RIDING_XP_PER_SECOND *
+        safeDelta *
+        riderXpMultiplierForStage(this.state.stage),
+    );
     const stats = this.computeStats();
     const distance =
-      ((stats.effectivePaceKmh / 3.6) * safeDelta) /
+      ((tourProgressPaceKmh(stats.effectivePaceKmh) / 3.6) * safeDelta) /
       TOUR_DURATION_MULTIPLIER;
     const sweatGenerated =
       this.sweatGenerationRemainder + stats.sweatPerSecond * safeDelta;
@@ -788,12 +845,16 @@ export class GameStore {
         ? stats.sweatPerSecond
         : stats.cashPerSecond,
       multiplier,
+      this.random(),
     );
     if (type === "sweat") {
       this.state.sweat += amount;
     } else {
       this.state.cash += amount;
     }
+    this.awardRiderXp(
+      PICKUP_XP * riderXpMultiplierForStage(this.state.stage),
+    );
     this.notice(
       type === "sweat" ? `+${amount} Sweat` : `+$${amount}`,
       "good",
@@ -802,10 +863,14 @@ export class GameStore {
     return amount;
   }
 
-  completeChallenge(multiplier: number): ChallengeReward {
+  completeChallenge(multiplier: number, difficulty = 1): ChallengeReward {
     const stats = this.computeStats();
     const productionSeconds =
-      CHALLENGE_BASE_PRODUCTION_SECONDS * Math.max(0, multiplier);
+      rangedValue(
+        economyBalance.production.challengeProductionSeconds,
+        this.random(),
+      ) *
+      Math.max(0, multiplier);
     const sweat = Math.max(
       1,
       Math.round(stats.sweatPerSecond * productionSeconds),
@@ -816,6 +881,7 @@ export class GameStore {
     );
     this.state.sweat += sweat;
     this.state.cash += cash;
+    this.awardRiderXp(cleanChallengeXp(difficulty, this.state.stage));
     this.notice(
       `Clean challenge — +${formatCompactNumber(sweat)} Sweat · +$${formatCompactNumber(cash)}`,
       "good",
@@ -901,7 +967,7 @@ export class GameStore {
     this.resetTransientRideState();
     this.save();
     this.notice(
-      `Victory lap ${this.state.tourNumber} starts — Palmarès is still climbing`,
+      `Tour ${this.state.tourNumber} starts — Rider Level progress carries on`,
       "good",
     );
     this.emit();
@@ -923,6 +989,7 @@ export class GameStore {
     const nextTotalPalmares = this.state.totalPalmares + reward;
     const toursCompleted = this.state.toursCompleted;
     const lifetimeDistanceKm = this.state.lifetimeDistanceKm;
+    const riderXp = this.state.riderXp;
     const automationEnabled =
       this.state.automationEnabled &&
       (palmaresUpgrades["race-radio"] ?? 0) > 0;
@@ -932,6 +999,7 @@ export class GameStore {
       ...initialState(this.now()),
       sweat: startingResources,
       cash: startingResources,
+      riderXp,
       season: nextSeason,
       palmares: nextPalmares,
       totalPalmares: nextTotalPalmares,
@@ -958,7 +1026,7 @@ export class GameStore {
     this.notice(
       replaced
         ? `${powerUpDefinitions[type].label} replaced ${powerUpDefinitions[replaced].label}`
-        : `${powerUpDefinitions[type].label} added to reserve`,
+        : `${powerUpDefinitions[type].label} ready in the power-up slot`,
       "good",
     );
     this.emit();
@@ -984,6 +1052,9 @@ export class GameStore {
     this.state.reservedPowerUp = null;
     this.activePowerUp = type;
     this.activePowerUpRemaining = definition.durationSeconds;
+    this.awardRiderXp(
+      POWER_UP_USE_XP * riderXpMultiplierForStage(this.state.stage),
+    );
     this.save();
     this.notice(`${definition.label} activated!`, "good");
     this.emit();
@@ -1008,7 +1079,7 @@ export class GameStore {
     );
     this.notice(
       crossedMilestone
-        ? `${upgrade.name}: ${crossedMilestone.label} ${crossedMilestone.multiplier}×!`
+        ? `${upgrade.name}: ${crossedMilestone.label} installed!`
         : `${upgrade.name} +${status.levels} · Step ${nextLevel}/${upgrade.maxLevel}`,
       "good",
     );
@@ -1032,28 +1103,30 @@ export class GameStore {
     if (level >= upgrade.maxLevel) {
       return { ...status, available: false, reason: "Max level" };
     }
-    const branchUnlockStage = branchUnlockStages[upgrade.branch];
+    const branchUnlockLevel = branchUnlockLevels[upgrade.branch];
     if (!this.isBranchUnlocked(upgrade.branch)) {
       return {
         ...status,
         available: false,
-        reason: `Branch unlocks in Sector ${branchUnlockStage}`,
+        reason: `Branch unlocks at Rider Level ${branchUnlockLevel}`,
       };
     }
-    const requiredStage = upgrade.requiredStage;
-    if (requiredStage && this.state.highestStage < requiredStage) {
+    const missingDependency = [upgrade.parent, ...upgrade.dependencies]
+      .filter(
+        (dependency): dependency is NonNullable<typeof dependency> =>
+          Boolean(dependency),
+      )
+      .find(
+        (dependency) =>
+          (this.state.upgrades[dependency.id] ?? 0) <
+          dependency.requiredTier,
+      );
+    if (missingDependency) {
+      const parent = upgradeById(missingDependency.id);
       return {
         ...status,
         available: false,
-        reason: `Unlocks in Sector ${requiredStage}`,
-      };
-    }
-    if (upgrade.requires && (this.state.upgrades[upgrade.requires] ?? 0) === 0) {
-      const parent = upgradeById(upgrade.requires);
-      return {
-        ...status,
-        available: false,
-        reason: `Requires ${parent?.name ?? upgrade.requires}`,
+        reason: `Requires ${parent?.name ?? missingDependency.id} tier ${missingDependency.requiredTier}`,
       };
     }
     const affordableLevels = affordableUpgradeLevels(
@@ -1144,7 +1217,10 @@ export class GameStore {
   }
 
   isBranchUnlocked(branch: Branch): boolean {
-    return this.state.highestStage >= branchUnlockStages[branch];
+    return (
+      riderProgressForXp(this.state.riderXp).level >=
+      branchUnlockLevels[branch]
+    );
   }
 
   setTemporaryDraftBonus(bonus: number): void {
@@ -1298,14 +1374,17 @@ export class GameStore {
       this.state.raceFinished = true;
       this.state.toursCompleted += 1;
       this.state.toursThisSeason += 1;
+      const firstTourXp =
+        this.state.toursCompleted === 1 ? TOUR_COMPLETION_XP : 0;
+      this.awardRiderXp(firstTourXp);
       this.temporaryDraftBonus = 0;
       this.activePowerUp = null;
       this.activePowerUpRemaining = 0;
+      const progress = riderProgressForXp(this.state.riderXp);
       this.notice(
-        `${timingLabel} · Tour ${this.state.tourNumber} complete · +${pendingPalmaresForDistance(
-          this.state.seasonDistanceKm,
-          TOTAL_TOUR_DISTANCE_KM,
-        )} Palmarès waiting`,
+        `${timingLabel} · Tour ${this.state.tourNumber} complete${
+          firstTourXp > 0 ? ` · +${firstTourXp} Rider XP` : ""
+        } · Level ${progress.level}`,
         "good",
       );
     }
@@ -1359,61 +1438,43 @@ export class GameStore {
     return this.state.upgrades[id] ?? 0;
   }
 
-  private progressionLevel(id: string): number {
-    const upgrade = upgradeById(id);
-    return upgrade
-      ? upgradeProgressionLevel(upgrade, this.level(id))
-      : this.level(id);
-  }
-
   private computeStats(currentGradient = this.currentGradient()): ComputedStats {
     const stage = this.currentStage();
-    const effectTotal = (
-      effect:
-        | "roadSpeedPerLogLevel"
-        | "handlingPerLogLevel"
-        | "flowRetentionPerLogLevel"
-        | "windMitigationPerLogLevel"
-        | "gravelMitigationPerLogLevel"
-        | "potholeProtectionPerLogLevel",
+    const gainTotal = (
+      stat:
+        | "handling"
+        | "flowRetention"
+        | "windMitigation"
+        | "gravelMitigation"
+        | "potholeProtection"
+        | "climbing"
+        | "descending"
+        | "draft",
     ): number =>
-      upgrades.reduce((total, upgrade) => {
-        const perLogLevel = upgrade.effects[effect] ?? 0;
-        return (
-          total +
-          logarithmicUpgradeLevel(
-            upgradeProgressionLevel(upgrade, this.level(upgrade.id)),
-          ) *
-            perLogLevel
-        );
-      }, 0);
+      upgrades.reduce(
+        (total, upgrade) =>
+          total + upgradeGainTotal(upgrade, this.level(upgrade.id), stat),
+        0,
+      );
     const multiplicativeEffect = (
-      effect: "pacePerLevel" | "sweatPerLevel" | "cashPerLevel",
+      stat: "output" | "sweat" | "cash",
     ): number =>
       upgrades.reduce(
         (multiplier, upgrade) =>
           multiplier *
-          upgradeEffectMultiplier(
-            upgrade,
-            this.level(upgrade.id),
-            effect,
-          ),
+          upgradePercentMultiplier(upgrade, this.level(upgrade.id), stat),
         1,
       );
 
-    const bodyComposition = logarithmicUpgradeLevel(
-      this.progressionLevel("body-composition"),
-    );
-    const technique =
-      logarithmicUpgradeLevel(this.progressionLevel("technique")) +
-      logarithmicUpgradeLevel(this.progressionLevel("brakes"));
+    const climbingMitigation = Math.min(0.25, gainTotal("climbing") / 100);
+    const descentSpeedBonus = gainTotal("descending") / 100;
     const windMitigation = Math.min(
       0.68,
-      effectTotal("windMitigationPerLogLevel"),
+      gainTotal("windMitigation") / 100,
     );
     const gravelMitigation = Math.min(
       0.94,
-      effectTotal("gravelMitigationPerLogLevel"),
+      gainTotal("gravelMitigation") / 100,
     );
     const activeDefinition = this.activePowerUp
       ? powerUpDefinitions[this.activePowerUp]
@@ -1437,17 +1498,14 @@ export class GameStore {
       (1 - windMitigation) *
       (1 - draftWindMitigation);
 
-    const flatSpeed =
-      BASE_FLAT_SPEED_KMH + effectTotal("roadSpeedPerLogLevel");
+    const flatSpeed = permanentFlatSpeedKmh(this.state.upgrades);
     const terrainMultiplier = terrainSpeedMultiplier(
       currentGradient,
-      bodyComposition,
-      technique,
+      climbingMitigation,
+      descentSpeedBonus,
     );
     const windMultiplier = 1 - effectiveWindPenalty;
-    const domestiqueBonus = domestiqueDraftBonus(
-      this.level("domestique"),
-    );
+    const domestiqueBonus = gainTotal("draft") / 100;
     const draftMultiplier =
       1 + domestiqueBonus + temporaryDraftBonus;
     const powerUpSpeedMultiplier = activePowerUpApplies
@@ -1467,17 +1525,21 @@ export class GameStore {
       windMultiplier *
       surfaceMultiplier *
       rideSpeedMultiplier;
-    const careerPaceMultiplier = multiplicativeEffect("pacePerLevel");
+    const upgradeOutputMultiplier = multiplicativeEffect("output");
     const palmaresMultiplier =
-      palmaresPaceMultiplier(this.state.palmaresUpgrades) *
+      palmaresProductionMultiplier(this.state.palmaresUpgrades) *
       (1 + this.state.totalPalmares * 0.1);
+    const riderLevelMultiplier = this.riderProgressionEnabled
+      ? riderProgressForXp(this.state.riderXp).productionMultiplier
+      : 1;
     const flowMultiplier = this.activeFlowMultiplier;
-    const paceMultiplier =
-      careerPaceMultiplier * palmaresMultiplier * flowMultiplier;
-    const effectivePaceKmh = speedKmh * paceMultiplier;
+    const effectivePaceKmh = speedKmh;
+    const stageMultiplier = stageProductionMultiplier(stage.number);
     const baseSweatPerSecond =
-      (BASE_SWEAT_PER_SECOND + speedKmh / 60) * stage.sweatYield;
-    const upgradeSweatMultiplier = multiplicativeEffect("sweatPerLevel");
+      (BASE_SWEAT_PER_SECOND + speedKmh / 60) *
+      stage.sweatYield *
+      stageMultiplier;
+    const upgradeSweatMultiplier = multiplicativeEffect("sweat");
     const draftProductionMultiplier =
       temporaryDraftBonus > 0
         ? 1 + temporaryDraftBonus * 2
@@ -1491,42 +1553,46 @@ export class GameStore {
     );
     const sweatPerSecond =
       baseSweatPerSecond *
+      upgradeOutputMultiplier *
       upgradeSweatMultiplier *
       palmaresMultiplier *
+      riderLevelMultiplier *
       flowMultiplier *
       productionMultiplier;
     const sweatMultiplier = sweatPerSecond / baseSweatPerSecond;
-    const cashMultiplier = multiplicativeEffect("cashPerLevel");
+    const cashMultiplier = multiplicativeEffect("cash");
 
     return {
       speedKmh,
       effectivePaceKmh,
-      paceMultiplier,
-      careerPaceMultiplier,
+      upgradeOutputMultiplier,
       palmaresMultiplier,
+      riderLevelMultiplier,
       flowMultiplier,
       sweatPerSecond,
       sweatMultiplier,
       cashPerSecond:
         (BASE_CASH_PER_SECOND +
-          ((speedKmh * careerPaceMultiplier * palmaresMultiplier) /
-            3_600) *
-            stage.cashPerKm) *
+          (speedKmh / 3_600) * stage.cashPerKm) *
+        stageMultiplier *
+        upgradeOutputMultiplier *
         cashMultiplier *
+        palmaresMultiplier *
+        riderLevelMultiplier *
         flowMultiplier *
         productionMultiplier,
       cashMultiplier,
-      handling: 1 + effectTotal("handlingPerLogLevel"),
+      handling: 1 + gainTotal("handling") / 100,
       potholeProtection: Math.min(
         0.9,
-        effectTotal("potholeProtectionPerLogLevel"),
+        gainTotal("potholeProtection") / 100,
       ),
       draftMultiplier,
       windMitigation,
       effectiveWindPenalty,
       flowDecayPerSecond: Math.max(
         0.65,
-        5 - effectTotal("flowRetentionPerLogLevel"),
+        5 - gainTotal("flowRetention"),
       ),
       gravelMitigation,
       surfaceMultiplier,
@@ -1558,6 +1624,26 @@ export class GameStore {
     this.notice(`${label} ended`, "neutral");
   }
 
+  private awardRiderXp(amount: number): void {
+    if (
+      !this.riderProgressionEnabled ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      return;
+    }
+
+    const previous = riderProgressForXp(this.state.riderXp);
+    this.state.riderXp += amount;
+    const next = riderProgressForXp(this.state.riderXp);
+    if (next.level > previous.level) {
+      this.notice(
+        `Rider Level ${next.level} — production ${formatMultiplier(next.productionMultiplier)}`,
+        "good",
+      );
+    }
+  }
+
   private applyOfflineProgress(): void {
     if (this.state.raceFinished) return;
 
@@ -1572,7 +1658,9 @@ export class GameStore {
       this.state.palmaresUpgrades,
     );
     const distance =
-      ((stats.effectivePaceKmh / 3.6) * elapsedSeconds * efficiency) /
+      ((tourProgressPaceKmh(stats.effectivePaceKmh) / 3.6) *
+        elapsedSeconds *
+        efficiency) /
       TOUR_DURATION_MULTIPLIER;
     this.advanceRideDistance(distance, elapsedSeconds);
     this.state.sweat += Math.floor(
@@ -1580,6 +1668,12 @@ export class GameStore {
     );
     this.state.cash += Math.floor(
       stats.cashPerSecond * elapsedSeconds * efficiency,
+    );
+    this.awardRiderXp(
+      RIDING_XP_PER_SECOND *
+        elapsedSeconds *
+        efficiency *
+        riderXpMultiplierForStage(this.state.stage),
     );
     this.notice(
       `Offline ride: ${Math.round(elapsedSeconds / 60)} min at ${Math.round(
@@ -1605,7 +1699,8 @@ export class GameStore {
       if (
         saveVersion !== 1 &&
         saveVersion !== 2 &&
-        saveVersion !== 3
+        saveVersion !== 3 &&
+        saveVersion !== 4
       ) {
         return initialState(this.now());
       }
@@ -1757,7 +1852,7 @@ export class GameStore {
       return {
         ...initialState(this.now()),
         ...currentState,
-        version: 3,
+        version: 4,
         stage,
         highestStage,
         season,
@@ -1766,6 +1861,12 @@ export class GameStore {
         toursThisSeason,
         palmares,
         totalPalmares,
+        riderXp: Math.max(
+          0,
+          saveVersion < 4
+            ? totalPalmares * 100 + Math.min(4, toursCompleted) * 250
+            : finiteNumber(currentState.riderXp),
+        ),
         palmaresUpgrades,
         automationEnabled:
           Boolean(currentState.automationEnabled) &&
@@ -1824,4 +1925,11 @@ export class GameStore {
   }
 }
 
-export const gameStore = new GameStore();
+const usesFreshVisualQaCareer =
+  import.meta.env.DEV &&
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("qaFresh") === "1";
+
+export const gameStore = new GameStore({
+  storage: usesFreshVisualQaCareer ? null : undefined,
+});

@@ -81,7 +81,8 @@ describe("GameScene", () => {
       "fan-1-a",
       "fan-1-a",
     ]);
-    expect(image.mock.calls.map((call) => call[0])).toEqual([700, 738, 776]);
+    expect(image.mock.calls.map((call) => call[0])).toEqual([700, 746, 792]);
+    expect(spawnedFans[0].setDisplaySize).toHaveBeenCalledWith(40, 53);
   });
 
   it("keeps ambient fans alive until the road scrolls them off-screen", () => {
@@ -129,14 +130,14 @@ describe("GameScene", () => {
 
     (scene.preload as () => void)();
 
-    expect(image).toHaveBeenCalledTimes(31);
+    expect(image).toHaveBeenCalledTimes(39);
     expect(image).toHaveBeenCalledWith(
       "rider-a",
       "/assets/art/rider-a.png",
     );
     expect(image).toHaveBeenCalledWith(
-      "fan-4-b",
-      "/assets/art/fan-4-b.png",
+      "fan-8-b",
+      "/assets/art/fan-8-b.png",
     );
     expect(image).toHaveBeenCalledWith(
       "stage-5",
@@ -159,12 +160,12 @@ describe("GameScene", () => {
       "/assets/art/road-texture-gravel.jpg",
     );
     expect(image).toHaveBeenCalledWith(
-      "oncoming-car-red",
-      "/assets/art/oncoming-car-red.png",
+      "oncoming-car-red-profile",
+      "/assets/art/oncoming-car-red-profile.png",
     );
     expect(image).toHaveBeenCalledWith(
-      "oncoming-van-cream",
-      "/assets/art/oncoming-van-cream.png",
+      "oncoming-van-cream-profile",
+      "/assets/art/oncoming-van-cream-profile.png",
     );
     expect(image).toHaveBeenCalledWith(
       "power-acceleration",
@@ -200,15 +201,19 @@ describe("GameScene", () => {
       variant: "car" | "van",
     ) => void)(1, 700, 12, "car");
 
-    expect(image).toHaveBeenCalledWith(700, 227, "oncoming-car-red");
+    expect(image).toHaveBeenCalledWith(
+      700,
+      222,
+      "oncoming-car-red-profile",
+    );
     expect(vehicle.eventType).toBe("oncoming-car");
     expect(vehicle.sequenceId).toBe(12);
     expect(vehicle.roadLane).toBe(1);
-    expect(vehicle.roadYOffset).toBe(-23);
+    expect(vehicle.roadYOffset).toBe(-28);
     expect(vehicle.roadSpeedMultiplier).toBeCloseTo(1.42);
-    expect(vehicle.setDisplaySize).toHaveBeenCalledWith(104, 78);
-    expect(body.setSize).toHaveBeenCalledWith(390, 140, false);
-    expect(body.setOffset).toHaveBeenCalledWith(60, 160);
+    expect(vehicle.setDisplaySize).toHaveBeenCalledWith(112, 56);
+    expect(body.setSize).toHaveBeenCalledWith(430, 120, false);
+    expect(body.setOffset).toHaveBeenCalledWith(41, 115);
     expect(addToHazards).toHaveBeenCalledWith(vehicle);
   });
 
@@ -355,7 +360,7 @@ describe("GameScene", () => {
     expect(hazards.clear).toHaveBeenCalledWith(true, true);
     expect(ambientFan.destroy).toHaveBeenCalledOnce();
     expect(scene.fans).toEqual([]);
-    expect(scene.fanSpawnDistance).toBe(70);
+    expect(scene.fanSpawnDistance).toBe(25);
     expect(draftCyclist.destroy).toHaveBeenCalledOnce();
     expect(draftTimerText.destroy).toHaveBeenCalledOnce();
     expect(domestique.destroy).toHaveBeenCalledOnce();

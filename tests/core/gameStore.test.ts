@@ -11,13 +11,16 @@ import {
   gradientAtProgress,
   gradientSpeedMultiplier,
   KONAMI_RESOURCE_BALANCE,
+  permanentFlatSpeedKmh,
   powerUpDefinitions,
   stages,
   terrainSpeedMultiplier,
   TOTAL_TOUR_DISTANCE_KM,
   TOUR_DURATION_MULTIPLIER,
+  tourProgressPaceKmh,
   type SaveState,
 } from "../../src/core/gameStore";
+import { upgrades as upgradeDefinitions } from "../../src/core/upgrades";
 
 describe("riding economy", () => {
   it("restores both QA balances to at least five billion", () => {
@@ -53,10 +56,10 @@ describe("riding economy", () => {
     const cashReward = store.collectBag("cash");
     const state = store.getSnapshot();
 
-    expect(sweatReward).toBe(56);
-    expect(cashReward).toBe(80);
-    expect(state.sweat).toBe(56);
-    expect(state.cash).toBe(80);
+    expect(sweatReward).toBe(9);
+    expect(cashReward).toBe(12);
+    expect(state.sweat).toBe(9);
+    expect(state.cash).toBe(12);
   });
 
   it("applies the active Flow multiplier to roadside bags", () => {
@@ -64,8 +67,8 @@ describe("riding economy", () => {
 
     const reward = store.collectBag("cash", 1.6);
 
-    expect(reward).toBe(129);
-    expect(store.getSnapshot().cash).toBe(129);
+    expect(reward).toBe(20);
+    expect(store.getSnapshot().cash).toBe(20);
   });
 
   it("makes passive Cash spendable immediately", () => {
@@ -105,8 +108,8 @@ describe("riding economy", () => {
     const pothole = createTestStore({ cash: 1_000 }, () => 0).store;
     const traffic = createTestStore({ cash: 1_000 }, () => 0).store;
 
-    expect(traffic.hitTraffic()).toBe(38);
-    expect(traffic.getSnapshot().cash).toBe(962);
+    expect(traffic.hitTraffic()).toBe(39);
+    expect(traffic.getSnapshot().cash).toBe(961);
     expect(traffic.hitTraffic()).toBeGreaterThan(pothole.hitPothole());
   });
 
@@ -117,18 +120,18 @@ describe("riding economy", () => {
     const traffic = store.completeChallenge(8);
 
     expect(easy).toEqual({
-      sweat: 67,
-      cash: 64,
-      productionSeconds: 24,
+      sweat: 4,
+      cash: 4,
+      productionSeconds: 1.5,
     });
     expect(traffic).toEqual({
-      sweat: 538,
-      cash: 515,
-      productionSeconds: 192,
+      sweat: 35,
+      cash: 33,
+      productionSeconds: 12,
     });
     expect(store.getSnapshot()).toMatchObject({
-      sweat: 605,
-      cash: 579,
+      sweat: 39,
+      cash: 37,
     });
   });
 
@@ -176,7 +179,7 @@ describe("stage and offline progression", () => {
     const { store, advance } = createTestStore({
       stageDistanceM: 799,
     });
-    advance(1);
+    advance(2);
 
     expect(store.getSnapshot().stage).toBe(2);
   });
@@ -188,7 +191,7 @@ describe("stage and offline progression", () => {
     store.tick(0.25);
     const after = store.getSnapshot();
 
-    expect(TOUR_DURATION_MULTIPLIER).toBe(1.5);
+    expect(TOUR_DURATION_MULTIPLIER).toBe(4.5);
     expect(after.stageDistanceM).toBeCloseTo(
       ((before.stats.effectivePaceKmh / 3.6) * 0.25) /
         TOUR_DURATION_MULTIPLIER,
@@ -205,7 +208,7 @@ describe("stage and offline progression", () => {
   it("reaches the climbing sector after the Paris to Bordeaux opener", () => {
     const { store, advance } = createTestStore();
 
-    advance(275);
+    advance(600);
 
     const state = store.getSnapshot();
     expect(state.stage).toBe(2);
@@ -222,7 +225,7 @@ describe("stage and offline progression", () => {
       cash: 50,
     });
 
-    advance(1);
+    advance(2);
 
     const state = store.getSnapshot();
     expect(state.stage).toBe(2);
@@ -234,6 +237,7 @@ describe("stage and offline progression", () => {
       stage: 5,
       highestStage: 5,
       tourNumber: 3,
+      riderXp: 1_100,
       sweat: 12_345,
       cash: 678,
       distanceM: 5_000,
@@ -322,7 +326,7 @@ describe("stage and offline progression", () => {
     const { store } = createTestStore(legacy);
 
     const state = store.getSnapshot();
-    expect(state.version).toBe(3);
+    expect(state.version).toBe(4);
     expect(state.cash).toBe(14);
     expect(state.upgrades.frame).toBe(2);
     expect(state.upgrades.tires).toBe(2);
@@ -343,13 +347,28 @@ describe("stage and offline progression", () => {
     const { store } = createTestStore(legacy);
 
     expect(store.getSnapshot()).toMatchObject({
-      version: 3,
+      version: 4,
       upgrades: {
         hydration: 1,
         power: 3,
         wheels: 2,
         helmet: 2,
       },
+    });
+  });
+
+  it("migrates completed Tours and Palmarès into Rider XP", () => {
+    const legacy = {
+      version: 3,
+      toursCompleted: 3,
+      totalPalmares: 10,
+      palmares: 4,
+    } as unknown as Partial<SaveState>;
+    const { store } = createTestStore(legacy);
+
+    expect(store.getSnapshot().riderProgress).toMatchObject({
+      level: 8,
+      xp: 1_750,
     });
   });
 
@@ -397,6 +416,7 @@ describe("stage and offline progression", () => {
       lifetimeDistanceKm: TOTAL_TOUR_DISTANCE_KM,
       toursCompleted: 1,
       toursThisSeason: 1,
+      riderXp: 1_800,
       sweat: 5_000,
       cash: 4_000,
       upgrades: { power: 10, "aero-socks": 10 },
@@ -417,6 +437,10 @@ describe("stage and offline progression", () => {
     expect(state.stage).toBe(1);
     expect(state.palmares).toBe(10);
     expect(state.totalPalmares).toBe(10);
+    expect(state.riderProgress).toMatchObject({
+      level: 8,
+      xp: 1_800,
+    });
     expect(state.toursCompleted).toBe(1);
     expect(state.toursThisSeason).toBe(0);
     expect(state.seasonDistanceKm).toBe(0);
@@ -508,6 +532,7 @@ describe("stage and offline progression", () => {
         },
       },
       reservedPowerUp: "jump",
+      riderXp: 3_500,
       upgrades: { "road-bike": 1, tires: 2, endurance: 3 },
     });
 
@@ -520,6 +545,7 @@ describe("stage and offline progression", () => {
     expect(state.stageDefinition.start).toBe("Paris");
     expect(state.sweat).toBe(0);
     expect(state.cash).toBe(0);
+    expect(state.riderProgress).toMatchObject({ level: 1, xp: 0 });
     expect(state.distanceM).toBe(0);
     expect(state.stageDistanceM).toBe(0);
     expect(state.highestStage).toBe(1);
@@ -542,7 +568,7 @@ describe("stage and offline progression", () => {
 
     const slower = createTestStore({
       stageDistanceM: 400,
-      sectorElapsedSeconds: 110,
+      sectorElapsedSeconds: 300,
     }).store.getSnapshot();
     expect(slower.leaderboard.status).toBe("behind");
     expect(slower.leaderboard.deltaSeconds).toBeGreaterThan(0);
@@ -574,17 +600,17 @@ describe("stage and offline progression", () => {
     expect(state.leaderboard.status).toBe("ahead");
   });
 
-  it("starts a non-skilled rider at 18 km/h on flat roads without wind", () => {
+  it("starts at 25 km/h and gives large, explicit early gains", () => {
     const starter = createTestStore().store.getSnapshot();
     const improved = createTestStore({
       upgrades: { power: 1, endurance: 1, fueling: 1 },
     }).store.getSnapshot();
 
-    expect(starter.stats.speedKmh).toBe(18);
-    expect(improved.stats.speedKmh).toBeGreaterThanOrEqual(20.5);
+    expect(starter.stats.speedKmh).toBe(25);
+    expect(improved.stats.speedKmh).toBeCloseTo(31.5);
   });
 
-  it("lets milestone multipliers explode Tour pace without exploding road speed", () => {
+  it("keeps economic multipliers out of the physical km/h value", () => {
     const base = createTestStore().store.getSnapshot();
     const upgraded = createTestStore({
       upgrades: {
@@ -595,12 +621,22 @@ describe("stage and offline progression", () => {
       },
     }).store.getSnapshot();
 
-    expect(upgraded.stats.speedKmh).toBeLessThan(base.stats.speedKmh * 2);
-    expect(upgraded.stats.effectivePaceKmh).toBeGreaterThan(100_000);
-    expect(upgraded.stats.paceMultiplier).toBeGreaterThan(5_000);
+    expect(upgraded.stats.speedKmh).toBeGreaterThan(base.stats.speedKmh);
+    expect(upgraded.stats.effectivePaceKmh).toBe(
+      upgraded.stats.speedKmh,
+    );
+    expect(upgraded.stats.speedKmh).toBeLessThan(55);
+    expect(upgraded.stats.upgradeOutputMultiplier).toBeGreaterThan(1);
   });
 
-  it("uses Flow as an active multiplier on pace and both incomes", () => {
+  it("uses physical pace directly for route progress", () => {
+    expect(tourProgressPaceKmh(18)).toBe(18);
+    expect(tourProgressPaceKmh(72)).toBe(72);
+    expect(tourProgressPaceKmh(1_000)).toBe(1_000);
+    expect(tourProgressPaceKmh(Number.NaN)).toBe(0);
+  });
+
+  it("uses Flow on both incomes without fabricating bicycle speed", () => {
     const { store } = createTestStore();
     const base = store.getSnapshot();
 
@@ -608,9 +644,7 @@ describe("stage and offline progression", () => {
     const flowing = store.getSnapshot();
 
     expect(flowing.stats.speedKmh).toBe(base.stats.speedKmh);
-    expect(flowing.stats.effectivePaceKmh).toBeCloseTo(
-      base.stats.effectivePaceKmh * 3,
-    );
+    expect(flowing.stats.effectivePaceKmh).toBe(base.stats.effectivePaceKmh);
     expect(flowing.stats.sweatPerSecond).toBeCloseTo(
       base.stats.sweatPerSecond * 3,
     );
@@ -624,9 +658,9 @@ describe("stage and offline progression", () => {
     const prepared = createTestStore({
       stage: 2,
       upgrades: {
-        "gravel-tires": 25,
-        suspension: 25,
-        "chain-lube": 10,
+        "gravel-tires": 3,
+        suspension: 3,
+        "chain-lube": 4,
       },
     }).store.getSnapshot();
 
@@ -635,6 +669,20 @@ describe("stage and offline progression", () => {
     expect(prepared.stats.gravelMitigation).toBeGreaterThan(0.5);
     expect(prepared.stats.surfaceMultiplier).toBeGreaterThan(0.82);
     expect(prepared.stats.speedKmh).toBeGreaterThan(unprepared.stats.speedKmh);
+  });
+
+  it("authors exactly 55 km/h of gains from 25 to 80", () => {
+    const maxedLevels = Object.fromEntries(
+      upgradeDefinitions.map((definition) => [
+        definition.id,
+        definition.maxLevel,
+      ]),
+    );
+
+    expect(permanentFlatSpeedKmh({})).toBe(25);
+    expect(permanentFlatSpeedKmh({ power: 1 })).toBe(29);
+    expect(permanentFlatSpeedKmh({ power: 1, endurance: 1 })).toBe(31.5);
+    expect(permanentFlatSpeedKmh(maxedLevels)).toBe(80);
   });
 
   it("makes steep gradients increasingly punishing", () => {
@@ -776,15 +824,15 @@ describe("stage and offline progression", () => {
   it("reduces headwind with aero socks, an aero helmet, and carbon wheels", () => {
     const upgrades = {
       "road-bike": 1,
-      "aero-socks": 25,
-      helmet: 25,
-      wheels: 25,
+      "aero-socks": 2,
+      helmet: 3,
+      wheels: 4,
     };
     const flat = createTestStore({ stage: 1, upgrades }).store.getSnapshot();
     const windy = createTestStore({ stage: 4, upgrades }).store.getSnapshot();
 
-    expect(windy.stats.windMitigation).toBeGreaterThan(0.35);
-    expect(windy.stats.effectiveWindPenalty).toBeLessThan(0.19);
+    expect(windy.stats.windMitigation).toBeCloseTo(0.08);
+    expect(windy.stats.effectiveWindPenalty).toBeCloseTo(0.2576);
     expect(windy.stats.speedKmh / flat.stats.speedKmh).toBeCloseTo(
       1 - windy.stats.effectiveWindPenalty,
     );
@@ -846,7 +894,7 @@ describe("stage and offline progression", () => {
     expect(
       draftingSnapshot.stageDistanceM / soloSnapshot.stageDistanceM,
     ).toBeGreaterThan(1.4);
-    expect(displayedGain).toBeGreaterThan(15);
+    expect(displayedGain).toBeGreaterThan(8);
   });
 
   it("applies domestique speed bonuses without multiplying Sweat", () => {

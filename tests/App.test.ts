@@ -60,6 +60,18 @@ describe("App", () => {
     expect(document.querySelector(".hud-distance-track")).not.toBeNull();
     expect(document.querySelector(".hud-tray")).not.toBeNull();
     expect(
+      Array.from(
+        document.querySelectorAll(".hud-tray > .hud-tray-slot"),
+        (slot) => slot.getAttribute("aria-label")?.split(":")[0],
+      ),
+    ).toEqual(["Rider Level 1, 0 of 150 XP", "Power-up empty", "Sweat balance", "Cash balance"]);
+    expect(
+      Array.from(
+        document.querySelectorAll(".hud-tray > .hud-tray-slot strong"),
+        (label) => label.textContent?.trim(),
+      ),
+    ).toEqual(["Level 1", "Power-up", "0", "0"]);
+    expect(
       document.querySelector(".hud-distance-copy strong"),
     ).not.toBeNull();
     expect(
@@ -88,7 +100,7 @@ describe("App", () => {
             key.textContent?.trim(),
           ),
       ),
-    ).toEqual([["R"], ["P"], ["↑", "↓"], ["W"]]);
+    ).toEqual([["↑", "↓"], ["W"], ["P"], ["R"]]);
     expect(document.body.textContent).not.toContain("Workshop U");
     expect(
       document.querySelector('[aria-label^="Sweat balance"] strong')?.textContent,
@@ -278,14 +290,11 @@ describe("App", () => {
     const pacePanel = document.querySelector<HTMLElement>(
       '[aria-label="Tour pace"]',
     );
-    expect(gameStore.getSnapshot().stats.speedKmh).toBe(18);
-    expect(gameStore.getSnapshot().stats.effectivePaceKmh).toBeCloseTo(32.4);
-    expect(pacePanel?.querySelector("strong")?.textContent).toContain("32");
-    expect(pacePanel?.querySelector("strong")?.textContent).not.toContain(
-      "18",
-    );
+    expect(gameStore.getSnapshot().stats.speedKmh).toBe(25);
+    expect(gameStore.getSnapshot().stats.effectivePaceKmh).toBe(25);
+    expect(pacePanel?.querySelector("strong")?.textContent).toContain("25");
     expect(flowBonus?.textContent).toContain("Flow ×1.8");
-    expect(flowBonus?.title).toContain("boost Tour pace and income");
+    expect(flowBonus?.title).toContain("boost income");
     expect(document.querySelectorAll(".flow-bonus")).toHaveLength(1);
     expect(document.querySelector(".effective-pace")?.textContent).toContain(
       "Tour pace",

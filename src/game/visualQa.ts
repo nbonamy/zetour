@@ -11,6 +11,7 @@ export interface VisualQaOverrides {
   gradient: number | null;
   paused: boolean;
   powerUp: PowerUpType | null;
+  speedKmh: number | null;
   stage: number | null;
 }
 
@@ -48,6 +49,7 @@ export const parseVisualQaOverrides = (
   const rawFlow = finiteNumber(parameters.get("qaFlow"));
   const rawGradient = finiteNumber(parameters.get("qaGradient"));
   const rawStage = finiteNumber(parameters.get("qaStage"));
+  const rawSpeedKmh = finiteNumber(parameters.get("qaSpeed"));
   const rawPaused = parameters.get("qaPaused");
   const rawPowerUp = parameters.get("qaPowerUp");
   return {
@@ -75,6 +77,10 @@ export const parseVisualQaOverrides = (
     paused: rawPaused === "1" || rawPaused === "true",
     powerUp:
       powerUpTypes.find((type) => type === rawPowerUp) ?? null,
+    speedKmh:
+      rawSpeedKmh === null
+        ? null
+        : Math.max(0, Math.min(200, rawSpeedKmh)),
     stage:
       rawStage === null
         ? null
@@ -94,6 +100,7 @@ export const readVisualQaOverrides = (): VisualQaOverrides => {
       gradient: null,
       paused: false,
       powerUp: null,
+      speedKmh: null,
       stage: null,
     };
   }

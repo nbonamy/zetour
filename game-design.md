@@ -9,8 +9,8 @@ until a bicycle becomes an economic and aerodynamic incident.
 
 The emotional rhythm is:
 
-**ride → collect → buy → break through → melt a sector → finish a Tour →
-choose greed or prestige → return absurdly stronger**
+**ride → earn XP → collect → buy → break through → melt a sector → finish a
+Tour → choose greed or prestige → return absurdly stronger**
 
 The game starts as cycling and ends as a friendly argument with arithmetic.
 
@@ -19,77 +19,65 @@ The game starts as cycling and ends as a friendly argument with arithmetic.
 - Forward travel is automatic.
 - Active steering helps but is never required for progression.
 - Sweat and Cash are the only resources spent during a Season.
+- Every rider starts at Level 1 and advances continuously through Rider XP.
 - Palmarès is a permanent prestige reward earned only from completed Tours.
-- Every repeatable family compounds with the others.
+- Upgrade families compound strongly without multiplying every milestone into
+  an uncontrolled tower.
 - Major upgrade milestones must feel larger than the steps between them.
 - A player never loses a finished Tour without seeing and choosing the
   associated Palmarès reward.
-- Physical road speed stays readable even when effective Tour pace exceeds
-  100,000 km/h.
+- Permanent neutral-flat speed progresses from exactly 25 to 80 km/h through
+  authored upgrade gains; production may explode, speed may not.
 - Road, verges, fans, riders, pickups, and hazards share one visual scroll
   clock.
 
 ## Core loop
 
-1. The rider advances and continuously produces Sweat and Cash.
+1. The rider advances, earns Rider XP, and continuously produces Sweat and
+   Cash.
 2. The player optionally changes lanes to collect bags, draft, build Flow, and
    avoid hazards.
 3. The Career Workshop pauses the ride and exposes affordable upgrades.
 4. Upgrade steps improve production, effective pace, physical capability, or
    terrain mitigation.
 5. Equipment follows real named product tiers; training uses at most ten steps.
-6. New sectors unlock new branches and mechanics.
+6. Rider Level unlocks workshop branches; sectors change terrain, encounters,
+   XP value, and reward scale.
 7. Alpe d'Huez completes a Tour and presents two choices:
    - keep the complete build for another Tour and a larger eventual reward;
    - bank the run as Palmarès and begin the next Season.
 8. Palmarès upgrades accelerate mastered content and automate solved decisions.
 
-## Three clocks, one readable road
+## Two curves, one readable road
 
-Ze Tour deliberately separates three values:
+Speed and production are deliberately independent.
 
-### Physical road speed
+### Physical Tour pace
 
-Road speed is the rider's believable movement through the rendered scene. It
-responds to:
+The rider starts at 25 km/h on a neutral flat road. Every permanent speed gain
+is written explicitly on a catalog tier, and all tiers together add exactly
+55 km/h. Buying the complete tree therefore produces 80 km/h by construction,
+not by clamping an otherwise broken formula.
 
-- logarithmic equipment and training improvements;
-- gradient;
-- wind;
-- gravel;
-- handling;
-- drafting and domestiques.
+Gradient, wind, gravel, drafting, domestiques, and temporary power-ups apply
+after that permanent 25–80 km/h curve. Rider Level, Flow, Palmarès, and
+production upgrades never masquerade as km/h.
 
-This number controls wheel cadence, parallax, road particles, fans, hazards,
-lane markers, and both verges. It does not grow exponentially.
+The same pace drives route progress and all road objects. The 640 px viewport
+represents roughly 44 m of road (`14.4 px/m`), so 25 km/h scrolls at 100 px/s
+and 80 km/h at 320 px/s. Road, both verges, fans, lane markers, pickups, and
+hazards remain locked to that shared clock; distant scenery uses restrained
+parallax.
 
-Physical road speed is intentionally internal. The HUD shows only effective
-Tour pace, avoiding two competing values with the same km/h unit.
+### Exponential production
 
-### Effective Tour pace
+Sweat and Cash have separate upgrade families. Rider Level, stage reward
+scale, permanent Palmarès, Flow, and active power-ups multiply production.
+This is where the incremental-game explosion lives.
 
-Effective pace advances the compressed route simulation:
-
-```text
-effective pace =
-    physical road speed
-    × all career pace families
-    × permanent Palmarès multiplier
-    × Flow
-```
-
-Independent families multiply. Their milestone multipliers are cumulative, so
-late builds can exceed 100,000 km/h without making the rendered rider teleport.
-
-### Production
-
-Sweat and Cash have separate multiplicative families. Permanent Palmarès and
-Flow also multiply production, keeping collection and spending synchronized
-with route acceleration.
-
-The unupgraded flat-road opening targets roughly 168 Sweat/minute and
-161 Cash/minute. The opening bonus line pushes the first active purchase into
-the first ten seconds; passive play remains viable.
+The unupgraded flat-road opening targets roughly 175 Sweat/minute and
+165 Cash/minute. Casual active play puts the first purchase inside a 15–30
+second window; passive play remains viable.
 
 ## In-Season economy
 
@@ -114,37 +102,37 @@ measured in seconds of current production:
 
 | Reward | Value |
 | --- | ---: |
-| Sweat bag | 20 seconds of current Sweat production |
-| Cash bag | 30 seconds of current Cash production |
-| Clean challenge base | 24 seconds of both production rates × difficulty |
+| Sweat bag | 3 seconds of current Sweat production |
+| Cash bag | 4.5 seconds of current Cash production |
+| Clean challenge base | 1.5 seconds of both rates × challenge multiplier |
 | Pothole loss | 4–8 seconds of current Cash production before protection |
 | Traffic collision | 14–22 seconds of current Cash production before partial protection |
 
-Lucky Bidon and permanent Sticky bidons attract bags; they do not reduce bag
-value.
+Base production scales by Sector at ×1, ×2, ×4, ×8, and ×16. Because bags and
+clean challenges are denominated in current production seconds, their value
+inherits this scaling automatically instead of applying a second hidden
+multiplier.
 
 ## Upgrade structure
 
-Every repeatable node defines:
-
-- one currency;
-- a base cost and exponential cost scale;
-- a short maximum path;
-- an optional prerequisite and sector gate;
-- one or more effects;
-- named milestones.
+Every node and tier is authored in `src/data/upgrade-catalog.json`. A node
+defines its branch, parent, children, optional additional dependencies, graph
+position, and named tiers. Every tier carries an explicit price object and a
+list of explicit gains with units. TypeScript interprets and validates this
+data; it does not contain helmet, wheel, or training-specific balance rules.
 
 The workshop buys either the next step or every currently affordable step.
-Equipment paths contain only the real choices that exist: two helmet tiers,
+Equipment paths contain only the real choices that exist: three helmet tiers,
 four wheel tiers, three brake tiers, and so on. Technique and nutrition use five
 steps; endurance and power use ten.
 
-Repeatable costs still use the underlying ×1.28 geometric curve, but each
-meaningful step advances a large distance along it. A ten-step training path
-therefore moves from pocket money to billions without asking for one hundred
-nearly identical clicks. The always-visible **Hyperbike moonshot** costs exactly
-$2B and multiplies pace, Sweat, and Cash by ×10 once the surrounding economy
-finally catches it.
+Product prices remain recognizable: helmets cost $100, $300, and $1,000, and
+the first two tiers intentionally add no performance. Abstract training paths
+start cheaply, then use explicitly authored ratios that accelerate up to the
+10× adjacent-tier limit. Final endurance and power steps cost hundreds of
+millions of Sweat, creating the late-game wall without pretending a normal
+helmet costs $68M. The always-visible **Hyperbike moonshot** costs exactly $2B,
+adds 2.5 km/h, and multiplies all output by ×10.
 
 This cost-versus-production seesaw follows the geometric model in
 [The Math of Idle Games](https://blog.kongregate.com/the-math-of-idle-games-part-i/):
@@ -153,30 +141,20 @@ catch and overtake them. The Tour and Palmarès loops apply the genre pattern of
 replaying mastered content at absurd speed before hitting a new wall, described
 in [A Brief Look at the Idle Games Genre](https://blog.kongregate.com/idle-games/).
 
-### Milestones
-
-Ten-step training paths use cumulative breakthroughs:
-
-| Step | New multiplier | Cumulative milestone multiplier |
-| ---: | ---: | ---: |
-| 1 | ×3 | ×3 |
-| 3 | ×5 | ×15 |
-| 5 | ×10 | ×150 |
-| 10 | ×25 | ×3,750 |
-
-Shorter paths attach breakthroughs directly to named real-world tiers. Wheels,
-for example, progress through basic alloy, light aluminium, carbon, and deep
-aero carbon; helmets progress from a performance road helmet to an aero shell.
+Named breakthroughs are presentation markers, not hidden multipliers. The
+actual effect always comes from the tier's `gains` array. Wheels progress
+through basic alloy, light aluminium, carbon, and deep aero carbon; helmets
+progress from basic to premium to aero, with only the aero tier affecting pace.
 
 ### Branches and unlocks
 
 | Branch | Opens | Resource | Main role |
 | --- | ---: | --- | --- |
-| Rider | Sector 1 | Sweat | Endurance, power, handling, climbing |
-| Nutrition | Sector 1 | Sweat | Hydration, fueling, Flow retention |
-| Equipment | Sector 2 | Cash | Aero kit, gravel tires, suspension |
-| Bike | Sector 3 | Cash | Road bike, frame, drivetrain, wheels, brakes, lubrication |
-| Team | Sector 4 | Cash | Domestiques, mechanic, sponsors, directeur sportif |
+| Rider | Level 1 | Sweat | Endurance, power, handling, climbing |
+| Nutrition | Level 1 | Sweat | Hydration, fueling, Flow retention |
+| Equipment | Level 2 | Cash | Aero kit, gravel tires, suspension |
+| Bike | Level 4 | Cash | Road bike, frame, drivetrain, wheels, brakes, lubrication |
+| Team | Level 6 | Cash | Domestiques, mechanic, sponsors, directeur sportif |
 
 Mechanical paths are first-class progression, not flavor text:
 
@@ -227,11 +205,12 @@ the entire sequence is collected without a collision:
 | Oncoming traffic | 5 | ×8 |
 | Full random-rider draft | 4 | ×6 |
 
-The multiplier applies to 24 seconds of both current production rates, so
-challenge rewards compound with the build. A miss forfeits the clean payout;
-a collision also resets Flow and charges the relevant road penalty. Passive
-production never stops, which keeps active skill rewarding without making it a
-progression gate.
+The clean multiplier applies to 1.5 seconds of both current production rates
+and the current Sector reward multiplier, so challenge rewards compound with
+the build. Difficulty separately determines Rider XP. A miss forfeits the
+clean payout; a collision also resets Flow and charges the relevant road
+penalty. Passive production never stops, which keeps active skill rewarding
+without making it a progression gate.
 
 Fans are ambient roadside scenery, independent of encounters and rewards. Most
 appear alone, occasional groups contain two or three people, and every fan
@@ -266,12 +245,45 @@ speed depending on visible formation size.
 
 ### Power-ups
 
-- **Super Draft:** temporary speed and headwind shelter.
-- **Lucky Bidon:** attracts all bags across the road.
-- **Jump:** clears potholes.
+- **Acceleration:** reliable ×2.5 speed and income for ten seconds.
+- **Super Draft:** stronger ×4 speed and income for eight seconds, but it only
+  activates while attached to another rider's wheel.
+- **Invincibility:** ignores pothole and traffic damage for eight seconds.
 
-One power-up can wait in reserve. A new pickup replaces the reserve; `Space`
-activates it.
+One power-up can wait in the Power-up slot. A new pickup replaces it; `Space`
+activates it. Successful activation awards Rider XP.
+
+## Rider Level
+
+Rider Level is the continuous progression clock that connects active play,
+passive play, and the exponential economy. It starts at Level 1 and never
+resets between Tours or Seasons.
+
+| Action | Rider XP |
+| --- | ---: |
+| Riding | 0.5 per real second |
+| Roadside pickup | 1 |
+| Clean challenge | 2 × difficulty |
+| Power-up activation | 8 |
+| First Tour completion | 250 once |
+
+Riding and action XP are worth ×1, ×1, ×5, ×6, and ×8 across the five stages.
+This makes a short, fast descent capable of advancing the rider as much as a
+long flat sector without coupling XP to resource production.
+
+The authored standard-run checkpoints are:
+
+| Completed stage | Rider Level |
+| ---: | ---: |
+| 1 | 3 |
+| 2 | 5 |
+| 3 | 8 |
+| 4 | 10 |
+
+Levels 1–10 grow production deliberately but moderately; Levels 11 and 12 are
+the post-Tour incremental breakthroughs at ×7.5 and ×20. XP is based on riding
+time and actions—not the size of a currency reward—so production cannot feed
+back into XP and create an accidental infinite loop.
 
 ## Route and terrain
 
@@ -366,7 +378,8 @@ Race radio. It automates solved spending; it does not remove the initial game.
 
 Local saves preserve:
 
-- current run balances, route, upgrades, reserve, and timing;
+- current run balances, route, upgrades, Power-up slot, and timing;
+- Rider XP and Level progress;
 - fastest sector records and splits;
 - Season and Tour numbers;
 - total Tours and lifetime distance;
@@ -382,23 +395,45 @@ confirmation dialog.
 
 ## Pacing and acceptance targets
 
-- First passive purchase: no later than 35 seconds.
-- First Level-10 breakthrough under a simple cheapest-upgrade strategy: within
-  12 minutes.
-- First Tour under that conservative strategy, with no bag pickups: within
-  25 minutes.
-- At least 20 purchases during that simulated first Tour.
-- The same run must finish above 40 km/h effective pace.
-- A maxed milestone build must exceed 100,000 km/h effective pace while physical
-  speed remains under twice the unupgraded flat-road speed.
+- First casual purchase: 15–30 seconds.
+- First standard Tour: 20–30 minutes.
+- A standard run exits Stages 1–4 at Rider Levels 3, 5, 8, and 10.
+- A skilled run reaches a 1M Sweat balance in 10–20 minutes.
+- A skilled run reaches a 100M Cash balance in 15–35 minutes.
+- No strategy completes the ordinary upgrade tree before 45 minutes.
+- A skilled run buys the $2B Hyperbike in 60–90 minutes.
+- Passive play advances Rider Level and resources but should not outperform
+  active pickups and clean challenges.
+- A 120-minute skilled run must remain below 1 quadrillion total Sweat; rapid
+  growth is intentional, numeric runaway is not.
+- Permanent neutral-flat pace is exactly 25–80 km/h. Terrain, wind, drafting,
+  and temporary power-ups apply afterward; no corrective speed cap is used.
 - The ride, workshop, Palmarès panel, and finish decision must fit without
   horizontal overflow at desktop, compact landscape, and narrow portrait sizes.
 - The finish actions must remain visible while the leaderboard scrolls.
 
+## Deterministic economy calibration
+
+`npm run calibrate:economy`
+runs the real
+GameStore, encounters, rewards, collisions, Flow, purchases, stages, and Tour
+loop. It reports and checks first-purchase timing, Tour length, Rider Level stage
+checkpoints, balance thresholds, income sources, reward scaling, tree runway,
+the 25–80 km/h invariant, and the Hyperbike arrival. The same seeds can run with
+`--progression=none` to isolate Rider Level's impact; `--strategies` keeps
+focused calibration runs fast.
+
+The simulator is a reusable calibration harness: adding a skill means changing
+the real rules, rerunning representative strategies over several seeds, and
+then locking the intended timing window in tests. This follows the
+objective-driven iterative balancing approach described by
+[GEEvo](https://arxiv.org/abs/2404.18574), rather than tuning from a single
+anecdotal playthrough.
+
 ## Future tuning
 
-The next tuning pass should use real play-session telemetry rather than more
-systems. Measure:
+The next tuning pass should combine simulator regressions with real
+play-session telemetry. Measure:
 
 - seconds between meaningful purchases by sector;
 - which milestone first creates a visible acceleration spike;

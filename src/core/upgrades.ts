@@ -1,6 +1,48 @@
+import rawCatalog from "../data/upgrade-catalog.json";
+import { economyBalance } from "./economyBalance";
+
 export type Currency = "sweat" | "cash";
 export type Branch = "bike" | "rider" | "nutrition" | "equipment" | "team";
 export type PurchaseQuantity = 1 | "max";
+
+export type UpgradeGainStat =
+  | "flatSpeed"
+  | "output"
+  | "sweat"
+  | "cash"
+  | "handling"
+  | "flowRetention"
+  | "windMitigation"
+  | "gravelMitigation"
+  | "potholeProtection"
+  | "climbing"
+  | "descending"
+  | "draft";
+
+export type UpgradeGainUnit = "km/h" | "percent" | "seconds";
+
+export interface UpgradeGain {
+  stat: UpgradeGainStat;
+  amount: number;
+  unit: UpgradeGainUnit;
+}
+
+export interface UpgradePrice {
+  amount: number;
+  unit: Currency;
+}
+
+export interface UpgradeTier {
+  name: string;
+  price: UpgradePrice;
+  gains: UpgradeGain[];
+  breakthrough?: boolean;
+}
+
+export interface UpgradeDependency {
+  id: string;
+  requiredTier: number;
+}
 
 export interface UpgradeMilestone {
   level: number;
@@ -8,8 +50,10 @@ export interface UpgradeMilestone {
   label: string;
 }
 
+// Compatibility flags for the workshop summary. Actual values always come
+// from the explicit tier gains in upgrade-catalog.json.
 export interface UpgradeEffects {
-  pacePerLevel?: number;
+  outputPerLevel?: number;
   roadSpeedPerLogLevel?: number;
   sweatPerLevel?: number;
   cashPerLevel?: number;
@@ -20,667 +64,227 @@ export interface UpgradeEffects {
   potholeProtectionPerLogLevel?: number;
 }
 
-export interface UpgradeDefinition {
+interface CatalogNode {
   id: string;
   branch: Branch;
   name: string;
   description: string;
   icon: string;
-  currency: Currency;
-  baseCost: number;
-  costScale: number;
-  maxLevel: number;
-  progressionStep?: number;
-  costs?: number[];
-  levelNames?: string[];
-  milestones?: readonly UpgradeMilestone[];
-  effects: UpgradeEffects;
-  requires?: string;
-  requiredStage?: number;
-  tree: {
-    x: number;
-    y: number;
-  };
+  parent: UpgradeDependency | null;
+  children: string[];
+  dependencies: UpgradeDependency[];
+  legacyLevelScale?: number;
+  tree: { x: number; y: number };
+  tiers: UpgradeTier[];
 }
 
-export const branchLabels: Record<Branch, string> = {
-  bike: "Bike",
-  rider: "Rider",
-  nutrition: "Nutrition",
-  equipment: "Equipment",
-  team: "Team",
+interface UpgradeCatalog {
+  branches: Record<Branch, { label: string; unlockLevel: number }>;
+  nodes: CatalogNode[];
+}
+
+export interface UpgradeDefinition extends CatalogNode {
+  currency: Currency;
+  baseCost: number;
+  costGrowth: number;
+  maxLevel: number;
+  progressionStep?: number;
+  costs: number[];
+  levelNames: string[];
+  milestones: UpgradeMilestone[];
+  effects: UpgradeEffects;
+  requires?: string;
+}
+
+const catalog = rawCatalog as unknown as UpgradeCatalog;
+
+const expectedUnit: Record<UpgradeGainStat, UpgradeGainUnit> = {
+  flatSpeed: "km/h",
+  output: "percent",
+  sweat: "percent",
+  cash: "percent",
+  handling: "percent",
+  flowRetention: "seconds",
+  windMitigation: "percent",
+  gravelMitigation: "percent",
+  potholeProtection: "percent",
+  climbing: "percent",
+  descending: "percent",
+  draft: "percent",
 };
 
-export const branchUnlockStages: Record<Branch, number> = {
-  rider: 1,
-  nutrition: 1,
-  equipment: 2,
-  bike: 3,
-  team: 4,
+const adjacentPriceRatio = (prices: readonly number[]): number =>
+  prices.slice(1).reduce(
+    (maximum, price, index) =>
+      Math.max(maximum, price / prices[index]),
+    1,
+  );
+
+const validateCatalog = (candidate: UpgradeCatalog): void => {
+  for (const [branchId, branch] of Object.entries(candidate.branches)) {
+    if (
+      !Number.isInteger(branch.unlockLevel) ||
+      branch.unlockLevel < 1 ||
+      branch.unlockLevel > 10
+    ) {
+      throw new Error(`${branchId}: unlockLevel must be from 1 to 10`);
+    }
+  }
+
+  const ids = new Set<string>();
+  for (const node of candidate.nodes) {
+    if (!node.id || ids.has(node.id)) {
+      throw new Error(`Duplicate or empty upgrade id: ${node.id}`);
+    }
+    ids.add(node.id);
+    if (!candidate.branches[node.branch]) {
+      throw new Error(`${node.id}: unknown branch ${node.branch}`);
+    }
+    if (node.tiers.length === 0) {
+      throw new Error(`${node.id}: at least one tier is required`);
+    }
+    const prices = node.tiers.map((tier, index) => {
+      if (!tier.name) throw new Error(`${node.id} tier ${index + 1}: missing name`);
+      if (!Number.isFinite(tier.price.amount) || tier.price.amount <= 0) {
+        throw new Error(`${node.id} tier ${index + 1}: invalid price`);
+      }
+      if (index > 0 && tier.price.unit !== node.tiers[0].price.unit) {
+        throw new Error(`${node.id}: every tier must use the same price unit`);
+      }
+      for (const gain of tier.gains) {
+        if (!Number.isFinite(gain.amount) || gain.amount < 0) {
+          throw new Error(`${node.id} tier ${index + 1}: invalid ${gain.stat} gain`);
+        }
+        if (expectedUnit[gain.stat] !== gain.unit) {
+          throw new Error(
+            `${node.id} tier ${index + 1}: ${gain.stat} must use ${expectedUnit[gain.stat]}`,
+          );
+        }
+      }
+      return tier.price.amount;
+    });
+    const ratio = adjacentPriceRatio(prices);
+    if (ratio > economyBalance.pricing.maxAdjacentLevelRatio + 1e-9) {
+      throw new Error(
+        `${node.id}: adjacent price ratio ${ratio} exceeds ${economyBalance.pricing.maxAdjacentLevelRatio}`,
+      );
+    }
+  }
+
+  const byId = new Map(candidate.nodes.map((node) => [node.id, node]));
+  for (const node of candidate.nodes) {
+    const requirements = [node.parent, ...node.dependencies].filter(
+      (dependency): dependency is UpgradeDependency => Boolean(dependency),
+    );
+    for (const requirement of requirements) {
+      const dependency = byId.get(requirement.id);
+      if (!dependency) throw new Error(`${node.id}: missing dependency ${requirement.id}`);
+      if (
+        !Number.isInteger(requirement.requiredTier) ||
+        requirement.requiredTier < 1 ||
+        requirement.requiredTier > dependency.tiers.length
+      ) {
+        throw new Error(`${node.id}: invalid required tier for ${requirement.id}`);
+      }
+      const dependencyLevel = candidate.branches[dependency.branch].unlockLevel;
+      const nodeLevel = candidate.branches[node.branch].unlockLevel;
+      if (dependencyLevel > nodeLevel) {
+        throw new Error(`${node.id}: unlocks before dependency ${requirement.id}`);
+      }
+    }
+    if (node.parent) {
+      const parent = byId.get(node.parent.id);
+      if (!parent?.children.includes(node.id)) {
+        throw new Error(`${node.id}: parent/child links are not reciprocal`);
+      }
+    }
+    for (const childId of node.children) {
+      const child = byId.get(childId);
+      if (child?.parent?.id !== node.id) {
+        throw new Error(`${node.id}: child link ${childId} is not reciprocal`);
+      }
+    }
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (id: string): void => {
+    if (visiting.has(id)) throw new Error(`Upgrade dependency cycle at ${id}`);
+    if (visited.has(id)) return;
+    visiting.add(id);
+    const node = byId.get(id);
+    [node?.parent, ...(node?.dependencies ?? [])]
+      .filter((dependency): dependency is UpgradeDependency => Boolean(dependency))
+      .forEach((dependency) => visit(dependency.id));
+    visiting.delete(id);
+    visited.add(id);
+  };
+  candidate.nodes.forEach((node) => visit(node.id));
+
+  const flatSpeedGain = candidate.nodes
+    .flatMap((node) => node.tiers)
+    .flatMap((tier) => tier.gains)
+    .filter((gain) => gain.stat === "flatSpeed")
+    .reduce((total, gain) => total + gain.amount, 0);
+  const expectedFlatSpeedGain =
+    economyBalance.speed.neutralFlatMaxKmh -
+    economyBalance.speed.neutralFlatMinKmh;
+  if (Math.abs(flatSpeedGain - expectedFlatSpeedGain) > 1e-9) {
+    throw new Error(
+      `Flat-speed gains total ${flatSpeedGain}; expected ${expectedFlatSpeedGain}`,
+    );
+  }
 };
 
-const tenStepMilestones = (
-  labels: readonly [string, string, string, string],
-) =>
-  [
-    { level: 1, multiplier: 3, label: labels[0] },
-    { level: 3, multiplier: 5, label: labels[1] },
-    { level: 5, multiplier: 10, label: labels[2] },
-    { level: 10, multiplier: 25, label: labels[3] },
-  ] as const;
+validateCatalog(catalog);
 
-const fiveStepMilestones = (
-  labels: readonly [string, string, string],
-) =>
-  [
-    { level: 1, multiplier: 3, label: labels[0] },
-    { level: 3, multiplier: 5, label: labels[1] },
-    { level: 5, multiplier: 10, label: labels[2] },
-  ] as const;
+export const branchLabels = Object.fromEntries(
+  Object.entries(catalog.branches).map(([id, branch]) => [id, branch.label]),
+) as Record<Branch, string>;
 
-const fiveStepDeepMilestones = (
-  labels: readonly [string, string, string, string],
-) =>
-  [
-    { level: 1, multiplier: 3, label: labels[0] },
-    { level: 2, multiplier: 5, label: labels[1] },
-    { level: 3, multiplier: 10, label: labels[2] },
-    { level: 5, multiplier: 25, label: labels[3] },
-  ] as const;
+export const branchUnlockLevels = Object.fromEntries(
+  Object.entries(catalog.branches).map(([id, branch]) => [id, branch.unlockLevel]),
+) as Record<Branch, number>;
 
-const tierMilestones = (
-  labels: readonly string[],
-): UpgradeMilestone[] => {
-  const multipliers =
-    labels.length === 4
-      ? [3, 5, 10, 25]
-      : labels.length === 3
-        ? [3, 5, 10]
-        : labels.length === 2
-          ? [3, 10]
-          : [1];
-  return labels.map((label, index) => ({
-    level: index + 1,
-    multiplier: multipliers[index] ?? 1,
-    label,
-  }));
+export const STANDARD_UPGRADE_COST_MULTIPLIER = 1;
+
+const effectFlags = (node: CatalogNode): UpgradeEffects => {
+  const stats = new Set(
+    node.tiers.flatMap((tier) => tier.gains.map((gain) => gain.stat)),
+  );
+  return {
+    ...(stats.has("output") ? { outputPerLevel: 1 } : {}),
+    ...(stats.has("flatSpeed") ? { roadSpeedPerLogLevel: 1 } : {}),
+    ...(stats.has("sweat") ? { sweatPerLevel: 1 } : {}),
+    ...(stats.has("cash") ? { cashPerLevel: 1 } : {}),
+    ...(stats.has("handling") ? { handlingPerLogLevel: 1 } : {}),
+    ...(stats.has("flowRetention") ? { flowRetentionPerLogLevel: 1 } : {}),
+    ...(stats.has("windMitigation") ? { windMitigationPerLogLevel: 1 } : {}),
+    ...(stats.has("gravelMitigation") ? { gravelMitigationPerLogLevel: 1 } : {}),
+    ...(stats.has("potholeProtection") ? { potholeProtectionPerLogLevel: 1 } : {}),
+  };
 };
 
-export const upgrades: UpgradeDefinition[] = [
-  {
-    id: "road-bike",
-    branch: "bike",
-    name: "Workshop road bike",
-    description:
-      "Ditch the city bike, unlock component tuning, and multiply Tour pace.",
-    icon: "🚲",
-    currency: "cash",
-    baseCost: 90,
-    costScale: 1,
-    maxLevel: 1,
-    levelNames: ["Workshop road bike"],
-    effects: {
-      pacePerLevel: 0.4,
-      roadSpeedPerLogLevel: 4.5,
-    },
-    requiredStage: 3,
-    tree: { x: 50, y: 20 },
-  },
-  {
-    id: "frame",
-    branch: "bike",
-    name: "Frame laboratory",
-    description:
-      "Move from alloy to increasingly lighter and more aerodynamic carbon frames.",
-    icon: "◇",
-    currency: "cash",
-    baseCost: 120,
-    costScale: 1.28,
-    maxLevel: 4,
-    progressionStep: 25,
-    milestones: tierMilestones([
-      "Aluminium race frame",
-      "Entry carbon frame",
-      "Aero carbon frame",
-      "Pro carbon monocoque",
-    ]),
-    effects: {
-      pacePerLevel: 0.025,
-      roadSpeedPerLogLevel: 1.35,
-    },
-    requires: "road-bike",
-    requiredStage: 3,
-    tree: { x: 20, y: 48 },
-  },
-  {
-    id: "tires",
-    branch: "bike",
-    name: "Road tires",
-    description:
-      "Faster compounds, lower rolling resistance, fewer expensive explosions.",
-    icon: "◎",
-    currency: "cash",
-    baseCost: 45,
-    costScale: 1.28,
-    maxLevel: 4,
-    progressionStep: 25,
-    milestones: tierMilestones([
-      "Training clinchers",
-      "Performance clinchers",
-      "Tubeless race tires",
-      "Low-resistance race compound",
-    ]),
-    effects: {
-      pacePerLevel: 0.02,
-      roadSpeedPerLogLevel: 0.95,
-      handlingPerLogLevel: 0.05,
-      potholeProtectionPerLogLevel: 0.035,
-    },
-    requires: "road-bike",
-    requiredStage: 3,
-    tree: { x: 50, y: 55 },
-  },
-  {
-    id: "shifting",
-    branch: "bike",
-    name: "Drivetrain",
-    description:
-      "Move through real groupsets from mechanical shifting to wireless electronic control.",
-    icon: "⚙",
-    currency: "cash",
-    baseCost: 70,
-    costScale: 1.28,
-    maxLevel: 4,
-    progressionStep: 25,
-    milestones: tierMilestones([
-      "Mechanical 11-speed",
-      "Mechanical 12-speed",
-      "Electronic shifting",
-      "Wireless electronic groupset",
-    ]),
-    effects: {
-      pacePerLevel: 0.024,
-      roadSpeedPerLogLevel: 0.75,
-    },
-    requires: "road-bike",
-    requiredStage: 3,
-    tree: { x: 80, y: 48 },
-  },
-  {
-    id: "wheels",
-    branch: "bike",
-    name: "Wheel program",
-    description:
-      "Progress from dependable alloy wheels to light and aerodynamic carbon race wheels.",
-    icon: "◉",
-    currency: "cash",
-    baseCost: 150,
-    costScale: 1.28,
-    maxLevel: 4,
-    progressionStep: 25,
-    milestones: tierMilestones([
-      "Basic alloy wheels",
-      "Light aluminium wheels",
-      "Carbon wheels",
-      "Deep aero carbon wheels",
-    ]),
-    effects: {
-      pacePerLevel: 0.028,
-      roadSpeedPerLogLevel: 1.15,
-      windMitigationPerLogLevel: 0.025,
-    },
-    requires: "frame",
-    requiredStage: 3,
-    tree: { x: 20, y: 80 },
-  },
-  {
-    id: "brakes",
-    branch: "bike",
-    name: "Braking confidence",
-    description:
-      "Better brakes paradoxically make you descend faster. Cycling is weird.",
-    icon: "⬡",
-    currency: "cash",
-    baseCost: 110,
-    costScale: 1.28,
-    maxLevel: 3,
-    progressionStep: 50 / 3,
-    milestones: tierMilestones([
-      "Dual-pivot calipers",
-      "Mechanical discs",
-      "Hydraulic discs",
-    ]),
-    effects: {
-      pacePerLevel: 0.016,
-      roadSpeedPerLogLevel: 0.35,
-      handlingPerLogLevel: 0.08,
-    },
-    requires: "shifting",
-    requiredStage: 3,
-    tree: { x: 80, y: 80 },
-  },
-  {
-    id: "chain-lube",
-    branch: "bike",
-    name: "Chain lubrication",
-    description:
-      "Move from everyday oil through drip wax to a race-day hot-wax drivetrain.",
-    icon: "♨",
-    currency: "cash",
-    baseCost: 80,
-    costScale: 1.28,
-    maxLevel: 4,
-    progressionStep: 25,
-    milestones: tierMilestones([
-      "All-weather oil",
-      "Dry-condition lube",
-      "Drip wax",
-      "Hot-melt race wax",
-    ]),
-    effects: {
-      pacePerLevel: 0.03,
-      roadSpeedPerLogLevel: 0.45,
-      gravelMitigationPerLogLevel: 0.015,
-    },
-    requires: "road-bike",
-    requiredStage: 3,
-    tree: { x: 50, y: 88 },
-  },
-  {
-    id: "endurance",
-    branch: "rider",
-    name: "Endurance",
-    description:
-      "Build an engine that regards the concept of a finish line as a suggestion.",
-    icon: "♥",
-    currency: "sweat",
-    baseCost: 20,
-    costScale: 1.28,
-    maxLevel: 10,
-    progressionStep: 10,
-    milestones: tenStepMilestones([
-      "Aerobic base",
-      "Fatigue resistance",
-      "Grand-tour endurance",
-      "Elite stage-race engine",
-    ]),
-    effects: {
-      pacePerLevel: 0.022,
-      roadSpeedPerLogLevel: 0.65,
-      sweatPerLevel: 0.035,
-    },
-    tree: { x: 24, y: 52 },
-  },
-  {
-    id: "power",
-    branch: "rider",
-    name: "Sustained power",
-    description:
-      "More watts everywhere, followed eventually by watts not recognized by science.",
-    icon: "⚡",
-    currency: "sweat",
-    baseCost: 35,
-    costScale: 1.28,
-    maxLevel: 10,
-    progressionStep: 10,
-    milestones: tenStepMilestones([
-      "Tempo power",
-      "Threshold power",
-      "Climbing power",
-      "Elite race watts",
-    ]),
-    effects: {
-      pacePerLevel: 0.03,
-      roadSpeedPerLogLevel: 1.8,
-      sweatPerLevel: 0.03,
-    },
-    tree: { x: 50, y: 28 },
-  },
-  {
-    id: "hyperbike",
-    branch: "rider",
-    name: "Hyperbike moonshot",
-    description:
-      "The impossible two-billion-dollar machine. Build the economy that can afford it, then break the Tour wide open.",
-    icon: "✦",
-    currency: "cash",
-    baseCost: 2_000_000_000,
-    costScale: 1,
-    maxLevel: 1,
-    costs: [2_000_000_000],
-    levelNames: ["Physics waiver signed"],
-    effects: {
-      pacePerLevel: 9,
-      sweatPerLevel: 9,
-      cashPerLevel: 9,
-    },
-    tree: { x: 50, y: 8 },
-  },
-  {
-    id: "technique",
-    branch: "rider",
-    name: "Bike handling",
-    description:
-      "Change lanes faster, descend later, and make terrible road choices look planned.",
-    icon: "↔",
-    currency: "sweat",
-    baseCost: 50,
-    costScale: 1.28,
-    maxLevel: 5,
-    progressionStep: 10,
-    milestones: fiveStepMilestones([
-      "Confident line changes",
-      "Advanced cornering",
-      "Race-level handling",
-    ]),
-    effects: {
-      pacePerLevel: 0.014,
-      handlingPerLogLevel: 0.12,
-      roadSpeedPerLogLevel: 0.2,
-    },
-    tree: { x: 76, y: 52 },
-  },
-  {
-    id: "body-composition",
-    branch: "rider",
-    name: "Climber build",
-    description:
-      "Improve power-to-weight without becoming a haunted pair of sunglasses.",
-    icon: "△",
-    currency: "sweat",
-    baseCost: 60,
-    costScale: 1.28,
-    maxLevel: 5,
-    progressionStep: 10,
-    milestones: fiveStepMilestones([
-      "Sustainable race weight",
-      "Grand-tour condition",
-      "Elite climbing condition",
-    ]),
-    effects: {
-      pacePerLevel: 0.02,
-      sweatPerLevel: 0.025,
-    },
-    requires: "endurance",
-    tree: { x: 25, y: 80 },
-  },
-  {
-    id: "hydration",
-    branch: "nutrition",
-    name: "Hydration protocol",
-    description:
-      "Turn ad-hoc bottles into a measured plan for electrolytes, heat, and race duration.",
-    icon: "◍",
-    currency: "sweat",
-    baseCost: 25,
-    costScale: 1.28,
-    maxLevel: 5,
-    progressionStep: 20,
-    milestones: fiveStepDeepMilestones([
-      "Planned bottles",
-      "Electrolyte mix",
-      "Timed hydration",
-      "Heat-adapted race protocol",
-    ]),
-    effects: {
-      pacePerLevel: 0.016,
-      sweatPerLevel: 0.04,
-      flowRetentionPerLogLevel: 0.38,
-    },
-    tree: { x: 50, y: 32 },
-  },
-  {
-    id: "fueling",
-    branch: "nutrition",
-    name: "Race fueling",
-    description:
-      "Bananas become gels; gels become a continuous strategic carbohydrate pipeline.",
-    icon: "●",
-    currency: "sweat",
-    baseCost: 40,
-    costScale: 1.28,
-    maxLevel: 5,
-    progressionStep: 20,
-    milestones: fiveStepDeepMilestones([
-      "Solid-food race plan",
-      "Gel and drink schedule",
-      "High-carb fueling",
-      "Team nutrition protocol",
-    ]),
-    effects: {
-      pacePerLevel: 0.024,
-      roadSpeedPerLogLevel: 0.55,
-      sweatPerLevel: 0.045,
-    },
-    requires: "hydration",
-    tree: { x: 50, y: 68 },
-  },
-  {
-    id: "aero-socks",
-    branch: "equipment",
-    name: "Aero socks",
-    description:
-      "Tiny gains, enormous confidence, increasingly indefensible invoices.",
-    icon: "♧",
-    currency: "cash",
-    baseCost: 25,
-    costScale: 1.28,
-    maxLevel: 2,
-    progressionStep: 50,
-    milestones: tierMilestones([
-      "Performance socks",
-      "Ribbed aero socks",
-    ]),
-    effects: {
-      pacePerLevel: 0.018,
-      roadSpeedPerLogLevel: 0.28,
-      windMitigationPerLogLevel: 0.02,
-    },
-    requiredStage: 2,
-    tree: { x: 22, y: 52 },
-  },
-  {
-    id: "helmet",
-    branch: "equipment",
-    name: "Aero helmet",
-    description:
-      "Move from a well-ventilated road helmet to a faster aero road shell.",
-    icon: "◒",
-    currency: "cash",
-    baseCost: 60,
-    costScale: 1.28,
-    maxLevel: 2,
-    progressionStep: 50,
-    milestones: tierMilestones([
-      "Performance helmet",
-      "Aero road helmet",
-    ]),
-    effects: {
-      pacePerLevel: 0.022,
-      roadSpeedPerLogLevel: 0.32,
-      windMitigationPerLogLevel: 0.03,
-    },
-    requiredStage: 2,
-    tree: { x: 50, y: 28 },
-  },
-  {
-    id: "skinsuit",
-    branch: "equipment",
-    name: "Race suit",
-    description:
-      "Remove wrinkles, seams, dignity, and finally most measurable drag.",
-    icon: "♜",
-    currency: "cash",
-    baseCost: 90,
-    costScale: 1.28,
-    maxLevel: 2,
-    progressionStep: 50,
-    milestones: tierMilestones([
-      "Race-fit kit",
-      "Aero skinsuit",
-    ]),
-    effects: {
-      pacePerLevel: 0.025,
-      roadSpeedPerLogLevel: 0.35,
-      windMitigationPerLogLevel: 0.025,
-    },
-    requiredStage: 2,
-    tree: { x: 78, y: 52 },
-  },
-  {
-    id: "gravel-tires",
-    branch: "equipment",
-    name: "Gravel tires",
-    description:
-      "Turn the Périgord farm tracks from punishment into a shortcut.",
-    icon: "⊚",
-    currency: "cash",
-    baseCost: 55,
-    costScale: 1.28,
-    maxLevel: 3,
-    progressionStep: 50 / 3,
-    milestones: tierMilestones([
-      "All-road tires",
-      "File-tread race tires",
-      "Gravel race casing",
-    ]),
-    effects: {
-      pacePerLevel: 0.012,
-      handlingPerLogLevel: 0.05,
-      gravelMitigationPerLogLevel: 0.075,
-      potholeProtectionPerLogLevel: 0.025,
-    },
-    requiredStage: 2,
-    tree: { x: 88, y: 72 },
-  },
-  {
-    id: "suspension",
-    branch: "equipment",
-    name: "Micro-suspension",
-    description:
-      "Add cockpit compliance, then a suspension stem, then a short-travel gravel fork.",
-    icon: "≋",
-    currency: "cash",
-    baseCost: 130,
-    costScale: 1.28,
-    maxLevel: 3,
-    progressionStep: 50 / 3,
-    milestones: tierMilestones([
-      "Compliant cockpit",
-      "Suspension stem",
-      "Short-travel gravel fork",
-    ]),
-    effects: {
-      pacePerLevel: 0.015,
-      handlingPerLogLevel: 0.06,
-      gravelMitigationPerLogLevel: 0.06,
-      potholeProtectionPerLogLevel: 0.05,
-    },
-    requires: "gravel-tires",
-    requiredStage: 2,
-    tree: { x: 76, y: 92 },
-  },
-  {
-    id: "domestique",
-    branch: "team",
-    name: "Domestique train",
-    description:
-      "Recruit helpers until the rider is escorted by a small cycling nation.",
-    icon: "♟",
-    currency: "cash",
-    baseCost: 260,
-    costScale: 1.28,
-    maxLevel: 3,
-    progressionStep: 50 / 3,
-    milestones: tierMilestones([
-      "One domestique",
-      "Two-rider train",
-      "Three-rider train",
-    ]),
-    effects: {
-      pacePerLevel: 0.035,
-      cashPerLevel: 0.025,
-    },
-    requiredStage: 4,
-    tree: { x: 50, y: 38 },
-  },
-  {
-    id: "mechanic",
-    branch: "team",
-    name: "Race mechanic",
-    description:
-      "Maintain the drivetrain and glare personally at every pothole.",
-    icon: "⚒",
-    currency: "cash",
-    baseCost: 180,
-    costScale: 1.28,
-    maxLevel: 3,
-    progressionStep: 50 / 3,
-    milestones: tierMilestones([
-      "Club mechanic",
-      "Race mechanic",
-      "Service-course mechanic",
-    ]),
-    effects: {
-      pacePerLevel: 0.018,
-      gravelMitigationPerLogLevel: 0.035,
-      potholeProtectionPerLogLevel: 0.065,
-    },
-    requiredStage: 4,
-    tree: { x: 20, y: 62 },
-  },
-  {
-    id: "sponsor",
-    branch: "team",
-    name: "Sponsor empire",
-    description:
-      "Grow from local jersey support into a global title partnership.",
-    icon: "$",
-    currency: "cash",
-    baseCost: 220,
-    costScale: 1.28,
-    maxLevel: 4,
-    progressionStep: 25,
-    milestones: tierMilestones([
-      "Local shop sponsor",
-      "Regional brand sponsor",
-      "National team sponsor",
-      "Global title sponsor",
-    ]),
-    effects: {
-      pacePerLevel: 0.01,
-      cashPerLevel: 0.08,
-    },
-    requiredStage: 4,
-    tree: { x: 80, y: 62 },
-  },
-  {
-    id: "team-director",
-    branch: "team",
-    name: "Directeur sportif",
-    description:
-      "Coordinate pacing, bottles, tactics, and suspiciously precise tailwinds.",
-    icon: "♛",
-    currency: "cash",
-    baseCost: 420,
-    costScale: 1.28,
-    maxLevel: 3,
-    progressionStep: 50 / 3,
-    milestones: tierMilestones([
-      "Team radio",
-      "Tactical race director",
-      "Full performance staff",
-    ]),
-    effects: {
-      pacePerLevel: 0.04,
-      sweatPerLevel: 0.02,
-      cashPerLevel: 0.02,
-    },
-    requires: "domestique",
-    requiredStage: 5,
-    tree: { x: 50, y: 84 },
-  },
-];
+export const upgrades: UpgradeDefinition[] = catalog.nodes.map((node) => {
+  const prices = node.tiers.map((tier) => tier.price.amount);
+  return {
+    ...node,
+    currency: node.tiers[0].price.unit,
+    baseCost: prices[0],
+    costGrowth: adjacentPriceRatio(prices),
+    maxLevel: node.tiers.length,
+    progressionStep: node.legacyLevelScale,
+    costs: prices,
+    levelNames: node.tiers.map((tier) => tier.name),
+    milestones: node.tiers.flatMap((tier, index) =>
+      tier.breakthrough
+        ? [{ level: index + 1, multiplier: 1, label: tier.name }]
+        : [],
+    ),
+    effects: effectFlags(node),
+    requires: node.parent?.id,
+  };
+});
 
 export const upgradesByBranch = (branch: Branch): UpgradeDefinition[] =>
   upgrades.filter((upgrade) => upgrade.branch === branch);
@@ -688,41 +292,52 @@ export const upgradesByBranch = (branch: Branch): UpgradeDefinition[] =>
 export const upgradeById = (id: string): UpgradeDefinition | undefined =>
   upgrades.find((upgrade) => upgrade.id === id);
 
-export const upgradeProgressionLevel = (
+const clampedLevel = (upgrade: UpgradeDefinition, level: number): number =>
+  Math.max(0, Math.min(upgrade.maxLevel, Math.floor(level)));
+
+export const purchasedUpgradeTiers = (
   upgrade: UpgradeDefinition,
   level: number,
-): number => Math.max(0, level) * (upgrade.progressionStep ?? 1);
+): UpgradeTier[] => upgrade.tiers.slice(0, clampedLevel(upgrade, level));
+
+export const upgradeGainTotal = (
+  upgrade: UpgradeDefinition,
+  level: number,
+  stat: UpgradeGainStat,
+): number =>
+  purchasedUpgradeTiers(upgrade, level)
+    .flatMap((tier) => tier.gains)
+    .filter((gain) => gain.stat === stat)
+    .reduce((total, gain) => total + gain.amount, 0);
+
+export const upgradePercentMultiplier = (
+  upgrade: UpgradeDefinition,
+  level: number,
+  stat: "output" | "sweat" | "cash",
+): number =>
+  purchasedUpgradeTiers(upgrade, level)
+    .flatMap((tier) => tier.gains)
+    .filter((gain) => gain.stat === stat)
+    .reduce((multiplier, gain) => multiplier * (1 + gain.amount / 100), 1);
 
 export const upgradeCost = (
   upgrade: UpgradeDefinition,
   currentLevel: number,
 ): number =>
-  upgrade.costs?.[currentLevel] ??
-  Math.max(
-    1,
-    Math.round(
-      upgrade.baseCost *
-        upgrade.costScale ** upgradeProgressionLevel(upgrade, currentLevel),
-    ),
-  );
+  upgrade.tiers[clampedLevel(upgrade, currentLevel)]?.price.amount ??
+  upgrade.tiers.at(-1)?.price.amount ??
+  0;
 
 export const upgradeBulkCost = (
   upgrade: UpgradeDefinition,
   currentLevel: number,
   quantity: number,
 ): number => {
-  const safeQuantity = Math.max(
-    0,
-    Math.min(
-      upgrade.maxLevel - currentLevel,
-      Math.floor(quantity),
-    ),
-  );
-  let total = 0;
-  for (let offset = 0; offset < safeQuantity; offset += 1) {
-    total += upgradeCost(upgrade, currentLevel + offset);
-  }
-  return total;
+  const start = clampedLevel(upgrade, currentLevel);
+  const end = Math.min(upgrade.maxLevel, start + Math.max(0, Math.floor(quantity)));
+  return upgrade.tiers
+    .slice(start, end)
+    .reduce((total, tier) => total + tier.price.amount, 0);
 };
 
 export const affordableUpgradeLevels = (
@@ -731,16 +346,17 @@ export const affordableUpgradeLevels = (
   balance: number,
   quantity: PurchaseQuantity,
 ): number => {
+  const start = clampedLevel(upgrade, currentLevel);
   const requested =
     quantity === "max"
-      ? upgrade.maxLevel - currentLevel
-      : Math.min(quantity, upgrade.maxLevel - currentLevel);
+      ? upgrade.maxLevel - start
+      : Math.min(quantity, upgrade.maxLevel - start);
   let total = 0;
   let levels = 0;
   while (levels < requested) {
-    const nextCost = upgradeCost(upgrade, currentLevel + levels);
-    if (total + nextCost > balance) break;
-    total += nextCost;
+    const cost = upgrade.tiers[start + levels]?.price.amount ?? Infinity;
+    if (total + cost > balance) break;
+    total += cost;
     levels += 1;
   }
   return levels;
@@ -750,39 +366,33 @@ export const reachedMilestones = (
   upgrade: UpgradeDefinition,
   level: number,
 ): UpgradeMilestone[] =>
-  (upgrade.milestones ?? []).filter(
-    (milestone) => level >= milestone.level,
-  );
+  upgrade.milestones.filter((milestone) => milestone.level <= level);
 
 export const upgradeMilestoneMultiplier = (
   upgrade: UpgradeDefinition,
   level: number,
 ): number =>
-  reachedMilestones(upgrade, level).reduce(
-    (multiplier, milestone) => multiplier * milestone.multiplier,
-    1,
+  Math.max(
+    upgradePercentMultiplier(upgrade, level, "output"),
+    upgradePercentMultiplier(upgrade, level, "sweat"),
+    upgradePercentMultiplier(upgrade, level, "cash"),
   );
 
 export const nextUpgradeMilestone = (
   upgrade: UpgradeDefinition,
   level: number,
 ): UpgradeMilestone | undefined =>
-  upgrade.milestones?.find((milestone) => milestone.level > level);
+  upgrade.milestones.find((milestone) => milestone.level > level);
 
 export const upgradeEffectMultiplier = (
   upgrade: UpgradeDefinition,
   level: number,
-  effect: "pacePerLevel" | "sweatPerLevel" | "cashPerLevel",
+  effect: "outputPerLevel" | "sweatPerLevel" | "cashPerLevel",
 ): number => {
-  if (level <= 0) return 1;
-  const perLevel = upgrade.effects[effect] ?? 0;
-  if (perLevel <= 0) return 1;
-  const progressionLevel = upgradeProgressionLevel(upgrade, level);
-  return (
-    (1 + perLevel * progressionLevel) *
-    upgradeMilestoneMultiplier(upgrade, level)
-  );
+  const stat = {
+    outputPerLevel: "output",
+    sweatPerLevel: "sweat",
+    cashPerLevel: "cash",
+  } as const;
+  return upgradePercentMultiplier(upgrade, level, stat[effect]);
 };
-
-export const logarithmicUpgradeLevel = (level: number): number =>
-  Math.log2(1 + Math.max(0, level));
