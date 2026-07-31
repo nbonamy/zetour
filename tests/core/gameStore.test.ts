@@ -836,56 +836,91 @@ describe("power-up reserve", () => {
     expect(store.getSnapshot().reservedPowerUp).toBe("jump");
   });
 
-  it("activates Super Draft for ten seconds with speed and wind shelter", () => {
-    const { store, advance } = createTestStore({ stage: 4 });
+  it("only activates Super Draft on a live wheel and makes it the strongest boost", () => {
+    const { store, advance } = createTestStore();
     const solo = store.getSnapshot();
 
     store.collectPowerUp("super-draft");
+    expect(store.activateReservedPowerUp()).toBe(false);
+    expect(store.getSnapshot().reservedPowerUp).toBe("super-draft");
+
+    store.setTemporaryDraftBonus(0.5);
+    const drafting = store.getSnapshot();
     expect(store.activateReservedPowerUp()).toBe(true);
     const boosted = store.getSnapshot();
 
     expect(boosted.reservedPowerUp).toBeNull();
     expect(boosted.activePowerUp?.type).toBe("super-draft");
+    expect(boosted.activePowerUp?.remainingSeconds).toBe(8);
     expect(boosted.stats.draftMultiplier).toBe(1.5);
-    expect(boosted.stats.sweatMultiplier).toBe(2);
-    expect(boosted.stats.speedKmh).toBeGreaterThan(solo.stats.speedKmh * 1.8);
-    expect(boosted.stats.effectiveWindPenalty).toBeLessThan(0.03);
+    expect(drafting.stats.speedKmh).toBeCloseTo(solo.stats.speedKmh * 1.5);
+    expect(boosted.stats.speedKmh).toBeCloseTo(solo.stats.speedKmh * 4);
+    expect(boosted.stats.sweatPerSecond).toBeGreaterThan(
+      drafting.stats.sweatPerSecond * 2,
+    );
+    expect(powerUpDefinitions["super-draft"].speedMultiplier).toBeGreaterThan(
+      powerUpDefinitions["lucky-bidon"].speedMultiplier,
+    );
 
-    advance(10);
+    store.setTemporaryDraftBonus(0);
+    expect(store.getSnapshot().activePowerUp).toBeNull();
+
+    store.collectPowerUp("super-draft");
+    store.setTemporaryDraftBonus(0.5);
+    store.activateReservedPowerUp();
+    advance(8);
     expect(store.getSnapshot().activePowerUp).toBeNull();
   });
 
-  it("activates a short Jump without changing rider speed", () => {
+  it("runs reliable Acceleration at 2.5× speed and income for ten seconds", () => {
+    const { store, advance } = createTestStore();
+    const base = store.getSnapshot().stats;
+
+    store.collectPowerUp("lucky-bidon");
+    expect(store.activateReservedPowerUp()).toBe(true);
+    const accelerated = store.getSnapshot();
+
+    expect(accelerated.activePowerUp).toMatchObject({
+      type: "lucky-bidon",
+      remainingSeconds: 10,
+    });
+    expect(accelerated.stats.speedKmh).toBeCloseTo(base.speedKmh * 2.5);
+    expect(accelerated.stats.sweatPerSecond).toBeGreaterThan(
+      base.sweatPerSecond * 2.5,
+    );
+    expect(accelerated.stats.cashPerSecond).toBeGreaterThan(
+      base.cashPerSecond * 2.5,
+    );
+
+    advance(9.75);
+    expect(store.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
+    advance(0.25);
+    expect(store.getSnapshot().activePowerUp).toBeNull();
+  });
+
+  it("activates eight seconds of hazard immunity without changing rider speed", () => {
     const { store, advance } = createTestStore();
     const baseSpeed = store.getSnapshot().stats.speedKmh;
 
-    expect(powerUpDefinitions.jump.potholeImmunity).toBe(true);
+    expect(powerUpDefinitions.jump.hazardImmunity).toBe(true);
+    expect(powerUpDefinitions.jump.description).toContain("traffic");
     store.collectPowerUp("jump");
     store.activateReservedPowerUp();
 
     expect(store.getSnapshot().activePowerUp?.type).toBe("jump");
     expect(store.getSnapshot().stats.speedKmh).toBe(baseSpeed);
 
-    advance(1.25);
+    advance(7.75);
+    expect(store.getSnapshot().activePowerUp?.type).toBe("jump");
+    advance(0.25);
     expect(store.getSnapshot().activePowerUp).toBeNull();
-  });
-
-  it("makes Lucky Bidon attract pickups without changing bag value", () => {
-    const { store } = createTestStore();
-
-    expect(powerUpDefinitions["lucky-bidon"].pickupMagnet).toBe(true);
-    store.collectPowerUp("lucky-bidon");
-    store.activateReservedPowerUp();
-    const reward = store.collectBag("cash");
-
-    expect(store.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
-    expect(reward).toBe(80);
   });
 
   it("keeps a reserved power-up while another one is active", () => {
     const { store } = createTestStore();
 
     store.collectPowerUp("super-draft");
+    store.setTemporaryDraftBonus(0.5);
     store.activateReservedPowerUp();
     store.collectPowerUp("jump");
     store.collectPowerUp("lucky-bidon");

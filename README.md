@@ -25,7 +25,8 @@ npm run build
 ## The loop
 
 1. Ride automatically and generate Sweat and Cash.
-2. Steer into bags, drafting lines, and power-ups; avoid potholes.
+2. Steer into bags, drafting lines, and power-ups; avoid potholes and oncoming
+   traffic.
 3. Spend in the Career Workshop on repeatable upgrades.
 4. Hit Levels 10, 25, 50, and 100 for cumulative ×2, ×3, ×5, and ×10
    breakthroughs.
@@ -59,6 +60,10 @@ requirement for passive or offline progress.
   in late Seasons.
 - Completing a full random-rider draft grants five Sweat bags at the current
   production rate.
+- Road power-ups have distinct jobs: Acceleration gives reliable 2.5× speed
+  and income for 10 seconds; Super Draft gives 4× for eight seconds but only
+  while holding a random rider's wheel; Invincibility nullifies potholes and
+  traffic for eight seconds.
 - Successful pickups, near-misses, and drafting build Flow up to ×3. Flow
   multiplies Tour pace and both production rates. It stays out of the road view
   and appears as a compact speed-HUD badge only while the bonus is active.

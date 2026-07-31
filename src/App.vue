@@ -9,6 +9,7 @@ import {
   gameStore,
   powerUpDefinitions,
   stages,
+  type PowerUpType,
   type RaceResults,
 } from "./core/gameStore";
 import { formatCompactNumber, formatMultiplier } from "./core/format";
@@ -102,8 +103,8 @@ const activePowerUp = computed(() =>
       }
     : null,
 );
-const powerUpImage = (type: string): string =>
-  `/assets/art/power-${type}.png`;
+const powerUpImage = (type: PowerUpType): string =>
+  `/assets/art/${powerUpDefinitions[type].assetKey}.png`;
 const windLabel = computed(() => {
   const stage = displayedStage.value;
   if (stage.windPenalty <= 0) return "Wind calm";
@@ -417,13 +418,22 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             {{ notice.message }}
           </div>
         </Transition>
-        <div v-if="activePowerUp" class="active-power-up" aria-live="polite">
+        <div
+          v-if="activePowerUp"
+          class="active-power-up"
+          :data-power-up="activePowerUp.type"
+          :title="activePowerUp.description"
+          aria-live="polite"
+        >
           <img
             :src="powerUpImage(activePowerUp.type)"
             alt=""
             aria-hidden="true"
           />
-          <strong>{{ activePowerUp.label }}</strong>
+          <span class="active-power-up-copy">
+            <strong>{{ activePowerUp.label }}</strong>
+            <small>{{ activePowerUp.description }}</small>
+          </span>
           <b>{{ activePowerUp.remainingSeconds.toFixed(1) }}s</b>
         </div>
         <div
@@ -471,9 +481,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               class="hud-tray-slot hud-power-slot"
               :class="{ loaded: reservedPowerUp }"
               :disabled="!reservedPowerUp || !!activePowerUp"
+              :title="
+                reservedPowerUp
+                  ? `${reservedPowerUp.label}: ${reservedPowerUp.description}`
+                  : undefined
+              "
               :aria-label="
                 reservedPowerUp
-                  ? `Use ${reservedPowerUp.label}`
+                  ? `Use ${reservedPowerUp.label}: ${reservedPowerUp.description}`
                   : 'Power-up reserve empty'
               "
               @click="activatePowerUp"

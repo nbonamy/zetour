@@ -19,19 +19,6 @@ export const cyclistFrameTexture = (
   return `${prefix}-${alternatePedal ? "b" : "a"}`;
 };
 
-export const jumpHeightAt = (
-  remainingSeconds: number,
-  durationSeconds: number,
-  maximumHeight = 26,
-): number => {
-  if (durationSeconds <= 0) return 0;
-  const progress = Math.max(
-    0,
-    Math.min(1, 1 - remainingSeconds / durationSeconds),
-  );
-  return Math.sin(progress * Math.PI) * Math.max(0, maximumHeight);
-};
-
 export interface PowerUpPulse {
   groundScale: number;
   haloScale: number;

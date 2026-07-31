@@ -13,7 +13,6 @@ import {
   laneCentersBetween,
   roadHazardLaneY,
   rideRenderSize,
-  jumpHeightAt,
   syncRoadBodyPosition,
 } from "../../src/game/rendering";
 
@@ -29,12 +28,6 @@ describe("ride rendering", () => {
     expect(cyclistFrameTexture("domestique", true)).toBe(
       "domestique-rider-b",
     );
-  });
-
-  it("uses a smooth jump arc that starts and ends on the road", () => {
-    expect(jumpHeightAt(1.2, 1.2)).toBeCloseTo(0);
-    expect(jumpHeightAt(0.6, 1.2)).toBeCloseTo(26);
-    expect(jumpHeightAt(0, 1.2)).toBeCloseTo(0);
   });
 
   it("keeps active power-up pulses subtle and continuously visible", () => {

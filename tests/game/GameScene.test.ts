@@ -166,6 +166,14 @@ describe("GameScene", () => {
       "oncoming-van-cream",
       "/assets/art/oncoming-van-cream.png",
     );
+    expect(image).toHaveBeenCalledWith(
+      "power-acceleration",
+      "/assets/art/power-acceleration.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "power-invincibility",
+      "/assets/art/power-invincibility.png",
+    );
   });
 
   it("places oncoming traffic on a lane-sized collision body", () => {
@@ -202,6 +210,47 @@ describe("GameScene", () => {
     expect(body.setSize).toHaveBeenCalledWith(390, 140, false);
     expect(body.setOffset).toHaveBeenCalledWith(60, 160);
     expect(addToHazards).toHaveBeenCalledWith(vehicle);
+  });
+
+  it("maps legacy save keys to the new Acceleration and Invincibility art", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const spawned: Record<string, any>[] = [];
+    const image = vi.fn((x: number, y: number, texture: string) => {
+      const object: Record<string, any> = {
+        x,
+        y,
+        texture,
+        scaleX: 1,
+        scaleY: 1,
+        body: { setSize: vi.fn() },
+      };
+      object.setDisplaySize = vi.fn(() => object);
+      object.setDepth = vi.fn(() => object);
+      spawned.push(object);
+      return object;
+    });
+    scene.physics = { add: { image } };
+    scene.pickups = { add: vi.fn() };
+    scene.tweens = { add: vi.fn() };
+    scene.roadGradient = 0;
+
+    (scene.spawnPowerUp as (
+      type: "lucky-bidon" | "jump",
+      lane: number,
+      x: number,
+      choiceId: number,
+    ) => void)("lucky-bidon", 1, 400, 7);
+    (scene.spawnPowerUp as (
+      type: "lucky-bidon" | "jump",
+      lane: number,
+      x: number,
+      choiceId: number,
+    ) => void)("jump", 2, 500, 8);
+
+    expect(image.mock.calls[0]?.[2]).toBe("power-acceleration");
+    expect(image.mock.calls[1]?.[2]).toBe("power-invincibility");
+    expect(spawned[0]?.eventType).toBe("lucky-bidon");
+    expect(spawned[1]?.eventType).toBe("jump");
   });
 
   it("reacts to a store race reset before advancing another frame", () => {
@@ -363,6 +412,79 @@ describe("GameScene", () => {
     )(pickups, 0, 16, true);
 
     expect(collect).toHaveBeenCalledWith(loot);
+  });
+
+  it("lets Invincibility absorb potholes and traffic without breaking challenges", () => {
+    gameStore.resetCareer();
+    gameStore.collectPowerUp("jump");
+    expect(gameStore.activateReservedPowerUp()).toBe(true);
+
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const rewardFlow = vi.fn();
+    const floatText = vi.fn();
+    const destroyRoadObject = vi.fn();
+    const trafficRun = {
+      encounter: "traffic",
+      totalPickups: 5,
+      collectedPickups: 0,
+      failed: false,
+    };
+    const potholeRun = {
+      encounter: "slalom",
+      totalPickups: 5,
+      collectedPickups: 0,
+      failed: false,
+    };
+    Object.assign(scene, {
+      rewardFlow,
+      floatText,
+      destroyRoadObject,
+      challengeRuns: new Map([
+        [1, trafficRun],
+        [2, potholeRun],
+      ]),
+    });
+    const hitTraffic = vi.spyOn(gameStore, "hitTraffic");
+    const hitPothole = vi.spyOn(gameStore, "hitPothole");
+    const traffic = {
+      active: true,
+      eventType: "oncoming-car",
+      sequenceId: 1,
+      x: 120,
+      y: 230,
+    };
+    const pothole = {
+      active: true,
+      eventType: "pothole",
+      sequenceId: 2,
+      x: 120,
+      y: 270,
+    };
+
+    try {
+      (scene.hitHazard as (object: unknown) => void)(traffic);
+      (scene.hitHazard as (object: unknown) => void)(pothole);
+
+      expect(hitTraffic).not.toHaveBeenCalled();
+      expect(hitPothole).not.toHaveBeenCalled();
+      expect(rewardFlow).toHaveBeenNthCalledWith(1, 20, "TRAFFIC SHIELD");
+      expect(rewardFlow).toHaveBeenNthCalledWith(2, 12, "POTHOLE SHIELD");
+      expect(floatText).toHaveBeenCalledTimes(2);
+      expect(floatText).toHaveBeenCalledWith(
+        expect.any(Number),
+        expect.any(Number),
+        "INVINCIBLE!",
+        "#ffe26f",
+      );
+      expect(destroyRoadObject).toHaveBeenCalledWith(traffic);
+      expect(destroyRoadObject).toHaveBeenCalledWith(pothole);
+      expect(trafficRun.failed).toBe(false);
+      expect(potholeRun.failed).toBe(false);
+    } finally {
+      hitTraffic.mockRestore();
+      hitPothole.mockRestore();
+      gameStore.resetCareer();
+    }
   });
 
   it("destroys every power-up choice and cancels its visual tweens", () => {

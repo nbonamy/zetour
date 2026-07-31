@@ -190,25 +190,35 @@ describe("App", () => {
   });
 
   it("shows and activates the single power-up reserve", async () => {
-    gameStore.collectPowerUp("super-draft");
+    gameStore.collectPowerUp("lucky-bidon");
     const app = createApp(App);
     const host = document.querySelector("#test-app");
     if (!host) throw new Error("Missing test host");
     app.mount(host);
 
-    expect(document.body.textContent).toContain("Super Draft");
+    expect(document.body.textContent).toContain("Acceleration");
     const useButton = document.querySelector<HTMLButtonElement>(
       ".hud-power-slot",
     );
     expect(useButton?.disabled).toBe(false);
+    expect(useButton?.title).toContain("2.5× speed + income");
+    expect(useButton?.getAttribute("aria-label")).toContain(
+      "Use Acceleration: 2.5× speed + income",
+    );
     useButton?.click();
     await nextTick();
 
     expect(gameStore.getSnapshot().reservedPowerUp).toBeNull();
-    expect(gameStore.getSnapshot().activePowerUp?.type).toBe("super-draft");
+    expect(gameStore.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
     expect(document.querySelector(".active-power-up")?.textContent).toContain(
-      "Super Draft",
+      "Acceleration",
     );
+    expect(document.querySelector(".active-power-up small")?.textContent).toBe(
+      "2.5× speed + income",
+    );
+    expect(
+      document.querySelector<HTMLImageElement>(".active-power-up img")?.src,
+    ).toContain("/assets/art/power-acceleration.png");
     app.unmount();
   });
 

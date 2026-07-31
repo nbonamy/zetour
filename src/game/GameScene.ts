@@ -50,7 +50,6 @@ import {
   cyclistLaneY,
   draftStreakStateAt,
   groundedRoadObjectOffsetY,
-  jumpHeightAt,
   laneCentersBetween,
   powerUpPulseAt,
   roadHazardLaneY,
@@ -208,8 +207,8 @@ export class GameScene extends Phaser.Scene {
       "bag-sweat",
       "bag-cash",
       "power-super-draft",
-      "power-lucky-bidon",
-      "power-jump",
+      "power-acceleration",
+      "power-invincibility",
       "pothole",
       "oncoming-car-red",
       "oncoming-van-cream",
@@ -338,15 +337,11 @@ export class GameScene extends Phaser.Scene {
     );
     this.updateDomestiques(delta);
 
-    const activePowerUpDefinition = snapshot.activePowerUp
-      ? powerUpDefinitions[snapshot.activePowerUp.type]
-      : null;
     this.updateRoadObjects(
       this.pickups,
       scrollSpeed,
       delta,
-      (activePowerUpDefinition?.pickupMagnet ?? false) ||
-        snapshot.stats.pickupMagnet,
+      snapshot.stats.pickupMagnet,
     );
     this.updateRoadObjects(this.hazards, scrollSpeed, delta);
     this.updateFlow(delta, snapshot.stats.flowDecayPerSecond);
@@ -853,7 +848,7 @@ export class GameScene extends Phaser.Scene {
     const object = this.physics.add.image(
       x,
       this.roadY(LANE_Y[lane] + roadYOffset, x),
-      `power-${type}`,
+      powerUpDefinitions[type].assetKey,
     ) as RoadObject;
     object.eventType = type;
     object.powerUpChoiceId = choiceId;
@@ -1144,12 +1139,15 @@ export class GameScene extends Phaser.Scene {
     const trafficCollision = isTrafficHazard(object.eventType);
     const activePowerUp = gameStore.getSnapshot().activePowerUp;
     if (
-      object.eventType === "pothole" &&
       activePowerUp &&
-      powerUpDefinitions[activePowerUp.type].potholeImmunity
+      powerUpDefinitions[activePowerUp.type].hazardImmunity &&
+      (object.eventType === "pothole" || trafficCollision)
     ) {
-      this.rewardFlow(12, "CLEAN JUMP");
-      this.floatText(object.x, object.y - 18, "CLEARED!", "#ffe26f");
+      this.rewardFlow(
+        trafficCollision ? 20 : 12,
+        trafficCollision ? "TRAFFIC SHIELD" : "POTHOLE SHIELD",
+      );
+      this.floatText(object.x, object.y - 18, "INVINCIBLE!", "#ffe26f");
       this.destroyRoadObject(object);
       return;
     }
@@ -1649,15 +1647,6 @@ export class GameScene extends Phaser.Scene {
       this.powerUpHalo.setVisible(false);
       this.powerUpSparks.forEach((spark) => spark.setVisible(false));
       return;
-    }
-
-    if (activePowerUp.type === "jump") {
-      this.rider.y =
-        this.riderRoadY -
-        jumpHeightAt(
-          activePowerUp.remainingSeconds,
-          powerUpDefinitions.jump.durationSeconds,
-        );
     }
 
     const color = POWER_UP_COLORS[activePowerUp.type].hex;

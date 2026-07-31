@@ -66,44 +66,52 @@ export type PowerUpType = "super-draft" | "lucky-bidon" | "jump";
 export interface PowerUpDefinition {
   label: string;
   icon: string;
+  assetKey: string;
   description: string;
   durationSeconds: number;
-  speedBonus: number;
+  speedMultiplier: number;
+  productionMultiplier: number;
   windShelter: number;
-  pickupMagnet: boolean;
-  potholeImmunity: boolean;
+  requiresDraft: boolean;
+  hazardImmunity: boolean;
 }
 
 export const powerUpDefinitions: Record<PowerUpType, PowerUpDefinition> = {
   "super-draft": {
     label: "Super Draft",
     icon: "»",
-    description: "+50% speed · 90% wind shelter",
-    durationSeconds: 10,
-    speedBonus: 0.5,
+    assetKey: "power-super-draft",
+    description: "4× speed + income · live draft required",
+    durationSeconds: 8,
+    speedMultiplier: 4,
+    productionMultiplier: 4,
     windShelter: 0.9,
-    pickupMagnet: false,
-    potholeImmunity: false,
+    requiresDraft: true,
+    hazardImmunity: false,
   },
   "lucky-bidon": {
-    label: "Lucky Bidon",
-    icon: "✦",
-    description: "Collect every bag across all lanes",
-    durationSeconds: 7,
-    speedBonus: 0,
+    label: "Acceleration",
+    icon: "»",
+    assetKey: "power-acceleration",
+    description: "2.5× speed + income",
+    durationSeconds: 10,
+    speedMultiplier: 2.5,
+    productionMultiplier: 2.5,
     windShelter: 0,
-    pickupMagnet: true,
-    potholeImmunity: false,
+    requiresDraft: false,
+    hazardImmunity: false,
   },
   jump: {
-    label: "Jump",
-    icon: "↥",
-    description: "Clear potholes for 1.2 seconds",
-    durationSeconds: 1.2,
-    speedBonus: 0,
+    label: "Invincibility",
+    icon: "✦",
+    assetKey: "power-invincibility",
+    description: "Potholes + traffic do no damage",
+    durationSeconds: 8,
+    speedMultiplier: 1,
+    productionMultiplier: 1,
     windShelter: 0,
-    pickupMagnet: false,
-    potholeImmunity: true,
+    requiresDraft: false,
+    hazardImmunity: true,
   },
 };
 
@@ -944,6 +952,13 @@ export class GameStore {
     }
 
     const definition = powerUpDefinitions[type];
+    if (definition.requiresDraft && this.temporaryDraftBonus <= 0) {
+      this.notice(
+        "Super Draft needs a rider ahead — enter their draft first",
+        "neutral",
+      );
+      return false;
+    }
     this.state.reservedPowerUp = null;
     this.activePowerUp = type;
     this.activePowerUpRemaining = definition.durationSeconds;
@@ -1111,10 +1126,21 @@ export class GameStore {
   }
 
   setTemporaryDraftBonus(bonus: number): void {
+    const previousBonus = this.temporaryDraftBonus;
     this.temporaryDraftBonus = Math.max(
       0,
       Math.min(RANDOM_RIDER_DRAFT_BONUS, bonus),
     );
+    if (
+      previousBonus > 0 &&
+      this.temporaryDraftBonus === 0 &&
+      this.activePowerUp === "super-draft"
+    ) {
+      this.activePowerUp = null;
+      this.activePowerUpRemaining = 0;
+      this.notice("Super Draft ended — the wheel got away", "neutral");
+      this.emit();
+    }
   }
 
   private advanceRideDistance(
@@ -1360,16 +1386,16 @@ export class GameStore {
     const activeDefinition = this.activePowerUp
       ? powerUpDefinitions[this.activePowerUp]
       : null;
-    const superDraftBonus =
-      this.activePowerUp === "super-draft"
-        ? (activeDefinition?.speedBonus ?? 0)
-        : 0;
+    const activePowerUpApplies = Boolean(
+      activeDefinition &&
+        (!activeDefinition.requiresDraft || this.temporaryDraftBonus > 0),
+    );
     const temporaryDraftBonus = Math.max(
       this.temporaryDraftBonus,
-      superDraftBonus,
+      0,
     );
     const draftWindMitigation =
-      this.activePowerUp === "super-draft"
+      activePowerUpApplies && this.activePowerUp === "super-draft"
         ? (activeDefinition?.windShelter ?? 0)
         : this.temporaryDraftBonus > 0
           ? RANDOM_RIDER_DRAFT_WIND_SHELTER
@@ -1392,6 +1418,13 @@ export class GameStore {
     );
     const draftMultiplier =
       1 + domestiqueBonus + temporaryDraftBonus;
+    const powerUpSpeedMultiplier = activePowerUpApplies
+      ? (activeDefinition?.speedMultiplier ?? 1)
+      : 1;
+    const rideSpeedMultiplier = Math.max(
+      draftMultiplier,
+      powerUpSpeedMultiplier,
+    );
     const surfaceMultiplier =
       stage.surface === "gravel"
         ? 1 - 0.34 * (1 - gravelMitigation)
@@ -1401,7 +1434,7 @@ export class GameStore {
       terrainMultiplier *
       windMultiplier *
       surfaceMultiplier *
-      draftMultiplier;
+      rideSpeedMultiplier;
     const careerPaceMultiplier = multiplicativeEffect("pacePerLevel");
     const palmaresMultiplier =
       palmaresPaceMultiplier(this.state.palmaresUpgrades) *
@@ -1417,12 +1450,19 @@ export class GameStore {
       temporaryDraftBonus > 0
         ? 1 + temporaryDraftBonus * 2
         : 1;
+    const powerUpProductionMultiplier = activePowerUpApplies
+      ? (activeDefinition?.productionMultiplier ?? 1)
+      : 1;
+    const productionMultiplier = Math.max(
+      draftProductionMultiplier,
+      powerUpProductionMultiplier,
+    );
     const sweatPerSecond =
       baseSweatPerSecond *
       upgradeSweatMultiplier *
       palmaresMultiplier *
       flowMultiplier *
-      draftProductionMultiplier;
+      productionMultiplier;
     const sweatMultiplier = sweatPerSecond / baseSweatPerSecond;
     const cashMultiplier = multiplicativeEffect("cashPerLevel");
 
@@ -1441,7 +1481,8 @@ export class GameStore {
             3_600) *
             stage.cashPerKm) *
         cashMultiplier *
-        flowMultiplier,
+        flowMultiplier *
+        productionMultiplier,
       cashMultiplier,
       handling: 1 + effectTotal("handlingPerLogLevel"),
       potholeProtection: Math.min(
