@@ -10,6 +10,7 @@ import {
   reachedMilestones,
   upgradeById,
   upgradeEffectMultiplier,
+  upgradeMilestoneMultiplier,
   upgradesByBranch,
 } from "../core/upgrades";
 import { formatCompactNumber, formatMultiplier } from "../core/format";
@@ -57,6 +58,7 @@ const nodePositions: Record<string, { x: number; y: number }> = {
   "chain-lube": hexPosition(-2, 2),
   endurance: hexPosition(-1, -1),
   power: hexPosition(0, -2),
+  hyperbike: hexPosition(-2, 0),
   technique: hexPosition(1, -2),
   "body-composition": hexPosition(-2, -1),
   hydration: hexPosition(2, -2),
@@ -112,6 +114,11 @@ const currentMilestone = computed(() => {
   if (!selected.value) return undefined;
   return reachedMilestones(selected.value, level(selected.value)).at(-1);
 });
+const currentMilestoneMultiplier = computed(() =>
+  selected.value
+    ? upgradeMilestoneMultiplier(selected.value, level(selected.value))
+    : 1,
+);
 const nextMilestone = computed(() =>
   selected.value
     ? nextUpgradeMilestone(selected.value, level(selected.value))
@@ -125,20 +132,22 @@ const effectSummary = computed(() => {
   const upgrade = selected.value;
   if (!upgrade) return "";
   const currentLevel = level(upgrade);
+  const summaryLevel =
+    upgrade.id === "hyperbike" && currentLevel === 0 ? 1 : currentLevel;
   const effects = [
     upgrade.effects.pacePerLevel
       ? `Pace ${formatMultiplier(
-          upgradeEffectMultiplier(upgrade, currentLevel, "pacePerLevel"),
+          upgradeEffectMultiplier(upgrade, summaryLevel, "pacePerLevel"),
         )}`
       : "",
     upgrade.effects.sweatPerLevel
       ? `Sweat ${formatMultiplier(
-          upgradeEffectMultiplier(upgrade, currentLevel, "sweatPerLevel"),
+          upgradeEffectMultiplier(upgrade, summaryLevel, "sweatPerLevel"),
         )}`
       : "",
     upgrade.effects.cashPerLevel
       ? `Cash ${formatMultiplier(
-          upgradeEffectMultiplier(upgrade, currentLevel, "cashPerLevel"),
+          upgradeEffectMultiplier(upgrade, summaryLevel, "cashPerLevel"),
         )}`
       : "",
   ].filter(Boolean);
@@ -323,7 +332,10 @@ onMounted(centerViewport);
               {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
             </span>
             <small v-if="visibility(node) === 'revealed'">
-              Lv {{ level(node) }}
+              <template v-if="node.id === 'hyperbike' && level(node) === 0">
+                $2B DREAM
+              </template>
+              <template v-else>Lv {{ level(node) }}</template>
             </small>
           </span>
           <span
@@ -364,7 +376,7 @@ onMounted(centerViewport);
           <span>Current breakthrough</span>
           <strong>
             {{ currentMilestone.label }}
-            {{ formatMultiplier(currentMilestone.multiplier) }}
+            {{ formatMultiplier(currentMilestoneMultiplier) }} total
           </strong>
         </div>
 
@@ -388,7 +400,12 @@ onMounted(centerViewport);
             <dd>{{ nextMilestone.label }}</dd>
             <dd class="next-level-cost">
               Level {{ nextMilestone.level }} ·
-              {{ formatMultiplier(nextMilestone.multiplier) }}
+              {{
+                formatMultiplier(
+                  upgradeMilestoneMultiplier(selected, nextMilestone.level),
+                )
+              }}
+              total
             </dd>
           </div>
           <div>

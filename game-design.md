@@ -84,9 +84,9 @@ Sweat and Cash have separate multiplicative families. Permanent Palmarès and
 Flow also multiply production, keeping collection and spending synchronized
 with route acceleration.
 
-The unupgraded flat-road opening targets roughly 45 Sweat/minute and
-44 Cash/minute. Endurance costs 20 Sweat, putting the first purchase around
-27 seconds without pickups.
+The unupgraded flat-road opening targets roughly 168 Sweat/minute and
+161 Cash/minute. The opening bonus line pushes the first active purchase into
+the first ten seconds; passive play remains viable.
 
 ## In-Season economy
 
@@ -113,8 +113,9 @@ measured in seconds of current production:
 | --- | ---: |
 | Sweat bag | 20 seconds of current Sweat production |
 | Cash bag | 30 seconds of current Cash production |
-| Completed random-rider draft | 5 Sweat bags |
+| Clean challenge base | 24 seconds of both production rates × difficulty |
 | Pothole loss | 4–8 seconds of current Cash production before protection |
+| Traffic collision | 14–22 seconds of current Cash production before partial protection |
 
 Lucky Bidon and permanent Sticky bidons attract bags; they do not reduce bag
 value.
@@ -133,18 +134,30 @@ Every repeatable node defines:
 The workshop supports `+1`, `+10`, and `MAX`. A bulk purchase buys only the
 affordable portion and reports the exact level count and total cost.
 
+Repeatable costs use a ×1.28 geometric curve. A 25-Cash node therefore grows
+from 25 to roughly 5.7M at Level 50, 2.7B at Level 75, and 1T near Level 100.
+The always-visible **Hyperbike moonshot** costs exactly $2B and multiplies pace,
+Sweat, and Cash by ×10 once the surrounding economy finally catches it.
+
+This cost-versus-production seesaw follows the geometric model in
+[The Math of Idle Games](https://blog.kongregate.com/the-math-of-idle-games-part-i/):
+costs run ahead between breakpoints, then milestone multipliers let production
+catch and overtake them. The Tour and Palmarès loops apply the genre pattern of
+replaying mastered content at absurd speed before hitting a new wall, described
+in [A Brief Look at the Idle Games Genre](https://blog.kongregate.com/idle-games/).
+
 ### Milestones
 
 Deep Level-100 nodes use cumulative breakthroughs:
 
 | Level | New multiplier | Cumulative milestone multiplier |
 | ---: | ---: | ---: |
-| 10 | ×2 | ×2 |
-| 25 | ×3 | ×6 |
-| 50 | ×5 | ×30 |
-| 100 | ×10 | ×300 |
+| 10 | ×3 | ×3 |
+| 25 | ×5 | ×15 |
+| 50 | ×10 | ×150 |
+| 100 | ×25 | ×3,750 |
 
-Some Level-50 families stop after the ×5 breakthrough. Named late milestones
+Some Level-50 families stop after the ×10 breakthrough. Named late milestones
 are intentionally ridiculous—examples include “Negative-mass frame,” “Internal
 rain cloud,” and “Economy with a logo.”
 
@@ -179,11 +192,39 @@ than unrelated random objects:
 - feed zones;
 - broken-road slaloms;
 - sprints and hairpins;
+- oncoming-car traffic gauntlets;
 - power-up choices;
 - random-rider drafting.
 
 Missing part of a linked pickup sequence invalidates the remaining chain, which
 flashes before disappearing.
+
+The rendered road moves 54% faster at starter pace than the original tuning.
+Encounters arrive every 4.4–7.4 seconds depending on sector, with deliberate
+tail overlap at high difficulty. Oncoming vehicles move another 42–74% faster
+than the road, so they read as opposing traffic rather than parked scenery.
+
+### Challenge contract
+
+Every skill sequence announces its clean multiplier before the first object
+arrives. Individual bags remain useful, but the large payout lands only when
+the entire sequence is collected without a collision:
+
+| Challenge | Difficulty | Clean payout |
+| --- | ---: | ---: |
+| Bonus line | 1 | ×1 |
+| Feed zone | 1 | ×1.5 |
+| Sprint | 2 | ×3 |
+| Broken-road slalom | 3 | ×4 |
+| Hairpins | 4 | ×6 |
+| Oncoming traffic | 5 | ×8 |
+| Full random-rider draft | 4 | ×6 |
+
+The multiplier applies to 24 seconds of both current production rates, so
+challenge rewards compound with the build. A miss forfeits the clean payout;
+a collision also resets Flow and charges the relevant road penalty. Passive
+production never stops, which keeps active skill rewarding without making it a
+progression gate.
 
 Fans are ambient roadside scenery, independent of encounters and rewards. Most
 appear alone, occasional groups contain two or three people, and every fan
@@ -208,7 +249,7 @@ their lane starts a 15-second draft:
 - wind shelter;
 - doubled Sweat production while attached;
 - Flow gain;
-- five scalable Sweat bags for completing the full draft.
+- a ×6 clean challenge burst in both currencies for completing the full draft.
 
 The rider changes lanes during the draft. Reaction time and lane tolerance
 tighten across the Tour.

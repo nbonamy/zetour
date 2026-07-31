@@ -48,13 +48,15 @@ describe("incremental upgrade tree", () => {
     });
   });
 
-  it("uses a gentle exponential cost curve suitable for deep levels", () => {
+  it("escalates deep upgrades from pocket money to billions", () => {
     const socks = upgrade("aero-socks");
 
     expect([0, 1, 2, 10].map((level) => upgradeCost(socks, level))).toEqual([
-      25, 29, 33, 101,
+      25, 32, 41, 295,
     ]);
-    expect(upgradeCost(socks, 50)).toBeGreaterThan(25_000);
+    expect(upgradeCost(socks, 50)).toBeGreaterThan(5_000_000);
+    expect(upgradeCost(socks, 75)).toBeGreaterThan(2_000_000_000);
+    expect(upgradeCost(socks, 99)).toBeGreaterThan(1_000_000_000_000);
   });
 
   it("supports buy ten and buy max calculations", () => {
@@ -78,12 +80,12 @@ describe("incremental upgrade tree", () => {
 
     expect(nextUpgradeMilestone(power, 0)?.level).toBe(10);
     expect(upgradeMilestoneMultiplier(power, 9)).toBe(1);
-    expect(upgradeMilestoneMultiplier(power, 10)).toBe(2);
-    expect(upgradeMilestoneMultiplier(power, 25)).toBe(6);
-    expect(upgradeMilestoneMultiplier(power, 50)).toBe(30);
-    expect(upgradeMilestoneMultiplier(power, 100)).toBe(300);
+    expect(upgradeMilestoneMultiplier(power, 10)).toBe(3);
+    expect(upgradeMilestoneMultiplier(power, 25)).toBe(15);
+    expect(upgradeMilestoneMultiplier(power, 50)).toBe(150);
+    expect(upgradeMilestoneMultiplier(power, 100)).toBe(3_750);
     expect(upgradeEffectMultiplier(power, 10, "pacePerLevel")).toBeCloseTo(
-      2.6,
+      3.9,
     );
   });
 
@@ -95,6 +97,9 @@ describe("incremental upgrade tree", () => {
     );
     expect(store.purchaseStatus(upgrade("endurance")).reason).toBe(
       "Need 20 more Sweat",
+    );
+    expect(store.purchaseStatus(upgrade("hyperbike")).reason).toBe(
+      "Need $2B more",
     );
   });
 
@@ -138,11 +143,12 @@ describe("incremental upgrade tree", () => {
       "mechanic",
       "sponsor",
       "team-director",
+      "hyperbike",
     ].forEach((id) => expect(upgradeById(id)).toBeDefined());
   });
 
   it("provides a substantial first-sector runway before later branches", () => {
-    const { store } = createTestStore({ stage: 1, sweat: 6_000 });
+    const { store } = createTestStore({ stage: 1, sweat: 10_000 });
     const firstSector = [
       upgrade("endurance"),
       upgrade("power"),

@@ -25,6 +25,7 @@ const encounterTypes: readonly RideEncounter[] = [
   "feed-zone",
   "sprint",
   "hairpins",
+  "traffic",
   "power-up",
   "draft",
 ];

@@ -6,10 +6,8 @@ import {
   type GameSnapshot,
   type PowerUpType,
 } from "../core/gameStore";
-import {
-  RANDOM_RIDER_DRAFT_BONUS,
-  RANDOM_RIDER_DRAFT_SWEAT_BAG_MULTIPLIER,
-} from "../core/drafting";
+import { RANDOM_RIDER_DRAFT_BONUS } from "../core/drafting";
+import { formatCompactNumber } from "../core/format";
 import {
   addFlow,
   advanceLoopingRoadMarkerX,
@@ -18,6 +16,8 @@ import {
   domestiqueFormationX,
   draftAlignmentGap,
   draftRulesForStage,
+  encounterChallengeRules,
+  encounterDelayRange,
   encounterLabel,
   encounterStartX,
   fanFrameAt,
@@ -28,6 +28,7 @@ import {
   lootSequenceForStage,
   moveLane,
   nextEncounter,
+  oncomingTrafficSpeedMultiplier,
   outsideDraftTargetX,
   roadAngleDegrees,
   roadOffsetAtX,
@@ -37,6 +38,7 @@ import {
   roadScrollDistance,
   roadScrollSpeed,
   roadTileScrollDelta,
+  trafficGauntletPattern,
   type RideEncounter,
 } from "./rideSystems";
 import {
@@ -57,14 +59,28 @@ import {
 import { readVisualQaOverrides } from "./visualQa";
 
 type RoadObject = Phaser.Physics.Arcade.Image & {
-  eventType?: "sweat" | "cash" | "pothole" | PowerUpType;
+  eventType?:
+    | "sweat"
+    | "cash"
+    | "pothole"
+    | "oncoming-car"
+    | "oncoming-van"
+    | PowerUpType;
   sequenceId?: number;
   sequenceIndex?: number;
   sequenceFailed?: boolean;
   powerUpChoiceId?: number;
   roadLane?: number;
   roadYOffset?: number;
+  roadSpeedMultiplier?: number;
 };
+
+interface ChallengeRun {
+  encounter: RideEncounter;
+  totalPickups: number;
+  collectedPickups: number;
+  failed: boolean;
+}
 
 type RoadsideFan = Phaser.GameObjects.Image & {
   roadsideBaseY: number;
@@ -97,6 +113,10 @@ const LOWER_ROADSIDE_HEIGHT = 118;
 const ROAD_TILE_SCALE = 0.32;
 const BAG_SIZE = 28;
 const POWER_UP_SIZE = 34;
+const TRAFFIC_WIDTH = 104;
+const TRAFFIC_HEIGHT = 78;
+const TRAFFIC_GROUND_OFFSET_Y = -23;
+const ENCOUNTER_TEXT_Y = 164;
 const FAN_WIDTH = 32;
 const FAN_HEIGHT = 42;
 const FAN_VARIANT_COUNT = 4;
@@ -121,6 +141,10 @@ const isPowerUpType = (
   type: RoadObject["eventType"],
 ): type is PowerUpType =>
   type !== undefined && Object.hasOwn(powerUpDefinitions, type);
+const isTrafficHazard = (
+  type: RoadObject["eventType"],
+): type is "oncoming-car" | "oncoming-van" =>
+  type === "oncoming-car" || type === "oncoming-van";
 
 export class GameScene extends Phaser.Scene {
   private rider!: Phaser.Physics.Arcade.Sprite;
@@ -148,6 +172,7 @@ export class GameScene extends Phaser.Scene {
   private encounterCountdown = VISUAL_QA.encounter ? 0 : 1_200;
   private encounterCount = 0;
   private pickupSequenceCount = 0;
+  private challengeRuns = new Map<number, ChallengeRun>();
   private animationCountdown = 120;
   private riderFrame = false;
   private lastSteerAt = 0;
@@ -186,6 +211,8 @@ export class GameScene extends Phaser.Scene {
       "power-lucky-bidon",
       "power-jump",
       "pothole",
+      "oncoming-car-red",
+      "oncoming-van-cream",
     ];
     for (let variant = 1; variant <= FAN_VARIANT_COUNT; variant += 1) {
       pngTextures.push(`fan-${variant}-a`, `fan-${variant}-b`);
@@ -346,7 +373,11 @@ export class GameScene extends Phaser.Scene {
         );
       this.startEncounter(encounter);
       this.encounterCount += 1;
-      this.encounterCountdown = Phaser.Math.Between(8_500, 12_000);
+      const [minimumDelay, maximumDelay] = encounterDelayRange(snapshot.stage);
+      this.encounterCountdown = Phaser.Math.Between(
+        minimumDelay,
+        maximumDelay,
+      );
     }
 
     this.animationCountdown -= delta;
@@ -417,6 +448,7 @@ export class GameScene extends Phaser.Scene {
     this.encounterCountdown = VISUAL_QA.encounter ? 0 : 1_200;
     this.encounterCount = 0;
     this.pickupSequenceCount = 0;
+    this.challengeRuns.clear();
     this.animationCountdown = 120;
     this.riderFrame = false;
     this.lastSteerAt = 0;
@@ -563,7 +595,7 @@ export class GameScene extends Phaser.Scene {
     this.updateRoadIncline(0, true);
 
     this.encounterText = this.add
-      .text(WIDTH / 2, 92, "", {
+      .text(WIDTH / 2, ENCOUNTER_TEXT_Y, "", {
         fontFamily: CANVAS_FONT,
         fontSize: "12px",
         color: "#f5d66f",
@@ -848,6 +880,7 @@ export class GameScene extends Phaser.Scene {
   private spawnPothole(
     lane = Phaser.Math.Between(0, 2),
     x = WIDTH + 24,
+    sequenceId?: number,
   ): void {
     const pothole = this.physics.add.image(
       x,
@@ -855,6 +888,7 @@ export class GameScene extends Phaser.Scene {
       "pothole",
     ) as RoadObject;
     pothole.eventType = "pothole";
+    pothole.sequenceId = sequenceId;
     pothole.roadLane = lane;
     pothole.roadYOffset = ROAD_HAZARD_LANE_OFFSET_Y;
     pothole
@@ -862,6 +896,36 @@ export class GameScene extends Phaser.Scene {
       .setDepth(9 + pothole.y / 1_000);
     pothole.body?.setSize(46, 14);
     this.hazards.add(pothole);
+  }
+
+  private spawnOncomingVehicle(
+    lane: number,
+    x: number,
+    sequenceId: number,
+    variant: "car" | "van" = Math.random() < 0.62 ? "car" : "van",
+  ): void {
+    const texture =
+      variant === "car" ? "oncoming-car-red" : "oncoming-van-cream";
+    const eventType =
+      variant === "car" ? "oncoming-car" : "oncoming-van";
+    const roadYOffset = TRAFFIC_GROUND_OFFSET_Y;
+    const vehicle = this.physics.add.image(
+      x,
+      this.roadY(LANE_Y[lane] + roadYOffset, x),
+      texture,
+    ) as RoadObject;
+    vehicle.eventType = eventType;
+    vehicle.sequenceId = sequenceId;
+    vehicle.roadLane = lane;
+    vehicle.roadYOffset = roadYOffset;
+    vehicle.roadSpeedMultiplier = oncomingTrafficSpeedMultiplier(
+      gameStore.getSnapshot().stage,
+    );
+    vehicle
+      .setDisplaySize(TRAFFIC_WIDTH, TRAFFIC_HEIGHT)
+      .setDepth(9 + vehicle.y / 1_000);
+    vehicle.body?.setSize(390, 140, false).setOffset(60, 160);
+    this.hazards.add(vehicle);
   }
 
   private updateRoadObjects(
@@ -875,7 +939,13 @@ export class GameScene extends Phaser.Scene {
       if (object.sequenceFailed) return;
 
       object.setVelocity(0, 0);
-      object.setX(advanceRoadObjectX(object.x, scrollSpeed, delta));
+      object.setX(
+        advanceRoadObjectX(
+          object.x,
+          scrollSpeed * (object.roadSpeedMultiplier ?? 1),
+          delta,
+        ),
+      );
       if (object.roadLane !== undefined) {
         object.setY(
           this.roadY(
@@ -885,7 +955,10 @@ export class GameScene extends Phaser.Scene {
         );
         syncRoadBodyPosition(object.body);
       }
-      if (object.eventType === "pothole") {
+      if (
+        object.eventType === "pothole" ||
+        isTrafficHazard(object.eventType)
+      ) {
         object.setAngle(roadAngleDegrees(this.roadGradient));
       }
       if (
@@ -898,7 +971,8 @@ export class GameScene extends Phaser.Scene {
         return;
       }
       if (
-        object.eventType === "pothole" &&
+        (object.eventType === "pothole" ||
+          isTrafficHazard(object.eventType)) &&
         !object.getData("passedRider") &&
         object.x <= this.rider.x
       ) {
@@ -906,7 +980,12 @@ export class GameScene extends Phaser.Scene {
         const gap = Math.abs(object.y - this.rider.y);
         const activelySteering = this.time.now - this.lastSteerAt < 5_000;
         if (activelySteering && gap >= 24 && gap <= 78) {
-          this.rewardFlow(15, "NEAR MISS");
+          this.rewardFlow(
+            isTrafficHazard(object.eventType) ? 22 : 15,
+            isTrafficHazard(object.eventType)
+              ? "TRAFFIC NEAR MISS"
+              : "NEAR MISS",
+          );
         }
       }
       if (
@@ -933,7 +1012,8 @@ export class GameScene extends Phaser.Scene {
     if (
       !object.active ||
       object.sequenceFailed ||
-      object.eventType === "pothole"
+      object.eventType === "pothole" ||
+      isTrafficHazard(object.eventType)
     ) {
       return;
     }
@@ -951,6 +1031,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const bagType = object.eventType === "sweat" ? "sweat" : "cash";
+    const sequenceId = object.sequenceId;
     const amount = gameStore.collectBag(bagType);
     this.rewardFlow(10, `COMBO ${this.combo + 1}`);
     this.floatText(
@@ -960,6 +1041,39 @@ export class GameScene extends Phaser.Scene {
       bagType === "sweat" ? "#71f5cc" : "#ffe26f",
     );
     this.destroyRoadObject(object);
+    if (sequenceId !== undefined) {
+      this.recordChallengePickup(sequenceId);
+    }
+  }
+
+  private recordChallengePickup(sequenceId: number): void {
+    const challenge = this.challengeRuns.get(sequenceId);
+    if (!challenge) return;
+
+    challenge.collectedPickups += 1;
+    if (challenge.collectedPickups < challenge.totalPickups) return;
+
+    const rules = encounterChallengeRules[challenge.encounter];
+    this.challengeRuns.delete(sequenceId);
+    if (!rules || challenge.failed) {
+      this.showEncounter(
+        `${encounterLabel[challenge.encounter]} SURVIVED · CLEAN BONUS LOST`,
+        1_600,
+      );
+      return;
+    }
+
+    const reward = gameStore.completeChallenge(
+      rules.cleanRewardMultiplier,
+    );
+    this.rewardFlow(
+      rules.flowReward,
+      `CLEAN ×${rules.cleanRewardMultiplier}`,
+    );
+    this.showEncounter(
+      `CLEAN ×${rules.cleanRewardMultiplier} · +${formatCompactNumber(reward.sweat)} SWEAT · +$${formatCompactNumber(reward.cash)}`,
+      2_200,
+    );
   }
 
   private clearPowerUpChoice(choiceId: number | undefined): void {
@@ -978,6 +1092,9 @@ export class GameScene extends Phaser.Scene {
     const sequenceId = missedPickup.sequenceId;
     const missedIndex = missedPickup.sequenceIndex;
     if (sequenceId === undefined || missedIndex === undefined) return;
+
+    const challenge = this.challengeRuns.get(sequenceId);
+    if (challenge) challenge.failed = true;
 
     this.destroyRoadObject(missedPickup);
 
@@ -1009,14 +1126,25 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    this.showEncounter("SEQUENCE MISSED — BONUSES LOST", 1_200);
+    const rules = challenge
+      ? encounterChallengeRules[challenge.encounter]
+      : undefined;
+    this.challengeRuns.delete(sequenceId);
+    this.showEncounter(
+      challenge && rules
+        ? `${encounterLabel[challenge.encounter]} MISSED · CLEAN ×${rules.cleanRewardMultiplier} LOST`
+        : "SEQUENCE MISSED — BONUSES LOST",
+      1_400,
+    );
   }
 
   private hitHazard(object: RoadObject): void {
     if (!object.active) return;
 
+    const trafficCollision = isTrafficHazard(object.eventType);
     const activePowerUp = gameStore.getSnapshot().activePowerUp;
     if (
+      object.eventType === "pothole" &&
       activePowerUp &&
       powerUpDefinitions[activePowerUp.type].potholeImmunity
     ) {
@@ -1026,26 +1154,62 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const lost = gameStore.hitPothole();
+    const challenge =
+      object.sequenceId === undefined
+        ? undefined
+        : this.challengeRuns.get(object.sequenceId);
+    if (challenge && !challenge.failed) {
+      challenge.failed = true;
+      const rules = encounterChallengeRules[challenge.encounter];
+      if (rules) {
+        this.showEncounter(
+          `COLLISION · CLEAN ×${rules.cleanRewardMultiplier} LOST`,
+          1_500,
+        );
+      }
+    }
+
+    const lost = trafficCollision
+      ? gameStore.hitTraffic()
+      : gameStore.hitPothole();
     this.flow = 0;
     gameStore.setActiveFlowMultiplier(1);
     this.combo = 0;
     this.lastFlowActionAt = this.time.now;
-    this.floatText(object.x, object.y - 18, `-$${lost}`, "#ff8d7d");
-    this.cameras.main.shake(120, 0.008);
+    this.floatText(
+      object.x,
+      object.y - 18,
+      `-$${formatCompactNumber(lost)}`,
+      "#ff8d7d",
+    );
+    this.cameras.main.shake(
+      trafficCollision ? 210 : 120,
+      trafficCollision ? 0.014 : 0.008,
+    );
     this.rider.setTint(0xff9b91);
     this.time.delayedCall(240, () => this.rider.clearTint());
     this.destroyRoadObject(object);
   }
 
   private startEncounter(encounter: RideEncounter): void {
-    this.showEncounter(encounterLabel[encounter]);
+    const challengeRules = encounterChallengeRules[encounter];
+    this.showEncounter(
+      challengeRules
+        ? `${encounterLabel[encounter]} · CLEAN ×${challengeRules.cleanRewardMultiplier}`
+        : encounterLabel[encounter],
+    );
     const startX = encounterStartX(encounter, WIDTH);
     const sequenceId = this.pickupSequenceCount;
     this.pickupSequenceCount += 1;
     const spawnLootSequence = (
       placements: Array<{ lane: number; x: number }>,
     ): void => {
+      this.challengeRuns.set(sequenceId, {
+        encounter,
+        totalPickups: placements.length,
+        collectedPickups: 0,
+        failed: false,
+      });
       const loot = lootSequenceForStage(
         gameStore.getSnapshot().stage,
         placements.length,
@@ -1064,13 +1228,13 @@ export class GameScene extends Phaser.Scene {
             x: startX + index * 92,
           })),
         );
-        this.spawnPothole((lane + 1) % 3, startX + 145);
-        this.spawnPothole((lane + 2) % 3, startX + 330);
+        this.spawnPothole((lane + 1) % 3, startX + 145, sequenceId);
+        this.spawnPothole((lane + 2) % 3, startX + 330, sequenceId);
         break;
       }
       case "slalom": {
         const placements = [0, 1, 2, 1, 0].map((lane, index) => {
-          this.spawnPothole(lane, startX + index * 82);
+          this.spawnPothole(lane, startX + index * 82, sequenceId);
           return {
             lane: (lane + 1) % 3,
             x: startX + index * 82 + 40,
@@ -1093,7 +1257,11 @@ export class GameScene extends Phaser.Scene {
         const placements = Array.from({ length: 7 }, (_, index) => {
           const lane = index % 2 === 0 ? 1 : Phaser.Math.Between(0, 2);
           if (index === 2 || index === 5) {
-            this.spawnPothole((lane + 1) % 3, startX + index * 68 + 30);
+            this.spawnPothole(
+              (lane + 1) % 3,
+              startX + index * 68 + 30,
+              sequenceId,
+            );
           }
           return { lane, x: startX + index * 68 };
         });
@@ -1102,11 +1270,25 @@ export class GameScene extends Phaser.Scene {
       }
       case "hairpins": {
         const placements = [0, 2, 0, 2, 1].map((lane, index) => {
-          this.spawnPothole(lane, startX + index * 84);
+          this.spawnPothole(lane, startX + index * 84, sequenceId);
           return {
             lane: lane === 0 ? 2 : 0,
             x: startX + index * 84 + 42,
           };
+        });
+        spawnLootSequence(placements);
+        break;
+      }
+      case "traffic": {
+        const placements = trafficGauntletPattern.map((column, index) => {
+          const x = startX + index * 132;
+          this.spawnOncomingVehicle(
+            column.hazardLane,
+            x,
+            sequenceId,
+            index % 3 === 2 ? "van" : "car",
+          );
+          return { lane: column.rewardLane, x: x + 52 };
         });
         spawnLootSequence(placements);
         break;
@@ -1124,7 +1306,7 @@ export class GameScene extends Phaser.Scene {
 
   private showEncounter(label: string, duration = 2_200): void {
     this.encounterText
-      .setPosition(WIDTH / 2, 92)
+      .setPosition(WIDTH / 2, ENCOUNTER_TEXT_Y)
       .setText(label)
       .setAlpha(1);
     this.time.delayedCall(duration, () => {
@@ -1224,7 +1406,11 @@ export class GameScene extends Phaser.Scene {
         this.draftTimerText?.destroy();
         this.draftTimerText = undefined;
         this.draftCyclist = undefined;
-        this.encounterCountdown = Phaser.Math.Between(4_000, 6_500);
+        const [minimumDelay, maximumDelay] = encounterDelayRange(stage);
+        this.encounterCountdown = Phaser.Math.Between(
+          minimumDelay,
+          maximumDelay,
+        );
       }
       return;
     }
@@ -1314,12 +1500,16 @@ export class GameScene extends Phaser.Scene {
     this.drafting = false;
     this.droppedFromDraft = true;
     gameStore.setTemporaryDraftBonus(0);
-    const reward = gameStore.collectBag(
-      "sweat",
-      RANDOM_RIDER_DRAFT_SWEAT_BAG_MULTIPLIER,
+    const challengeRules = encounterChallengeRules.draft;
+    const reward = gameStore.completeChallenge(
+      challengeRules?.cleanRewardMultiplier ?? 6,
     );
+    this.rewardFlow(challengeRules?.flowReward ?? 24, "DRAFT CLEAN");
     this.draftTimerText?.setText("0s");
-    this.showEncounter(`DRAFT COMPLETE · +${reward} SWEAT`, 1_800);
+    this.showEncounter(
+      `DRAFT CLEAN ×${challengeRules?.cleanRewardMultiplier ?? 6} · +${formatCompactNumber(reward.sweat)} SWEAT · +$${formatCompactNumber(reward.cash)}`,
+      2_200,
+    );
   }
 
   private positionDraftTimer(cyclist: Phaser.GameObjects.Sprite): void {

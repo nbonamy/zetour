@@ -129,7 +129,7 @@ describe("GameScene", () => {
 
     (scene.preload as () => void)();
 
-    expect(image).toHaveBeenCalledTimes(29);
+    expect(image).toHaveBeenCalledTimes(31);
     expect(image).toHaveBeenCalledWith(
       "rider-a",
       "/assets/art/rider-a.png",
@@ -158,6 +158,50 @@ describe("GameScene", () => {
       "road-texture-gravel",
       "/assets/art/road-texture-gravel.jpg",
     );
+    expect(image).toHaveBeenCalledWith(
+      "oncoming-car-red",
+      "/assets/art/oncoming-car-red.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "oncoming-van-cream",
+      "/assets/art/oncoming-van-cream.png",
+    );
+  });
+
+  it("places oncoming traffic on a lane-sized collision body", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const body = {
+      setSize: vi.fn(),
+      setOffset: vi.fn(),
+    };
+    body.setSize.mockReturnValue(body);
+    body.setOffset.mockReturnValue(body);
+    const vehicle: Record<string, any> = { body, y: 227 };
+    vehicle.setDisplaySize = vi.fn(() => vehicle);
+    vehicle.setDepth = vi.fn(() => vehicle);
+    const image = vi.fn(() => vehicle);
+    const addToHazards = vi.fn();
+    scene.physics = { add: { image } };
+    scene.hazards = { add: addToHazards };
+    scene.roadGradient = 0;
+
+    (scene.spawnOncomingVehicle as (
+      lane: number,
+      x: number,
+      sequenceId: number,
+      variant: "car" | "van",
+    ) => void)(1, 700, 12, "car");
+
+    expect(image).toHaveBeenCalledWith(700, 227, "oncoming-car-red");
+    expect(vehicle.eventType).toBe("oncoming-car");
+    expect(vehicle.sequenceId).toBe(12);
+    expect(vehicle.roadLane).toBe(1);
+    expect(vehicle.roadYOffset).toBe(-23);
+    expect(vehicle.roadSpeedMultiplier).toBeCloseTo(1.42);
+    expect(vehicle.setDisplaySize).toHaveBeenCalledWith(104, 78);
+    expect(body.setSize).toHaveBeenCalledWith(390, 140, false);
+    expect(body.setOffset).toHaveBeenCalledWith(60, 160);
+    expect(addToHazards).toHaveBeenCalledWith(vehicle);
   });
 
   it("reacts to a store race reset before advancing another frame", () => {

@@ -37,10 +37,10 @@ describe("riding economy", () => {
     const cashReward = store.collectBag("cash");
     const state = store.getSnapshot();
 
-    expect(sweatReward).toBe(15);
-    expect(cashReward).toBe(22);
-    expect(state.sweat).toBe(15);
-    expect(state.cash).toBe(22);
+    expect(sweatReward).toBe(56);
+    expect(cashReward).toBe(80);
+    expect(state.sweat).toBe(56);
+    expect(state.cash).toBe(80);
   });
 
   it("applies the active Flow multiplier to roadside bags", () => {
@@ -48,8 +48,8 @@ describe("riding economy", () => {
 
     const reward = store.collectBag("cash", 1.6);
 
-    expect(reward).toBe(35);
-    expect(store.getSnapshot().cash).toBe(35);
+    expect(reward).toBe(129);
+    expect(store.getSnapshot().cash).toBe(129);
   });
 
   it("makes passive Cash spendable immediately", () => {
@@ -81,8 +81,39 @@ describe("riding economy", () => {
       () => 0.999999,
     ).store;
 
-    expect(minimumRoll.hitPothole()).toBe(3);
-    expect(maximumRoll.hitPothole()).toBe(6);
+    expect(minimumRoll.hitPothole()).toBe(11);
+    expect(maximumRoll.hitPothole()).toBe(22);
+  });
+
+  it("makes traffic collisions more expensive than potholes", () => {
+    const pothole = createTestStore({ cash: 1_000 }, () => 0).store;
+    const traffic = createTestStore({ cash: 1_000 }, () => 0).store;
+
+    expect(traffic.hitTraffic()).toBe(38);
+    expect(traffic.getSnapshot().cash).toBe(962);
+    expect(traffic.hitTraffic()).toBeGreaterThan(pothole.hitPothole());
+  });
+
+  it("pays clean challenge bursts in both currencies at the current rate", () => {
+    const { store } = createTestStore();
+
+    const easy = store.completeChallenge(1);
+    const traffic = store.completeChallenge(8);
+
+    expect(easy).toEqual({
+      sweat: 67,
+      cash: 64,
+      productionSeconds: 24,
+    });
+    expect(traffic).toEqual({
+      sweat: 538,
+      cash: 515,
+      productionSeconds: 192,
+    });
+    expect(store.getSnapshot()).toMatchObject({
+      sweat: 605,
+      cash: 579,
+    });
   });
 
   it("makes tires, suspension, and mechanics protect against potholes", () => {
@@ -848,7 +879,7 @@ describe("power-up reserve", () => {
     const reward = store.collectBag("cash");
 
     expect(store.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
-    expect(reward).toBe(22);
+    expect(reward).toBe(80);
   });
 
   it("keeps a reserved power-up while another one is active", () => {

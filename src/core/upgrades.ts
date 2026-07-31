@@ -60,17 +60,17 @@ export const branchUnlockStages: Record<Branch, number> = {
 
 const deepMilestones = (labels: readonly [string, string, string, string]) =>
   [
-    { level: 10, multiplier: 2, label: labels[0] },
-    { level: 25, multiplier: 3, label: labels[1] },
-    { level: 50, multiplier: 5, label: labels[2] },
-    { level: 100, multiplier: 10, label: labels[3] },
+    { level: 10, multiplier: 3, label: labels[0] },
+    { level: 25, multiplier: 5, label: labels[1] },
+    { level: 50, multiplier: 10, label: labels[2] },
+    { level: 100, multiplier: 25, label: labels[3] },
   ] as const;
 
 const mediumMilestones = (labels: readonly [string, string, string]) =>
   [
-    { level: 10, multiplier: 2, label: labels[0] },
-    { level: 25, multiplier: 3, label: labels[1] },
-    { level: 50, multiplier: 5, label: labels[2] },
+    { level: 10, multiplier: 3, label: labels[0] },
+    { level: 25, multiplier: 5, label: labels[1] },
+    { level: 50, multiplier: 10, label: labels[2] },
   ] as const;
 
 export const upgrades: UpgradeDefinition[] = [
@@ -102,7 +102,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "◇",
     currency: "cash",
     baseCost: 120,
-    costScale: 1.17,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Aluminium race frame",
@@ -127,7 +127,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "◎",
     currency: "cash",
     baseCost: 45,
-    costScale: 1.16,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Reinforced tires",
@@ -154,7 +154,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "⚙",
     currency: "cash",
     baseCost: 70,
-    costScale: 1.18,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Indexed shifting",
@@ -179,7 +179,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "◉",
     currency: "cash",
     baseCost: 150,
-    costScale: 1.18,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Lightweight alloy",
@@ -205,7 +205,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "⬡",
     currency: "cash",
     baseCost: 110,
-    costScale: 1.19,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "Mechanical discs",
@@ -230,7 +230,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "♨",
     currency: "cash",
     baseCost: 80,
-    costScale: 1.15,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Clean chain",
@@ -256,7 +256,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "♥",
     currency: "sweat",
     baseCost: 20,
-    costScale: 1.15,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Aerobic base",
@@ -280,7 +280,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "⚡",
     currency: "sweat",
     baseCost: 35,
-    costScale: 1.16,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Threshold power",
@@ -296,6 +296,26 @@ export const upgrades: UpgradeDefinition[] = [
     tree: { x: 50, y: 28 },
   },
   {
+    id: "hyperbike",
+    branch: "rider",
+    name: "Hyperbike moonshot",
+    description:
+      "The impossible two-billion-dollar machine. Build the economy that can afford it, then break the Tour wide open.",
+    icon: "✦",
+    currency: "cash",
+    baseCost: 2_000_000_000,
+    costScale: 1,
+    maxLevel: 1,
+    costs: [2_000_000_000],
+    levelNames: ["Physics waiver signed"],
+    effects: {
+      pacePerLevel: 9,
+      sweatPerLevel: 9,
+      cashPerLevel: 9,
+    },
+    tree: { x: 50, y: 8 },
+  },
+  {
     id: "technique",
     branch: "rider",
     name: "Bike handling",
@@ -304,7 +324,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "↔",
     currency: "sweat",
     baseCost: 50,
-    costScale: 1.18,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "Fast line changes",
@@ -327,7 +347,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "△",
     currency: "sweat",
     baseCost: 60,
-    costScale: 1.18,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "Lean endurance build",
@@ -350,7 +370,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "◍",
     currency: "sweat",
     baseCost: 25,
-    costScale: 1.15,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Electrolyte mix",
@@ -374,7 +394,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "●",
     currency: "sweat",
     baseCost: 40,
-    costScale: 1.16,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Energy bars",
@@ -399,7 +419,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "♧",
     currency: "cash",
     baseCost: 25,
-    costScale: 1.15,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Compression socks",
@@ -424,7 +444,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "◒",
     currency: "cash",
     baseCost: 60,
-    costScale: 1.17,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Performance helmet",
@@ -449,7 +469,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "♜",
     currency: "cash",
     baseCost: 90,
-    costScale: 1.18,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Race-cut kit",
@@ -474,7 +494,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "⊚",
     currency: "cash",
     baseCost: 55,
-    costScale: 1.16,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "File-tread tires",
@@ -499,7 +519,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "≋",
     currency: "cash",
     baseCost: 130,
-    costScale: 1.18,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "Compliant cockpit",
@@ -525,7 +545,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "♟",
     currency: "cash",
     baseCost: 260,
-    costScale: 1.2,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "Three-rider train",
@@ -548,7 +568,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "⚒",
     currency: "cash",
     baseCost: 180,
-    costScale: 1.18,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "Team mechanic",
@@ -572,7 +592,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "$",
     currency: "cash",
     baseCost: 220,
-    costScale: 1.19,
+    costScale: 1.28,
     maxLevel: 100,
     milestones: deepMilestones([
       "Regional sponsor",
@@ -596,7 +616,7 @@ export const upgrades: UpgradeDefinition[] = [
     icon: "♛",
     currency: "cash",
     baseCost: 420,
-    costScale: 1.21,
+    costScale: 1.28,
     maxLevel: 50,
     milestones: mediumMilestones([
       "Team radio",

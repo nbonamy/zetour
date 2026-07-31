@@ -12,8 +12,15 @@ export type RideEncounter =
   | "feed-zone"
   | "sprint"
   | "hairpins"
+  | "traffic"
   | "power-up"
   | "draft";
+
+export interface EncounterChallengeRules {
+  cleanRewardMultiplier: number;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  flowReward: number;
+}
 
 export interface DraftRules {
   laneTolerancePx: number;
@@ -33,6 +40,14 @@ export const roadPowerUpChoices: readonly PowerUpType[] = [
   "lucky-bidon",
   "jump",
 ];
+
+export const trafficGauntletPattern = [
+  { hazardLane: 1, rewardLane: 2 },
+  { hazardLane: 0, rewardLane: 1 },
+  { hazardLane: 1, rewardLane: 0 },
+  { hazardLane: 0, rewardLane: 1 },
+  { hazardLane: 0, rewardLane: 2 },
+] as const;
 
 export const lootMixForStage = (stage: number): LootMix => {
   const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
@@ -78,7 +93,21 @@ export const formatDraftTimer = (seconds: number): string =>
   `${Math.max(0, Math.ceil(seconds))}s`;
 
 export const roadScrollSpeed = (speedKmh: number): number =>
-  Math.max(32, speedKmh * 5.2);
+  Math.max(54, speedKmh * 8);
+
+export const oncomingTrafficSpeedMultiplier = (stage: number): number =>
+  1.34 + Math.max(1, Math.min(5, Math.round(stage))) * 0.08;
+
+export const encounterDelayRange = (
+  stage: number,
+): readonly [number, number] => {
+  const normalizedStage = Math.max(1, Math.min(5, Math.round(stage)));
+  const difficultyOffset = (normalizedStage - 1) * 260;
+  return [
+    5_400 - difficultyOffset,
+    7_400 - difficultyOffset,
+  ];
+};
 
 export const roadScrollDistance = (
   scrollSpeed: number,
@@ -205,8 +234,49 @@ export const encounterLabel: Record<RideEncounter, string> = {
   "feed-zone": "FEED ZONE",
   sprint: "SPRINT SEGMENT",
   hairpins: "HAIRPINS",
+  traffic: "ONCOMING TRAFFIC",
   "power-up": "POWER-UP — PICK ONE",
   draft: "RIDER AHEAD — CATCH THE DRAFT",
+};
+
+export const encounterChallengeRules: Partial<
+  Record<RideEncounter, EncounterChallengeRules>
+> = {
+  "bonus-line": {
+    cleanRewardMultiplier: 1,
+    difficulty: 1,
+    flowReward: 8,
+  },
+  "feed-zone": {
+    cleanRewardMultiplier: 1.5,
+    difficulty: 1,
+    flowReward: 10,
+  },
+  sprint: {
+    cleanRewardMultiplier: 3,
+    difficulty: 2,
+    flowReward: 16,
+  },
+  slalom: {
+    cleanRewardMultiplier: 4,
+    difficulty: 3,
+    flowReward: 20,
+  },
+  hairpins: {
+    cleanRewardMultiplier: 6,
+    difficulty: 4,
+    flowReward: 24,
+  },
+  traffic: {
+    cleanRewardMultiplier: 8,
+    difficulty: 5,
+    flowReward: 30,
+  },
+  draft: {
+    cleanRewardMultiplier: 6,
+    difficulty: 4,
+    flowReward: 24,
+  },
 };
 
 export const availableEncounters = (
@@ -217,6 +287,7 @@ export const availableEncounters = (
     "slalom",
     "feed-zone",
     "sprint",
+    "traffic",
     "power-up",
     "draft",
   ];
@@ -240,8 +311,10 @@ export const nextEncounter = (
   random: () => number = Math.random,
 ): RideEncounter => {
   if (encounterCount === 0) return "bonus-line";
-  if (encounterCount === 1) return "draft";
+  if (encounterCount === 1) return "traffic";
   if (encounterCount === 2) return "power-up";
+  if (encounterCount === 3) return "slalom";
+  if (encounterCount === 4) return "draft";
   return chooseEncounter(stage, random);
 };
 

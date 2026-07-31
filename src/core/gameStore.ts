@@ -39,6 +39,7 @@ import {
   type RecordDeltaStatus,
   type SectorTimeRecord,
 } from "./timeTrial";
+import { formatCompactNumber } from "./format";
 
 // Keep the original key so the Ze Tour rename does not wipe existing careers.
 const SAVE_KEY = "biker-inc-save-v1";
@@ -49,7 +50,16 @@ const GRADIENT_LINEAR_DRAG = 8.75;
 const GRADIENT_QUADRATIC_DRAG = 40.6;
 const DESCENT_SPEED_PER_GRADIENT = 16;
 const COURSE_RECORD_FLAT_SPEED_KMH = 26;
+const BASE_SWEAT_PER_SECOND = 2.5;
+const BASE_CASH_PER_SECOND = 2.5;
+export const CHALLENGE_BASE_PRODUCTION_SECONDS = 24;
 export const TOTAL_TOUR_DISTANCE_KM = 1_615;
+
+export interface ChallengeReward {
+  sweat: number;
+  cash: number;
+  productionSeconds: number;
+}
 
 export type PowerUpType = "super-draft" | "lucky-bidon" | "jump";
 
@@ -762,6 +772,28 @@ export class GameStore {
     return amount;
   }
 
+  completeChallenge(multiplier: number): ChallengeReward {
+    const stats = this.computeStats();
+    const productionSeconds =
+      CHALLENGE_BASE_PRODUCTION_SECONDS * Math.max(0, multiplier);
+    const sweat = Math.max(
+      1,
+      Math.round(stats.sweatPerSecond * productionSeconds),
+    );
+    const cash = Math.max(
+      1,
+      Math.round(stats.cashPerSecond * productionSeconds),
+    );
+    this.state.sweat += sweat;
+    this.state.cash += cash;
+    this.notice(
+      `Clean challenge — +${formatCompactNumber(sweat)} Sweat · +$${formatCompactNumber(cash)}`,
+      "good",
+    );
+    this.emit();
+    return { sweat, cash, productionSeconds };
+  }
+
   hitPothole(): number {
     const stats = this.computeStats();
     const rolledProductionSeconds = 4 + this.random() * 4;
@@ -781,6 +813,31 @@ export class GameStore {
     this.state.cash = Math.max(0, this.state.cash - lost);
     this.notice(
       `Pothole — lost $${lost} and all Flow`,
+      "bad",
+    );
+    this.emit();
+    return lost;
+  }
+
+  hitTraffic(): number {
+    const stats = this.computeStats();
+    const rolledProductionSeconds = 14 + this.random() * 8;
+    const effectiveProductionSeconds =
+      rolledProductionSeconds * (1 - stats.potholeProtection * 0.35);
+    const lost = Math.min(
+      this.state.cash,
+      this.state.cash > 0
+        ? Math.max(
+            1,
+            Math.ceil(
+              stats.cashPerSecond * effectiveProductionSeconds,
+            ),
+          )
+        : 0,
+    );
+    this.state.cash = Math.max(0, this.state.cash - lost);
+    this.notice(
+      `Traffic collision — lost $${formatCompactNumber(lost)} and all Flow`,
       "bad",
     );
     this.emit();
@@ -975,8 +1032,8 @@ export class GameStore {
         available: false,
         reason:
           upgrade.currency === "cash"
-            ? `Need $${missing} more`
-            : `Need ${missing} more Sweat`,
+            ? `Need $${formatCompactNumber(missing)} more`
+            : `Need ${formatCompactNumber(missing)} more Sweat`,
       };
     }
     return {
@@ -1354,7 +1411,7 @@ export class GameStore {
       careerPaceMultiplier * palmaresMultiplier * flowMultiplier;
     const effectivePaceKmh = speedKmh * paceMultiplier;
     const baseSweatPerSecond =
-      (0.45 + speedKmh / 60) * stage.sweatYield;
+      (BASE_SWEAT_PER_SECOND + speedKmh / 60) * stage.sweatYield;
     const upgradeSweatMultiplier = multiplicativeEffect("sweatPerLevel");
     const draftProductionMultiplier =
       temporaryDraftBonus > 0
@@ -1379,7 +1436,7 @@ export class GameStore {
       sweatPerSecond,
       sweatMultiplier,
       cashPerSecond:
-        (0.55 +
+        (BASE_CASH_PER_SECOND +
           ((speedKmh * careerPaceMultiplier * palmaresMultiplier) /
             3_600) *
             stage.cashPerKm) *

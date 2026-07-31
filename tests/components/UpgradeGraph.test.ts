@@ -123,4 +123,24 @@ describe("UpgradeGraph", () => {
     app?.unmount();
     host.remove();
   });
+
+  it("shows the $2B moonshot and its full payoff from the opening", async () => {
+    mountGraph();
+    const hyperbike = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Hyperbike moonshot"]',
+    );
+    if (!hyperbike) throw new Error("Missing Hyperbike node");
+
+    expect(hyperbike.textContent).toContain("$2B DREAM");
+    hyperbike.click();
+    await nextTick();
+
+    expect(host.textContent).toContain("Pace ×10 · Sweat ×10 · Cash ×10");
+    expect(
+      host.querySelector<HTMLButtonElement>(".detail-buy")?.textContent,
+    ).toContain("Need $2B more");
+    expect(gameStore.getSnapshot().upgrades.hyperbike).toBeUndefined();
+    app?.unmount();
+    host.remove();
+  });
 });
