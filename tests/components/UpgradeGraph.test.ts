@@ -30,8 +30,10 @@ describe("UpgradeGraph", () => {
     expect(map?.style.width).toBe("1120px");
     expect(map?.style.height).toBe("780px");
     expect(map?.style.transform).toBe("scale(0.7)");
-    expect(stage?.style.width).toBe("784px");
-    expect(stage?.style.height).toBe("546px");
+    expect(map?.style.left).toBe("808px");
+    expect(map?.style.top).toBe("757px");
+    expect(stage?.style.width).toBe("2736px");
+    expect(stage?.style.height).toBe("2294px");
     expect(map?.style.getPropertyValue("--hex-width")).toBe("");
     expect(host.querySelector(".graph-connections")).not.toBeNull();
     expect(host.querySelectorAll(".hex-branch")).toHaveLength(0);
@@ -41,14 +43,14 @@ describe("UpgradeGraph", () => {
       host.querySelector<HTMLElement>(
         '.branch-hub[data-branch="nutrition"]',
       )?.style.left,
-    ).toBe("624px");
+    ).toBe("678px");
     expect(
       Number.parseFloat(
         host.querySelector<HTMLElement>(
           '.branch-hub[data-branch="nutrition"]',
         )?.style.top ?? "0",
       ),
-    ).toBe(198);
+    ).toBe(228);
     expect(host.querySelectorAll(".tree-node > .node-main")).toHaveLength(
       host.querySelectorAll(".tree-node").length,
     );
@@ -63,9 +65,28 @@ describe("UpgradeGraph", () => {
     ).not.toBeNull();
     expect(
       host.querySelector('[data-edge="hub:nutrition"]')?.getAttribute("d"),
-    ).toBe("M 560 390 L 624 198");
+    ).toBe("M 560 390 L 678 228");
+    const hubAngles = Array.from(
+      host.querySelectorAll<HTMLElement>(".branch-hub"),
+      (hub) => Number(hub.dataset.angle),
+    ).sort((left, right) => left - right);
+    expect(hubAngles).toEqual([-126, -54, 18, 90, 162]);
+    expect(
+      hubAngles.slice(1).map((angle, index) => angle - hubAngles[index]),
+    ).toEqual([72, 72, 72, 72]);
+    const hubRadii = Array.from(
+      host.querySelectorAll<HTMLElement>(".branch-hub"),
+      (hub) =>
+        Math.hypot(
+          Number.parseFloat(hub.style.left) - 560,
+          Number.parseFloat(hub.style.top) - 390,
+        ),
+    );
+    hubRadii.forEach((radius) => expect(radius).toBeCloseTo(200, 0));
     expect(host.querySelector(".graph-viewport .graph-help")).toBeNull();
     expect(host.querySelector(".graph-pane > .graph-help")).not.toBeNull();
+    expect(host.querySelector(".graph-viewport .graph-map-title")).toBeNull();
+    expect(host.querySelector(".graph-pane > .graph-map-title")).not.toBeNull();
     expect(
       host
         .querySelector('[data-edge="node:fueling"]')
@@ -109,7 +130,7 @@ describe("UpgradeGraph", () => {
     host.remove();
   });
 
-  it("zooms the scrollable map in fixed steps", async () => {
+  it("keeps its fixed canvas while smoothly zooming the map", async () => {
     mountGraph();
 
     host.querySelector<HTMLButtonElement>('button[aria-label="Zoom out"]')?.click();
@@ -119,7 +140,7 @@ describe("UpgradeGraph", () => {
       host.querySelector<HTMLElement>(".graph-map")?.style.transform,
     ).toBe("scale(0.6)");
     expect(host.querySelector<HTMLElement>(".graph-stage")?.style.width).toBe(
-      "672px",
+      "2736px",
     );
     expect(host.querySelector(".graph-zoom output")?.textContent).toBe("60%");
 
@@ -138,12 +159,19 @@ describe("UpgradeGraph", () => {
       deltaY: -100,
     });
     viewport?.dispatchEvent(wheel);
-    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 350));
     expect(wheel.defaultPrevented).toBe(true);
-    expect(
-      host.querySelector<HTMLElement>(".graph-map")?.style.transform,
-    ).toBe("scale(0.8)");
-    expect(host.querySelector(".graph-zoom output")?.textContent).toBe("80%");
+    const wheelScale = Number.parseFloat(
+      host
+        .querySelector<HTMLElement>(".graph-map")
+        ?.style.transform.match(/[\d.]+/)?.[0] ?? "0",
+    );
+    expect(wheelScale).toBeGreaterThan(0.7);
+    expect(wheelScale).toBeLessThan(0.73);
+    expect(host.querySelector(".graph-zoom output")?.textContent).toBe("72%");
+    expect(host.querySelector<HTMLElement>(".graph-stage")?.style.width).toBe(
+      "2736px",
+    );
     app?.unmount();
     host.remove();
   });

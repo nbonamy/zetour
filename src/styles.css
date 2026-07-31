@@ -3780,27 +3780,24 @@ kbd {
     linear-gradient(rgba(246, 225, 179, 0.86), rgba(218, 184, 120, 0.86)),
     url("/assets/art/paper-texture.jpg");
   scrollbar-color: #b77b32 #2b190f;
+  scrollbar-gutter: stable;
 }
 
 .graph-stage {
   position: relative;
   flex: 0 0 auto;
-  margin-inline: auto;
 }
 
 .graph-map {
   position: absolute;
-  top: 0;
-  left: 0;
-  overflow: hidden;
-  transform-origin: top left;
+  overflow: visible;
+  transform-origin: center;
+  will-change: transform;
   color: #44291c;
   background:
     radial-gradient(circle at 50% 49%, rgba(175, 118, 47, 0.13), transparent 27%),
     radial-gradient(circle at 26% 22%, rgba(115, 132, 66, 0.1), transparent 21%),
-    radial-gradient(circle at 79% 74%, rgba(113, 77, 55, 0.09), transparent 23%),
-    radial-gradient(circle, rgba(105, 73, 44, 0.12) 0 1px, transparent 1.35px)
-      48px 70px / 64px 64px;
+    radial-gradient(circle at 79% 74%, rgba(113, 77, 55, 0.09), transparent 23%);
   isolation: isolate;
 }
 
@@ -3836,15 +3833,16 @@ kbd {
 
 .graph-map-title {
   position: absolute;
-  z-index: 5;
-  top: 3px;
-  left: 560px;
+  z-index: 20;
+  top: 12px;
+  left: 50%;
   display: grid;
   min-width: 170px;
   justify-items: center;
   transform: translateX(-50%) rotate(-0.4deg);
   color: #4c2d20;
   text-align: center;
+  pointer-events: none;
 }
 
 .graph-map-title strong {
@@ -4024,6 +4022,20 @@ kbd {
   text-transform: uppercase;
 }
 
+.branch-hub[data-branch="bike"] strong,
+.branch-hub[data-branch="equipment"] strong,
+.branch-hub[data-branch="team"] strong {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.branch-hub[data-branch="bike"] small,
+.branch-hub[data-branch="equipment"] small,
+.branch-hub[data-branch="team"] small {
+  top: auto;
+  bottom: calc(100% + 19px);
+}
+
 .branch-hub.locked {
   border-color: #8e7d66;
   background: #cfbc96;
@@ -4146,6 +4158,11 @@ kbd {
   font: 900 6px/1 Georgia, "Times New Roman", serif;
   letter-spacing: 0.08em;
   white-space: nowrap;
+}
+
+.tree-node[data-branch="team"] .node-label {
+  top: auto;
+  bottom: calc(100% + 5px);
 }
 
 .tree-node .node-progress {

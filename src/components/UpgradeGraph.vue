@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import {
   branchLabels,
   branchUnlockStages,
@@ -36,44 +43,84 @@ const selectedId = ref<string | null>(null);
 const viewport = ref<HTMLElement | null>(null);
 const dragging = ref(false);
 const zoom = ref(0.7);
+const minZoom = 0.6;
+const maxZoom = 1.3;
 const world = { width: 1_120, height: 780 };
-const grid = { originX: 48, originY: 70, column: 64, row: 64 };
-const gridPoint = (column: number, row: number): Point => ({
-  x: grid.originX + column * grid.column,
-  y: grid.originY + row * grid.row,
-});
-const center: Point = gridPoint(8, 5);
+const center: Point = { x: 560, y: 390 };
+const virtualCanvasPadding = 640;
+const virtualCanvas = {
+  width: Math.ceil(world.width * maxZoom + virtualCanvasPadding * 2),
+  height: Math.ceil(world.height * maxZoom + virtualCanvasPadding * 2),
+};
+const canvasCenter: Point = {
+  x: virtualCanvas.width / 2,
+  y: virtualCanvas.height / 2,
+};
+const mapOrigin: Point = {
+  x: canvasCenter.x - center.x,
+  y: canvasCenter.y - center.y,
+};
+const branchRadius = 200;
+const branchStep = 68;
+const branchAngles: Record<Branch, number> = {
+  rider: -126,
+  nutrition: -54,
+  equipment: 18,
+  team: 90,
+  bike: 162,
+};
+const branchPoint = (
+  branch: Branch,
+  radialStep = 0,
+  lane = 0,
+): Point => {
+  const angle = (branchAngles[branch] * Math.PI) / 180;
+  const radialDistance = branchRadius + radialStep * branchStep;
+  const tangentDistance = lane * branchStep;
+  return {
+    x: Math.round(
+      center.x +
+        Math.cos(angle) * radialDistance -
+        Math.sin(angle) * tangentDistance,
+    ),
+    y: Math.round(
+      center.y +
+        Math.sin(angle) * radialDistance +
+        Math.cos(angle) * tangentDistance,
+    ),
+  };
+};
 const branchPositions: Record<Branch, Point> = {
-  bike: gridPoint(5, 5),
-  rider: gridPoint(7, 2),
-  nutrition: gridPoint(9, 2),
-  equipment: gridPoint(11, 5),
-  team: gridPoint(8, 8),
+  bike: branchPoint("bike"),
+  rider: branchPoint("rider"),
+  nutrition: branchPoint("nutrition"),
+  equipment: branchPoint("equipment"),
+  team: branchPoint("team"),
 };
 const nodePositions: Record<string, Point> = {
-  "road-bike": gridPoint(4, 5),
-  frame: gridPoint(3, 4),
-  tires: gridPoint(3, 5),
-  shifting: gridPoint(3, 6),
-  wheels: gridPoint(2, 3),
-  brakes: gridPoint(2, 7),
-  "chain-lube": gridPoint(4, 7),
-  endurance: gridPoint(6, 1),
-  power: gridPoint(7, 0),
-  hyperbike: gridPoint(8, 0),
-  technique: gridPoint(8, 1),
-  "body-composition": gridPoint(5, 0),
-  hydration: gridPoint(10, 1),
-  fueling: gridPoint(11, 0),
-  "aero-socks": gridPoint(12, 4),
-  helmet: gridPoint(13, 5),
-  skinsuit: gridPoint(12, 6),
-  "gravel-tires": gridPoint(11, 7),
-  suspension: gridPoint(12, 8),
-  domestique: gridPoint(7, 9),
-  mechanic: gridPoint(8, 10),
-  sponsor: gridPoint(9, 9),
-  "team-director": gridPoint(6, 10),
+  "road-bike": branchPoint("bike", 1),
+  frame: branchPoint("bike", 2, 1.5),
+  tires: branchPoint("bike", 2, 0.5),
+  shifting: branchPoint("bike", 2, -0.5),
+  wheels: branchPoint("bike", 3, 1.5),
+  brakes: branchPoint("bike", 3, -0.5),
+  "chain-lube": branchPoint("bike", 2, -1.5),
+  endurance: branchPoint("rider", 1, -1.5),
+  power: branchPoint("rider", 1, -0.5),
+  hyperbike: branchPoint("rider", 1, 0.5),
+  technique: branchPoint("rider", 1, 1.5),
+  "body-composition": branchPoint("rider", 2, -1.5),
+  hydration: branchPoint("nutrition", 1),
+  fueling: branchPoint("nutrition", 2),
+  "aero-socks": branchPoint("equipment", 1, -1.5),
+  helmet: branchPoint("equipment", 1, -0.5),
+  skinsuit: branchPoint("equipment", 1, 0.5),
+  "gravel-tires": branchPoint("equipment", 1, 1.5),
+  suspension: branchPoint("equipment", 2, 1.5),
+  domestique: branchPoint("team", 1, -1),
+  mechanic: branchPoint("team", 1),
+  sponsor: branchPoint("team", 1, 1),
+  "team-director": branchPoint("team", 2, -1),
 };
 const branches = Object.keys(branchLabels) as Branch[];
 const branchIcons: Record<Branch, string> = {
@@ -287,9 +334,9 @@ const centerViewport = async (): Promise<void> => {
   await nextTick();
   if (!viewport.value) return;
   viewport.value.scrollLeft =
-    center.x * zoom.value - viewport.value.clientWidth / 2;
+    canvasCenter.x - viewport.value.clientWidth / 2;
   viewport.value.scrollTop =
-    center.y * zoom.value - viewport.value.clientHeight / 2;
+    canvasCenter.y - viewport.value.clientHeight / 2;
 };
 
 const setZoom = async (
@@ -298,7 +345,7 @@ const setZoom = async (
 ): Promise<void> => {
   const target = viewport.value;
   const previousZoom = zoom.value;
-  const clampedZoom = Math.min(1.3, Math.max(0.6, nextZoom));
+  const clampedZoom = Math.min(maxZoom, Math.max(minZoom, nextZoom));
   if (clampedZoom === previousZoom) return;
 
   const bounds = target?.getBoundingClientRect();
@@ -311,29 +358,89 @@ const setZoom = async (
       ? anchor.clientY - bounds.top
       : (target?.clientHeight ?? 0) / 2;
   const focusX = target
-    ? (target.scrollLeft + anchorX) / previousZoom
+    ? center.x +
+      (target.scrollLeft + anchorX - canvasCenter.x) / previousZoom
     : center.x;
   const focusY = target
-    ? (target.scrollTop + anchorY) / previousZoom
+    ? center.y +
+      (target.scrollTop + anchorY - canvasCenter.y) / previousZoom
     : center.y;
   zoom.value = clampedZoom;
   await nextTick();
   if (!target) return;
-  target.scrollLeft = focusX * clampedZoom - anchorX;
-  target.scrollTop = focusY * clampedZoom - anchorY;
+  target.scrollLeft =
+    canvasCenter.x + (focusX - center.x) * clampedZoom - anchorX;
+  target.scrollTop =
+    canvasCenter.y + (focusY - center.y) * clampedZoom - anchorY;
 };
 
-const zoomOut = (): Promise<void> =>
-  setZoom(Number((zoom.value - 0.1).toFixed(1)));
-const zoomIn = (): Promise<void> =>
-  setZoom(Number((zoom.value + 0.1).toFixed(1)));
+let wheelZoomTarget = zoom.value;
+let wheelZoomFrame: number | undefined;
+let wheelZoomGeneration = 0;
+let wheelZoomAnchor: { clientX: number; clientY: number } | undefined;
+
+const stopWheelZoom = (): void => {
+  wheelZoomGeneration += 1;
+  if (wheelZoomFrame !== undefined) {
+    cancelAnimationFrame(wheelZoomFrame);
+  }
+  wheelZoomFrame = undefined;
+  wheelZoomTarget = zoom.value;
+};
+
+const animateWheelZoom = async (generation: number): Promise<void> => {
+  if (generation !== wheelZoomGeneration) return;
+  const difference = wheelZoomTarget - zoom.value;
+  if (Math.abs(difference) < 0.0002) {
+    await setZoom(wheelZoomTarget, wheelZoomAnchor);
+    if (generation === wheelZoomGeneration) wheelZoomFrame = undefined;
+    return;
+  }
+
+  await setZoom(zoom.value + difference * 0.32, wheelZoomAnchor);
+  if (generation !== wheelZoomGeneration) return;
+  wheelZoomFrame = requestAnimationFrame(() => {
+    void animateWheelZoom(generation);
+  });
+};
+
+const zoomOut = (): Promise<void> => {
+  stopWheelZoom();
+  return setZoom(Number((zoom.value - 0.1).toFixed(1)));
+};
+const zoomIn = (): Promise<void> => {
+  stopWheelZoom();
+  return setZoom(Number((zoom.value + 0.1).toFixed(1)));
+};
 const zoomWithWheel = (event: WheelEvent): void => {
   if (event.deltaY === 0) return;
-  const direction = event.deltaY > 0 ? -0.1 : 0.1;
-  void setZoom(Number((zoom.value + direction).toFixed(1)), {
+  const deltaMultiplier = event.deltaMode === 1
+    ? 16
+    : event.deltaMode === 2
+      ? viewport.value?.clientHeight || 800
+      : 1;
+  const boundedDelta = Math.max(
+    -120,
+    Math.min(120, event.deltaY * deltaMultiplier),
+  );
+  const startingZoom = wheelZoomFrame === undefined
+    ? zoom.value
+    : wheelZoomTarget;
+  wheelZoomTarget = Math.min(
+    maxZoom,
+    Math.max(minZoom, startingZoom * Math.exp(-boundedDelta * 0.00025)),
+  );
+  wheelZoomAnchor = {
     clientX: event.clientX,
     clientY: event.clientY,
-  });
+  };
+
+  if (wheelZoomFrame === undefined) {
+    const generation = ++wheelZoomGeneration;
+    wheelZoomFrame = requestAnimationFrame(() => {
+      void animateWheelZoom(generation);
+    });
+  }
 };
 
 let dragOrigin:
@@ -372,6 +479,7 @@ const stopPan = (event: PointerEvent): void => {
 };
 
 onMounted(centerViewport);
+onBeforeUnmount(stopWheelZoom);
 </script>
 
 <template>
@@ -390,8 +498,8 @@ onMounted(centerViewport);
         <div
           class="graph-stage"
           :style="{
-            width: `${world.width * zoom}px`,
-            height: `${world.height * zoom}px`,
+            width: `${virtualCanvas.width}px`,
+            height: `${virtualCanvas.height}px`,
           }"
         >
           <div
@@ -399,14 +507,11 @@ onMounted(centerViewport);
             :style="{
               width: `${world.width}px`,
               height: `${world.height}px`,
+              left: `${mapOrigin.x}px`,
+              top: `${mapOrigin.y}px`,
               transform: `scale(${zoom})`,
             }"
           >
-          <div class="graph-map-title" aria-hidden="true">
-            <strong>Career map</strong>
-            <span>Choose your line</span>
-          </div>
-
           <svg
             class="graph-connections"
             :viewBox="`0 0 ${world.width} ${world.height}`"
@@ -437,6 +542,7 @@ onMounted(centerViewport);
             :key="branch"
             class="branch-hub"
             :data-branch="branch"
+            :data-angle="branchAngles[branch]"
             :class="{ locked: !gameStore.isBranchUnlocked(branch) }"
             :style="{
               left: `${branchPositions[branch].x}px`,
@@ -513,6 +619,11 @@ onMounted(centerViewport);
             </button>
           </div>
         </div>
+      </div>
+
+      <div class="graph-map-title" aria-hidden="true">
+        <strong>Career map</strong>
+        <span>Choose your line</span>
       </div>
 
       <div class="graph-help">
