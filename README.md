@@ -1,113 +1,119 @@
 # Ze Tour
 
-Ze Tour is a browser-based incremental cycling game built with Phaser, Vue,
-TypeScript, and Vite. The rider stays readable on a three-lane road while an
-independent Tour-pace multiplier grows from plausible club speed into gloriously
-illegal six-digit kilometres per hour.
+> An incremental cycling game about riding across France, dodging chaos, building an impossible bike, and turning respectable Tour pace into completely unhinged numbers.
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-d89a16.svg)](LICENSE)
+[![Vue](https://img.shields.io/badge/Vue-3-42b883.svg)](https://vuejs.org/)
+[![Phaser](https://img.shields.io/badge/Phaser-4-7b5cff.svg)](https://phaser.io/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org/)
+
+Ze Tour combines a three-lane arcade ride with an incremental economy. Draft riders, collect resources, avoid potholes and oncoming traffic, buy real-world cycling upgrades, finish the Tour, then start a stronger Season and watch the numbers explode.
+
+## Entirely vibe-coded with Codex
+
+**This game was entirely vibe-coded using [Codex](https://openai.com/codex/).** Nicolas supplied the idea, taste, product direction, play-testing, and a healthy amount of blunt feedback; Codex helped turn that conversation into the game design, code, generated visual assets, balancing, tests, and documentation.
+
+It is an experiment in building a complete, playable game through tight human–AI iteration: describe the feeling, play the result, point at what is boring or ugly, and keep going until it is fun.
+
+## What is in the game
+
+- A readable three-lane road with automatic forward motion and optional steering.
+- Five sectors from Paris to Alpe d'Huez, each with its own landscape and challenge.
+- Potholes, hairpins, gravel, crosswinds, traffic encounters, fans, pickups, and drafting lines.
+- Acceleration, Super Draft, and Invincibility power-ups with genuinely different uses.
+- A Career Workshop spanning Rider, Nutrition, Equipment, Bike, and Team upgrades.
+- Short, named equipment paths based on plausible cycling gear—not 100 anonymous helmet levels.
+- Compounding Tour pace, production multipliers, offline progress, and increasingly absurd costs.
+- A Season prestige loop with permanent Palmarès upgrades and persistent course records.
+- A hand-drawn storybook presentation with a slightly ridiculous cycling soul.
+
+## The loop
+
+1. Ride automatically and generate **Sweat** and **Cash**.
+2. Steer into bags, drafting lines, and power-ups while avoiding road hazards.
+3. Spend resources in the Career Workshop to compound pace and production.
+4. Unlock new upgrade branches as the Tour moves through its five sectors.
+5. Reach Alpe d'Huez and take a victory lap, or bank the run as **Palmarès**.
+6. Start a stronger Season, buy permanent bonuses, and chase the next impossible number.
+
+Sweat and Cash belong to the current Season. Palmarès is earned by finishing Tours and survives the reset.
+
+## Controls
+
+| Action | Keyboard | On-screen control |
+| --- | --- | --- |
+| Change lane | `↑` / `↓` | Steer |
+| Use reserved power-up | `Space` | Reserve |
+| Open or close workshop | `W` | Workshop |
+| Pause or resume | `P` or `Esc` | Pause |
+| Restart race | `R` | Restart |
+
+Forward travel is automatic. Steering improves active rewards, but passive and offline progress remain viable.
 
 ## Run locally
 
+### Requirements
+
+- Node.js `20.19+` or `22.12+`
+- npm
+
+### Setup
+
 ```sh
+git clone git@github.com:nbonamy/zetour.git
+cd zetour
 npm ci
 npm run dev
 ```
 
 Open the local URL printed by Vite.
 
-## Verify
+## Development
 
 ```sh
-npm test
+npm test          # run the Vitest suite once
+npm run test:watch
 npm run typecheck
 npm run build
 ```
 
-## The loop
+The app uses Vue for the interface and workshop, Phaser for the road simulation, and a framework-independent TypeScript core for the economy and progression rules.
 
-1. Ride automatically and generate Sweat and Cash.
-2. Steer into bags, drafting lines, and power-ups; avoid potholes and oncoming
-   traffic.
-3. Spend in the Career Workshop on short, named upgrade paths.
-4. Move through concrete equipment tiers or longer five- and ten-step training
-   programs, with multiplicative breakthroughs along the way.
-5. Finish the Tour, then either keep the build for a victory lap or bank the
-   run as Palmarès and start a faster Season.
-6. Spend Palmarès on permanent pace, starting resources, offline efficiency,
-   auto-buying, and pickup magnetism.
+```text
+src/
+├── components/       Vue game and workshop UI
+├── core/             economy, upgrades, saves, progression, and records
+├── game/             Phaser scene, rendering, encounters, and ride systems
+├── App.vue            application shell and HUD
+└── styles.css         visual system and responsive layout
+public/assets/         runtime art and fonts
+art-source/            source artwork used by the asset pipeline
+scripts/               asset-processing tools
+tests/                 unit and component tests
+```
 
-Sweat and Cash are the only resources spent during a Season. Palmarès is a
-between-Season prestige reward and cannot drop from the road.
+The save is stored locally in the browser. Development builds also support save-neutral visual-QA query parameters such as `qaPaused`, `qaStage`, `qaEncounter`, `qaFlow`, and `qaPowerUp` for repeatable screenshots.
 
-## Controls
+## Tour structure
 
-- `↑` / `↓`: change lanes.
-- `Space`: activate the reserved power-up.
-- `R`: open the restart confirmation.
-- `P` or `Esc`: pause or resume.
-- `W`: open or close the Career Workshop.
-- The on-screen controls provide the same actions.
-
-Forward travel is automatic. Steering is an optional accelerant, never a
-requirement for passive or offline progress.
-
-## Incremental systems
-
-- The road simulation keeps physical speed visually coherent while the HUD
-  shows only effective **Tour pace**, which compounds without a physics ceiling.
-- Career upgrades multiply one another across Rider, Nutrition, Equipment,
-  Bike, and Team. Buy the next step or every currently affordable step.
-- Roadside Sweat bags award 20 seconds of current Sweat production. Cash bags
-  award 30 seconds of current Cash production, so active play remains relevant
-  in late Seasons.
-- Completing a full random-rider draft grants five Sweat bags at the current
-  production rate.
-- Road power-ups have distinct jobs: Acceleration gives reliable 2.5× speed
-  and income for 10 seconds; Super Draft gives 4× for eight seconds but only
-  while holding a random rider's wheel; Invincibility nullifies potholes and
-  traffic for eight seconds.
-- Successful pickups, near-misses, and drafting build Flow up to ×3. Flow
-  multiplies Tour pace and both production rates. It stays out of the road view
-  and appears as a compact speed-HUD badge only while the bonus is active.
-- Equipment opens in Sector 2, Bike in Sector 3, and Team in Sector 4.
-- Mechanical upgrades include gravel tires, micro-suspension, chain
-  lubrication, a race mechanic, a sponsor empire, and a directeur sportif.
-- The Bordeaux → Clermont-Ferrand sector uses a dedicated gravel surface and a
-  34% untreated rolling penalty. Gravel tires, suspension, lubrication, and the
-  mechanic progressively erase it.
-- Offline riding advances route distance and both resources at 60% efficiency;
-  the Legendary soigneur can restore full efficiency.
-
-## Tour and Seasons
-
-The displayed route covers 1,615 km while the simulation distances are
-compressed for game pacing. A 1.5× duration factor gives the faster road
-boosts room to breathe without reducing their speed or income effects:
-
-| Sector | Route | Surface / challenge | Branch unlock |
+| Sector | Route | Main challenge | Workshop unlock |
 | --- | --- | --- | --- |
 | 1 | Paris → Bordeaux | Flat road | Rider + Nutrition |
 | 2 | Bordeaux → Clermont-Ferrand | Périgord gravel climb | Equipment |
 | 3 | Clermont-Ferrand → Avignon | Fast descent | Bike |
-| 4 | Avignon → Grenoble | 28% Mistral penalty | Team |
+| 4 | Avignon → Grenoble | Mistral crosswind | Team |
 | 5 | Grenoble → Alpe d'Huez | 21-bend summit finish | Final team node |
 
-At Alpe d'Huez:
+The displayed route covers 1,615 km. Simulation distances are compressed so a Tour is playable, while the effective pace can grow far beyond what physics—or the UCI—would tolerate.
 
-- **Victory lap** keeps balances, upgrades, unlocks, and records, then starts
-  another Tour. Multiple Tours increase the eventual Palmarès reward with
-  diminishing returns.
-- **Start Next Season** awards the previewed Palmarès, resets the in-Season
-  economy, and preserves Palmarès upgrades, total Tours, lifetime distance, and
-  sector records.
-- **Restart race** is the explicit destructive career reset and requires
-  confirmation.
+## Contributing
 
-## Visual QA
+Issues and focused pull requests are welcome. Please run `npm test`, `npm run typecheck`, and `npm run build` before submitting a change, and keep gameplay changes covered by deterministic core tests where possible.
 
-Development builds accept save-neutral visual overrides:
+The living design notes are in [game-design.md](game-design.md), with the incremental progression proposal in [plans/incremental-seasons.md](plans/incremental-seasons.md).
 
-`qaPaused`, `qaStage`, `qaGradient`, `qaEncounter`, `qaDomestiques`, `qaFlow`,
-`qaPowerUp`, `qaDrafting`, and `qaFinished`.
+## License
 
-Pair overrides with `qaPaused=1` for repeatable screenshots. They are disabled
-in production.
+Copyright 2026 Nicolas Bonamy.
+
+Licensed under the [Apache License 2.0](LICENSE).
