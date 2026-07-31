@@ -81,13 +81,25 @@ export const formatDraftTimer = (seconds: number): string =>
 export const roadScrollSpeed = (speedKmh: number): number =>
   Math.max(32, speedKmh * 5.2);
 
+export const roadScrollDistance = (
+  scrollSpeed: number,
+  deltaMs: number,
+): number =>
+  Math.max(0, scrollSpeed) * (Math.max(0, deltaMs) / 1_000);
+
+export const roadTileScrollDelta = (
+  scrollSpeed: number,
+  deltaMs: number,
+  tileScaleX: number,
+): number =>
+  roadScrollDistance(scrollSpeed, deltaMs) /
+  Math.max(0.0001, Math.abs(tileScaleX));
+
 export const advanceRoadObjectX = (
   currentX: number,
   scrollSpeed: number,
   deltaMs: number,
-): number =>
-  currentX -
-  Math.max(0, scrollSpeed) * (Math.max(0, deltaMs) / 1_000);
+): number => currentX - roadScrollDistance(scrollSpeed, deltaMs);
 
 export const advanceLoopingRoadMarkerX = (
   currentX: number,

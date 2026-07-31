@@ -1610,3 +1610,1378 @@ kbd {
   }
 
 }
+
+/* Storybook art direction ------------------------------------------------- */
+
+:root {
+  color: #38241c;
+  background: #1a100c;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+body {
+  background-color: #1a100c;
+  background-image:
+    radial-gradient(circle at 18% 4%, rgba(144, 82, 42, 0.4), transparent 32%),
+    radial-gradient(circle at 84% 92%, rgba(102, 75, 34, 0.32), transparent 30%),
+    linear-gradient(rgba(35, 20, 14, 0.86), rgba(20, 12, 9, 0.94)),
+    url("/assets/art/paper-texture.jpg");
+  background-attachment: fixed;
+  background-blend-mode: screen, screen, multiply, multiply;
+}
+
+button {
+  color: #38241c;
+}
+
+.app-shell {
+  padding: 24px;
+}
+
+.masthead {
+  width: min(1120px, 100%);
+  margin-bottom: 15px;
+}
+
+h1 {
+  position: relative;
+  min-width: 205px;
+  padding: 13px 30px 11px;
+  transform: rotate(-1deg);
+  border: 4px solid #38241c;
+  border-radius: 48% 52% 45% 55% / 22% 28% 24% 30%;
+  background:
+    linear-gradient(rgba(255, 240, 200, 0.82), rgba(226, 198, 137, 0.78)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 244, 211, 0.6),
+    0 6px 0 #6d3c22,
+    0 13px 24px rgba(0, 0, 0, 0.42);
+  color: #9d3f24;
+  font-size: clamp(30px, 3.6vw, 48px);
+  letter-spacing: 0.035em;
+  line-height: 0.9;
+  text-align: center;
+  text-shadow: 1px 2px 0 #f7dd9d;
+  text-transform: uppercase;
+}
+
+.resource-strip {
+  gap: 10px;
+}
+
+.resource {
+  min-width: 104px;
+  padding: 7px 12px 7px 8px;
+  border: 3px solid #38241c;
+  border-radius: 18px 14px 16px 13px;
+  background:
+    linear-gradient(rgba(255, 241, 204, 0.86), rgba(218, 186, 124, 0.82)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 244, 211, 0.5),
+    0 4px 0 #6e3d25,
+    0 8px 16px rgba(0, 0, 0, 0.28);
+}
+
+.resource.sweat,
+.resource.cash {
+  background-color: #ead39b;
+}
+
+.resource-icon {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+  border-radius: 50%;
+  background: rgba(255, 242, 207, 0.62);
+}
+
+.resource-icon img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.resource strong {
+  color: #38241c;
+  font-size: 20px;
+}
+
+.reset-trigger,
+.workshop-trigger,
+.workshop-close,
+.race-restart,
+.detail-buy {
+  border: 3px solid #38241c;
+  border-radius: 13px 10px 14px 9px;
+  background:
+    linear-gradient(#edc44a, #cc8f1e),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 236, 146, 0.6),
+    0 3px 0 #6c3a22;
+  color: #38241c;
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: 0.025em;
+}
+
+.reset-trigger {
+  background:
+    linear-gradient(#e49a72, #bd5d3c),
+    url("/assets/art/paper-texture.jpg");
+  color: #3b1d16;
+}
+
+.ride-column {
+  width: min(1120px, 100%);
+}
+
+.stage-card,
+.ride-footer {
+  border: 4px solid #38241c;
+  background:
+    linear-gradient(rgba(255, 242, 205, 0.88), rgba(225, 199, 145, 0.87)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 246, 216, 0.48),
+    0 8px 18px rgba(0, 0, 0, 0.32);
+  backdrop-filter: none;
+}
+
+.stage-card {
+  border-radius: 22px 22px 5px 5px;
+}
+
+.stage-route > span,
+.ride-metric small,
+.power-up-reserve small,
+.leaderboard-hud header span,
+.leaderboard-times small,
+.eyebrow,
+.tree-root small {
+  color: #79513a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 900;
+}
+
+.stage-route strong {
+  color: #482b20;
+  font-size: 21px;
+}
+
+.stage-route strong i,
+.terrain-profile polyline {
+  color: #b34f2d;
+  stroke: #b34f2d;
+}
+
+.stage-route small {
+  color: #765844;
+}
+
+.terrain-profile circle {
+  fill: #e2ae2e;
+  stroke: #38241c;
+}
+
+.terrain-profile-zero,
+.terrain-profile-progress {
+  stroke: rgba(56, 36, 28, 0.38);
+}
+
+.ride-metric {
+  border: 2px solid rgba(86, 52, 35, 0.45);
+  border-radius: 13px 10px 14px 11px;
+  background: rgba(255, 241, 202, 0.56);
+  box-shadow: inset 0 1px 3px rgba(101, 58, 30, 0.12);
+}
+
+.ride-metric strong {
+  color: #42271d;
+}
+
+.ride-metric strong em {
+  color: #77533c;
+}
+
+.progress-track {
+  height: 8px;
+  border-top: 2px solid #38241c;
+  background: #8b6747;
+}
+
+.progress-track span {
+  background: linear-gradient(90deg, #b94d2b, #e0a82c);
+  box-shadow: inset 0 2px 0 rgba(255, 230, 146, 0.38);
+}
+
+.game-frame {
+  margin-top: -4px;
+  border: 6px solid #38241c;
+  border-radius: 5px;
+  background: #44342a;
+  box-shadow:
+    inset 0 0 0 2px #9a6942,
+    0 11px 24px rgba(0, 0, 0, 0.44);
+}
+
+.notice {
+  border: 3px solid #38241c;
+  border-radius: 13px 10px 15px 9px;
+  background:
+    linear-gradient(rgba(255, 239, 198, 0.92), rgba(226, 190, 124, 0.9)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow: 0 4px 0 #6c3d27;
+  color: #38241c;
+}
+
+.notice-good {
+  background-color: #9cab64;
+}
+
+.notice-bad {
+  background-color: #c96b4a;
+}
+
+.leaderboard-hud {
+  border: 3px solid #38241c;
+  border-radius: 14px 11px 15px 10px;
+  background:
+    linear-gradient(rgba(81, 51, 37, 0.95), rgba(51, 31, 24, 0.96)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 1px rgba(226, 189, 119, 0.3),
+    0 5px 0 rgba(43, 24, 17, 0.7);
+  color: #fff0ca;
+  backdrop-filter: none;
+}
+
+.leaderboard-hud header {
+  border-color: rgba(239, 207, 146, 0.3);
+}
+
+.leaderboard-hud header span,
+.leaderboard-hud header small,
+.leaderboard-times small {
+  color: #e5c58e;
+}
+
+.leaderboard-times {
+  background: rgba(235, 204, 144, 0.22);
+}
+
+.leaderboard-times > span {
+  background: rgba(58, 35, 26, 0.88);
+}
+
+.leaderboard-delta {
+  color: #f0c64c;
+}
+
+.leaderboard-ahead .leaderboard-delta {
+  background: rgba(117, 145, 70, 0.28);
+  color: #d6dc8e;
+}
+
+.leaderboard-behind .leaderboard-delta {
+  background: rgba(181, 73, 43, 0.3);
+  color: #efad86;
+}
+
+.active-power-up {
+  border: 3px solid #38241c;
+  border-radius: 16px 13px 17px 12px;
+  background: rgba(64, 39, 28, 0.94);
+  color: #fff0ca;
+}
+
+.active-power-up > img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.active-power-up b {
+  color: #e7bb38;
+}
+
+.ride-footer {
+  margin-top: -4px;
+  border-top-width: 4px;
+  border-radius: 5px 5px 22px 22px;
+}
+
+.steering-hint {
+  color: #684832;
+}
+
+kbd {
+  border: 2px solid currentColor;
+  border-radius: 5px;
+  background: rgba(255, 244, 211, 0.48);
+  box-shadow: inset 0 -1px 0 rgba(56, 36, 28, 0.28);
+}
+
+.power-up-reserve {
+  border: 2px solid rgba(72, 43, 29, 0.54);
+  border-radius: 14px 11px 15px 10px;
+  background: rgba(110, 77, 50, 0.11);
+  color: #765742;
+}
+
+.power-up-reserve.loaded {
+  border-color: #66783b;
+  background: rgba(136, 151, 77, 0.24);
+  color: #38241c;
+}
+
+.power-up-icon {
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(56, 36, 28, 0.28);
+  background: rgba(255, 240, 198, 0.66);
+  color: #7b5b3b;
+}
+
+.power-up-icon img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.power-up-reserve button {
+  border: 2px solid #38241c;
+  border-radius: 9px;
+  background: #4c3024;
+  color: #fff0ca;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.workshop-overlay {
+  background: rgba(23, 13, 9, 0.88);
+  backdrop-filter: blur(5px) sepia(0.18);
+}
+
+.workshop-window,
+.reset-dialog,
+.race-results-window {
+  border: 5px solid #38241c;
+  border-radius: 24px 18px 25px 17px;
+  background:
+    linear-gradient(rgba(255, 242, 207, 0.87), rgba(222, 193, 135, 0.86)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 245, 216, 0.55),
+    10px 12px 0 rgba(37, 20, 13, 0.62);
+}
+
+.workshop-header {
+  border-color: #38241c;
+  background: rgba(242, 216, 161, 0.5);
+}
+
+.workshop-header h2,
+.reset-dialog h2 {
+  color: #4b2b1f;
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: 0.015em;
+}
+
+.workshop-resources {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.workshop-resources span {
+  border: 2px solid #5f3b28;
+  border-radius: 12px 9px 13px 8px;
+  background: rgba(255, 238, 196, 0.6);
+}
+
+.workshop-resources img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.graph-viewport {
+  background: #3c271d;
+  scrollbar-color: #bf8b4c #2a1912;
+}
+
+.graph-map {
+  color: #3c271d;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(177, 109, 50, 0.12), transparent 36%),
+    radial-gradient(circle at 20% 18%, rgba(124, 137, 68, 0.11), transparent 27%),
+    linear-gradient(rgba(248, 229, 183, 0.78), rgba(220, 188, 127, 0.78)),
+    url("/assets/art/paper-texture.jpg");
+}
+
+.graph-map [data-branch="bike"] {
+  --branch-color: #527f90;
+  --branch-rgb: 82 127 144;
+}
+
+.graph-map [data-branch="rider"] {
+  --branch-color: #b44e2e;
+  --branch-rgb: 180 78 46;
+}
+
+.graph-map [data-branch="nutrition"] {
+  --branch-color: #71823d;
+  --branch-rgb: 113 130 61;
+}
+
+.graph-map [data-branch="equipment"] {
+  --branch-color: #825f78;
+  --branch-rgb: 130 95 120;
+}
+
+.graph-map [data-branch="team"] {
+  --branch-color: #bb8420;
+  --branch-rgb: 187 132 32;
+}
+
+.branch-territory::before {
+  border-width: 2px;
+  filter: none;
+}
+
+.branch-territory span {
+  border: 2px solid var(--branch-color);
+  background: rgba(61, 38, 28, 0.91);
+  color: #f3dfad;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.graph-center,
+.branch-hub {
+  --hex-border: #7e4b2e;
+  --hex-fill: #f0d69c;
+
+  color: #38241c;
+  filter: drop-shadow(0 4px 0 rgba(77, 43, 27, 0.45));
+}
+
+.graph-center span,
+.branch-hub span {
+  color: var(--branch-color, #a74627);
+}
+
+.branch-hub {
+  --hex-border: var(--branch-color);
+  --hex-fill: color-mix(in srgb, var(--branch-color) 12%, #ecd39c);
+}
+
+.branch-hub small {
+  color: #72503b;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.tree-node {
+  --hex-fill: color-mix(in srgb, var(--branch-color) 12%, #f0d69c);
+
+  color: #38241c;
+  filter: drop-shadow(0 4px 0 rgba(68, 40, 27, 0.45));
+}
+
+.tree-node:hover,
+.tree-node.selected,
+.tree-node.acquired,
+.tree-node.complete {
+  --hex-fill: color-mix(in srgb, var(--branch-color) 24%, #f3dca8);
+
+  filter: drop-shadow(0 5px 0 rgba(68, 40, 27, 0.5));
+}
+
+.tree-node.node-mystery {
+  --hex-fill: #d2b98a;
+  color: #745e48;
+}
+
+.node-label {
+  color: #38241c;
+  text-shadow: 0 1px 0 rgba(255, 241, 205, 0.8);
+}
+
+.node-progress-segment {
+  background: rgba(56, 36, 28, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(56, 36, 28, 0.12);
+}
+
+.node-detail {
+  border-color: #38241c;
+  background:
+    linear-gradient(rgba(255, 242, 207, 0.86), rgba(225, 198, 142, 0.84)),
+    url("/assets/art/paper-texture.jpg");
+}
+
+.node-detail h3,
+.detail-kicker span {
+  color: #47291e;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.node-detail p,
+.detail-kicker,
+.node-detail dt {
+  color: #76543e;
+}
+
+.level-track span {
+  border-color: #765039;
+  background: #cdb88b;
+}
+
+.level-track span.filled {
+  border-color: #4c3024;
+  background: #82914e;
+}
+
+.graph-help {
+  border: 2px solid #543523;
+  border-radius: 11px 8px 12px 8px;
+  background: rgba(61, 38, 28, 0.93);
+  color: #f1dba8;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.graph-help button {
+  border-color: #d4a433;
+  color: #efc855;
+}
+
+.reset-actions button {
+  border-color: #38241c;
+  border-radius: 11px 8px 12px 8px;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.reset-cancel {
+  background: #ead6a5;
+}
+
+.reset-confirm {
+  background: #c96848;
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  h1 {
+    width: fit-content;
+    min-width: 180px;
+    align-self: center;
+  }
+
+  .game-frame {
+    border-width: 4px;
+  }
+
+  .workshop-window,
+  .race-results-window {
+    border-radius: 0;
+  }
+}
+
+/* In-game HUD: faithfully based on the original Ze Tour concept render. */
+
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  align-items: center;
+}
+
+.ride-column {
+  container: ride / inline-size;
+  width: min(1280px, 100%, calc((100dvh - 68px) * 16 / 9));
+}
+
+.game-frame {
+  margin-top: 0;
+  border: 8px solid #2d1b14;
+  border-radius: 28px 24px 30px 22px;
+  box-shadow:
+    inset 0 0 0 3px #70462d,
+    0 12px 0 #140c09,
+    0 22px 40px rgba(0, 0, 0, 0.52);
+}
+
+.tour-hud {
+  position: absolute;
+  z-index: 12;
+  top: -1px;
+  right: -1px;
+  left: -1px;
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) minmax(310px, 1.15fr) minmax(
+      250px,
+      1fr
+    );
+  align-items: start;
+  pointer-events: none;
+}
+
+.hud-panel {
+  display: flex;
+  min-width: 0;
+  height: 108px;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 18px;
+  border: 5px solid #2d1b14;
+  background:
+    linear-gradient(rgba(54, 36, 27, 0.97), rgba(31, 21, 17, 0.98)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 2px #775038,
+    0 7px 0 rgba(30, 18, 13, 0.78);
+  color: #fff0c9;
+}
+
+.hud-speed {
+  border-top: 0;
+  border-left: 0;
+  border-radius: 0 0 26px 0;
+}
+
+.hud-distance {
+  justify-content: flex-end;
+  border-top: 0;
+  border-right: 0;
+  border-radius: 0 0 0 26px;
+}
+
+.speed-dial {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  flex: 0 0 74px;
+  border: 4px solid #1c110d;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 225deg,
+    #e5b830 0deg 105deg,
+    #d47731 105deg 156deg,
+    #44342b 156deg 360deg
+  );
+  box-shadow:
+    inset 0 0 0 3px #906a45,
+    0 3px 0 #120b08;
+}
+
+.speed-dial::before {
+  position: absolute;
+  z-index: 1;
+  inset: 13px;
+  border: 2px solid #6d4a33;
+  border-radius: 50%;
+  background: #31251f;
+  content: "";
+}
+
+.speed-needle {
+  position: absolute;
+  z-index: 3;
+  top: calc(50% - 2px);
+  left: 50%;
+  width: 28px;
+  height: 4px;
+  transform-origin: 2px 50%;
+  border-radius: 999px;
+  background: #dec18b;
+  box-shadow: 0 1px 0 #140c09;
+  transition: transform 180ms ease-out;
+}
+
+.speed-dial i {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #1a100c;
+  border-radius: 50%;
+  background: #d8b276;
+}
+
+.hud-speed-copy,
+.hud-distance-copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.hud-speed-copy strong,
+.hud-distance-copy strong {
+  color: #fff0c9;
+  font-size: clamp(20px, 2.2vw, 31px);
+  line-height: 1;
+  text-shadow: 0 2px 0 #160d09;
+  white-space: nowrap;
+}
+
+.hud-speed-copy em,
+.hud-distance-copy em {
+  color: #f7e5bd;
+  font-size: 0.72em;
+  font-style: normal;
+}
+
+.hud-speed-copy small,
+.hud-distance-copy small {
+  overflow: hidden;
+  color: #f0d4a1;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  text-shadow: 0 1px 0 #160d09;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.speed-segments {
+  display: grid;
+  width: min(205px, 100%);
+  height: 14px;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+  padding: 2px;
+  border: 2px solid #160d09;
+  border-radius: 999px;
+  background: #332821;
+  box-shadow: inset 0 0 0 1px #6d4b35;
+}
+
+.speed-segments span {
+  border-radius: 2px;
+  background: #4a3a2f;
+}
+
+.speed-segments span.active {
+  background: linear-gradient(#f0cc42, #d99120);
+  box-shadow: inset 0 1px 0 rgba(255, 239, 151, 0.65);
+}
+
+.hud-title {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  margin-top: 6px;
+}
+
+.hud-title-plaque {
+  position: relative;
+  display: grid;
+  width: 88%;
+  min-height: 88px;
+  place-items: center;
+  padding: 16px 24px 8px;
+  border: 5px solid #4a2b1d;
+  border-radius: 18px 14px 20px 13px;
+  background:
+    linear-gradient(rgba(255, 240, 202, 0.9), rgba(225, 193, 131, 0.86)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 247, 219, 0.6),
+    0 5px 0 #7b482a,
+    0 9px 0 #2a1811;
+}
+
+.hud-title-plaque::before,
+.hud-title-plaque::after {
+  position: absolute;
+  top: 50%;
+  color: #937543;
+  content: "❧";
+  font-size: 23px;
+}
+
+.hud-title-plaque::before {
+  left: 18px;
+  transform: translateY(-35%) scaleX(-1);
+}
+
+.hud-title-plaque::after {
+  right: 18px;
+  transform: translateY(-35%);
+}
+
+.hud-title-plaque > small {
+  position: absolute;
+  top: 8px;
+  color: #8b6140;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.hud-title h1 {
+  min-width: 0;
+  padding: 8px 0 0;
+  transform: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: #3c251b;
+  font-size: clamp(34px, 4.9vw, 62px);
+  letter-spacing: 0.025em;
+  line-height: 0.85;
+  text-shadow: 1px 2px 0 #f7e1a9;
+}
+
+.hud-route-ribbon {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-width: 72%;
+  justify-items: center;
+  gap: 1px;
+  margin-top: -3px;
+  padding: 7px 24px 6px;
+  border: 4px solid #472819;
+  border-radius: 6px 6px 18px 18px;
+  background:
+    linear-gradient(#a75e34, #744127),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 1px 0 rgba(255, 205, 141, 0.42),
+    0 4px 0 #271710;
+  color: #fff0c9;
+  text-transform: uppercase;
+}
+
+.hud-route-ribbon strong {
+  font-size: clamp(13px, 1.65vw, 21px);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.hud-route-ribbon i {
+  padding: 0 6px;
+  color: #f2d69c;
+  font-style: normal;
+}
+
+.hud-route-ribbon small {
+  color: #f2d3a4;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.055em;
+  line-height: 1.1;
+  text-shadow: 0 1px 0 #3a2116;
+}
+
+.hud-distance-copy {
+  flex: 1 1 auto;
+  justify-items: end;
+}
+
+.hud-distance-track {
+  width: min(245px, 100%);
+  height: 18px;
+  padding: 3px;
+  overflow: hidden;
+  border: 3px solid #160d09;
+  border-radius: 999px;
+  background: #342923;
+  box-shadow: inset 0 0 0 1px #6e4b34;
+}
+
+.hud-distance-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(#f1d14a, #d99a23);
+  box-shadow: inset 0 1px 0 rgba(255, 241, 160, 0.68);
+  transition: width 180ms linear;
+}
+
+.finish-badge {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  flex: 0 0 66px;
+  place-items: center;
+  border: 4px solid #170e0a;
+  border-radius: 50%;
+  background: #46372d;
+  box-shadow:
+    inset 0 0 0 3px #866246,
+    0 3px 0 #120b08;
+}
+
+.finish-flag {
+  position: relative;
+  width: 34px;
+  height: 38px;
+  transform: rotate(-7deg);
+}
+
+.finish-flag::before {
+  position: absolute;
+  top: 2px;
+  bottom: 0;
+  left: 4px;
+  width: 4px;
+  border: 1px solid #160d09;
+  border-radius: 999px;
+  background: #d6b37d;
+  content: "";
+}
+
+.finish-flag::after {
+  position: absolute;
+  top: 3px;
+  left: 8px;
+  width: 24px;
+  height: 20px;
+  border: 2px solid #160d09;
+  border-radius: 2px 4px 4px 2px;
+  background: conic-gradient(
+      #f2dfb3 0 25%,
+      #241610 0 50%,
+      #f2dfb3 0 75%,
+      #241610 0
+    )
+    0 0 / 10px 10px;
+  box-shadow: 0 2px 0 rgba(15, 9, 6, 0.45);
+  content: "";
+}
+
+.leaderboard-hud,
+.active-power-up,
+.notice {
+  top: 126px;
+}
+
+.hud-bottom {
+  position: absolute;
+  z-index: 12;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 116px;
+  pointer-events: none;
+}
+
+.hud-tray {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  display: grid;
+  width: min(390px, 43%);
+  height: 116px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 13px 16px 14px;
+  transform: translateX(-50%);
+  border: 6px solid #261610;
+  border-radius: 32px 32px 0 0;
+  background:
+    linear-gradient(rgba(57, 38, 28, 0.98), rgba(30, 19, 15, 0.99)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 2px #745039,
+    0 -4px 0 rgba(25, 14, 10, 0.68);
+  pointer-events: auto;
+}
+
+.hud-tray-slot {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  padding: 3px 4px 5px;
+  overflow: hidden;
+  border: 4px solid #23140e;
+  border-radius: 16px 12px 17px 11px;
+  background:
+    linear-gradient(rgba(255, 239, 199, 0.92), rgba(218, 180, 111, 0.88)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 247, 219, 0.52),
+    0 3px 0 #7d4a2c;
+  color: #3b241a;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.hud-tray-slot img {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 1px;
+  object-fit: contain;
+}
+
+.hud-tray-slot strong {
+  position: absolute;
+  z-index: 2;
+  bottom: 4px;
+  left: 50%;
+  min-width: 34px;
+  max-width: 100%;
+  padding: 2px 6px;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border: 1px solid #1e120d;
+  border-radius: 999px;
+  background: rgba(58, 35, 25, 0.92);
+  color: #ffe6ae;
+  font-size: 13px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-power-slot {
+  cursor: pointer;
+}
+
+.hud-power-slot > span {
+  display: grid;
+  height: 48px;
+  place-items: center;
+  color: #8a6b43;
+  font-size: 34px;
+}
+
+.hud-power-slot kbd {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 1px 3px;
+  border-width: 1px;
+  background: rgba(65, 39, 27, 0.74);
+  color: #f3dda8;
+  font-size: 7px;
+}
+
+.hud-power-slot.loaded {
+  border-color: #2b1b12;
+  outline: 3px solid #d8a329;
+}
+
+.hud-power-slot:disabled {
+  cursor: default;
+}
+
+.hud-power-slot:disabled:not(.loaded) {
+  opacity: 0.78;
+}
+
+.hud-bottom-side,
+.hud-workshop {
+  position: absolute;
+  bottom: 17px;
+  pointer-events: auto;
+}
+
+.hud-bottom-left {
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-bottom-left .reset-trigger {
+  align-self: auto;
+  padding: 8px 10px;
+}
+
+.hud-bottom-left .steering-hint {
+  padding: 7px 9px;
+  border: 3px solid #2b1a12;
+  border-radius: 11px 8px 12px 8px;
+  background: rgba(249, 224, 170, 0.9);
+  box-shadow: 0 3px 0 #694028;
+  color: #3e281e;
+}
+
+.hud-workshop {
+  right: 18px;
+  padding: 10px 13px;
+}
+
+@container ride (max-width: 900px) {
+  .tour-hud {
+    grid-template-columns: 31% 38% 31%;
+  }
+
+  .hud-panel {
+    height: 82px;
+    gap: 7px;
+    padding: 8px 9px;
+    border-width: 3px;
+  }
+
+  .speed-dial {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+    border-width: 3px;
+  }
+
+  .speed-dial::before {
+    inset: 8px;
+  }
+
+  .speed-needle {
+    width: 19px;
+  }
+
+  .hud-speed-copy strong,
+  .hud-distance-copy strong {
+    font-size: 17px;
+  }
+
+  .hud-speed-copy,
+  .hud-distance-copy {
+    gap: 3px;
+  }
+
+  .hud-speed-copy small,
+  .hud-distance-copy small {
+    font-size: 9.5px;
+  }
+
+  .speed-segments {
+    height: 11px;
+  }
+
+  .hud-title {
+    margin-top: 3px;
+  }
+
+  .hud-title-plaque {
+    min-height: 64px;
+    padding: 12px 15px 4px;
+    border-width: 3px;
+  }
+
+  .hud-title-plaque::before,
+  .hud-title-plaque::after {
+    display: none;
+  }
+
+  .hud-title-plaque > small {
+    top: 5px;
+    font-size: 6px;
+  }
+
+  .hud-title h1 {
+    padding-top: 6px;
+    font-size: clamp(25px, 5vw, 38px);
+  }
+
+  .hud-route-ribbon {
+    padding: 4px 11px;
+    border-width: 3px;
+  }
+
+  .hud-route-ribbon small {
+    font-size: 9px;
+  }
+
+  .finish-badge {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+    border-width: 3px;
+    font-size: 22px;
+  }
+
+  .hud-distance-track {
+    height: 13px;
+    border-width: 2px;
+  }
+
+  .leaderboard-hud,
+  .active-power-up,
+  .notice {
+    top: 126px;
+  }
+
+  .hud-bottom {
+    height: 88px;
+  }
+
+  .hud-tray {
+    width: min(330px, 49%);
+    height: 88px;
+    gap: 7px;
+    padding: 9px 11px 10px;
+    border-width: 4px;
+  }
+
+  .hud-tray-slot {
+    border-width: 3px;
+  }
+
+  .hud-tray-slot img {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 2px;
+  }
+
+  .hud-tray-slot strong {
+    font-size: 10px;
+  }
+
+  .hud-bottom-side,
+  .hud-workshop {
+    bottom: 10px;
+  }
+
+  .hud-bottom-left {
+    left: 10px;
+  }
+
+  .hud-workshop {
+    right: 10px;
+  }
+
+  .hud-bottom-left .steering-hint {
+    display: none;
+  }
+}
+
+@container ride (max-width: 620px) {
+  .game-frame {
+    border-width: 4px;
+    border-radius: 14px;
+  }
+
+  .speed-dial,
+  .finish-badge {
+    display: none;
+  }
+
+  .hud-panel {
+    height: 61px;
+    padding: 7px;
+  }
+
+  .hud-speed-copy strong,
+  .hud-distance-copy strong {
+    font-size: 12px;
+  }
+
+  .hud-speed-copy small,
+  .hud-distance-copy small {
+    font-size: 7px;
+  }
+
+  .speed-segments,
+  .hud-distance-track {
+    height: 9px;
+    padding: 1px;
+  }
+
+  .hud-title-plaque {
+    min-height: 48px;
+    padding: 8px 4px 2px;
+  }
+
+  .hud-title-plaque > small {
+    font-size: 5px;
+    letter-spacing: 0.04em;
+  }
+
+  .hud-title h1 {
+    font-size: 21px;
+  }
+
+  .hud-route-ribbon {
+    min-width: 88%;
+    padding: 3px 5px;
+  }
+
+  .hud-route-ribbon strong {
+    font-size: 8px;
+  }
+
+  .hud-route-ribbon small {
+    font-size: 6.5px;
+  }
+
+  .leaderboard-hud {
+    top: 84px;
+    left: 0;
+    width: 96px;
+    border-width: 2px;
+  }
+
+  .leaderboard-hud header {
+    gap: 4px;
+    padding: 4px 5px 3px;
+  }
+
+  .leaderboard-hud header span {
+    font-size: 7px;
+  }
+
+  .leaderboard-hud header small,
+  .leaderboard-times small {
+    font-size: 6px;
+  }
+
+  .leaderboard-times > span {
+    padding: 4px 5px;
+  }
+
+  .leaderboard-times strong {
+    font-size: 9px;
+  }
+
+  .leaderboard-delta {
+    padding: 3px 5px 4px;
+    font-size: 7px;
+  }
+
+  .active-power-up,
+  .notice {
+    top: 84px;
+  }
+
+  .hud-tray {
+    width: 46%;
+    height: 61px;
+    gap: 3px;
+    padding: 6px;
+  }
+
+  .hud-tray-slot {
+    border-width: 2px;
+  }
+
+  .hud-tray-slot img {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 2px;
+  }
+
+  .hud-tray-slot strong {
+    font-size: 7px;
+  }
+
+  .hud-power-slot kbd {
+    display: none;
+  }
+
+  .hud-bottom-left .reset-trigger,
+  .hud-workshop {
+    padding: 5px 6px;
+    border-width: 2px;
+    font-size: 8px;
+  }
+}

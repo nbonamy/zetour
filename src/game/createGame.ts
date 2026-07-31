@@ -9,7 +9,7 @@ export const createGame = (parent: HTMLElement): Phaser.Game => {
     parent,
     width: renderSize.width,
     height: renderSize.height,
-    backgroundColor: "#8ed7e8",
+    backgroundColor: "#241711",
     pixelArt: false,
     roundPixels: false,
     antialias: true,

@@ -3,16 +3,29 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import GameCanvas from "./components/GameCanvas.vue";
 import UpgradeGraph from "./components/UpgradeGraph.vue";
 import {
-  buildElevationProfile,
   displayStageDistanceKm,
-  elevationAtProgress,
   gameStore,
   powerUpDefinitions,
   stages,
 } from "./core/gameStore";
 import { formatRaceTime } from "./core/timeTrial";
+import { readVisualQaOverrides } from "./game/visualQa";
 
 const snapshot = shallowRef(gameStore.getSnapshot());
+const visualQa = readVisualQaOverrides();
+const displayedStage = computed(() =>
+  visualQa.stage === null
+    ? snapshot.value.stageDefinition
+    : stages[visualQa.stage - 1],
+);
+const displayedStageProgress = computed(() =>
+  visualQa.stage === null ? snapshot.value.stageProgress : 0.42,
+);
+const displayedStageDistanceM = computed(() =>
+  visualQa.stage === null
+    ? snapshot.value.stageDistanceM
+    : displayedStage.value.distanceM * displayedStageProgress.value,
+);
 const workshopOpen = ref(false);
 const resetConfirmationOpen = ref(false);
 const ridePaused = computed(
@@ -23,31 +36,39 @@ const ridePaused = computed(
 );
 const reservedPowerUp = computed(() =>
   snapshot.value.reservedPowerUp
-    ? powerUpDefinitions[snapshot.value.reservedPowerUp]
+    ? {
+        type: snapshot.value.reservedPowerUp,
+        ...powerUpDefinitions[snapshot.value.reservedPowerUp],
+      }
     : null,
 );
 const activePowerUp = computed(() =>
   snapshot.value.activePowerUp
     ? {
+        type: snapshot.value.activePowerUp.type,
         ...powerUpDefinitions[snapshot.value.activePowerUp.type],
         remainingSeconds: snapshot.value.activePowerUp.remainingSeconds,
       }
     : null,
 );
+const powerUpImage = (type: string): string =>
+  `/assets/art/power-${type}.png`;
 const windLabel = computed(() => {
-  const stage = snapshot.value.stageDefinition;
-  if (stage.windPenalty <= 0) return "Calm";
+  const stage = displayedStage.value;
+  if (stage.windPenalty <= 0) return "Wind calm";
   const raw = Math.round(stage.windPenalty * 100);
   const effective = Math.round(snapshot.value.stats.effectiveWindPenalty * 100);
   return snapshot.value.stats.windMitigation > 0
-    ? `${effective}% after aero`
-    : `${raw}% headwind`;
+    ? `Wind ${effective}% after aero`
+    : `Wind ${raw}% headwind`;
 });
 const gradeLabel = computed(() => {
-  const gradient = snapshot.value.currentGradient;
-  if (gradient > 0.0005) return `↗ ${(gradient * 100).toFixed(1)}%`;
-  if (gradient < -0.0005) return `↘ ${Math.abs(gradient * 100).toFixed(1)}%`;
-  return "Flat";
+  const gradient = visualQa.gradient ?? snapshot.value.currentGradient;
+  if (gradient > 0.0005) return `Slope ↗ ${(gradient * 100).toFixed(1)}%`;
+  if (gradient < -0.0005) {
+    return `Slope ↘ ${Math.abs(gradient * 100).toFixed(1)}%`;
+  }
+  return "Slope 0.0%";
 });
 const leaderboardDeltaLabel = computed(() => {
   const { deltaSeconds, status } = snapshot.value.leaderboard;
@@ -59,31 +80,15 @@ const raceDeltaLabel = computed(() => {
   if (Math.abs(delta) < 0.05) return "Record pace";
   return `${Math.abs(delta).toFixed(1)}s ${delta < 0 ? "ahead" : "behind"}`;
 });
-const terrainProfile = computed(() => {
-  const stage = snapshot.value.stageDefinition;
-  const points = buildElevationProfile(stage, 60);
-  const elevations = points.map(({ elevationM }) => elevationM);
-  const minimum = Math.min(...elevations);
-  const maximum = Math.max(...elevations);
-  const padding = Math.max(0.5, (maximum - minimum) * 0.06);
-  const lower = minimum - padding;
-  const upper = maximum + padding;
-  const span = Math.max(1, upper - lower);
-  const y = (elevationM: number): number =>
-    21 - ((elevationM - lower) / span) * 18;
-
-  return {
-    points: points
-      .map(
-        ({ progress, elevationM }) =>
-          `${progress * 100},${y(elevationM)}`,
-      )
-      .join(" "),
-    startY: y(0),
-    markerX: snapshot.value.stageProgress * 100,
-    markerY: y(elevationAtProgress(stage, snapshot.value.stageProgress)),
-  };
-});
+const speedGaugeRatio = computed(() =>
+  Math.min(1, Math.max(0, snapshot.value.stats.speedKmh / 48)),
+);
+const speedGaugeSegments = computed(() =>
+  Math.round(speedGaugeRatio.value * 10),
+);
+const speedNeedleAngle = computed(
+  () => `${-135 + speedGaugeRatio.value * 180}deg`,
+);
 const notice = ref<{ message: string; tone: "good" | "bad" | "neutral" } | null>(
   null,
 );
@@ -164,111 +169,79 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
 <template>
   <main class="app-shell">
-    <header class="masthead">
-      <h1>Ze Tour</h1>
-      <div class="resource-strip" aria-label="Game resources">
-        <div
-          class="resource sweat"
-          :aria-label="`Sweat balance: ${format(snapshot.sweat)}`"
-        >
-          <span class="resource-icon" aria-hidden="true">💧</span>
-          <strong>{{ format(snapshot.sweat) }}</strong>
-        </div>
-        <div
-          class="resource cash"
-          :aria-label="`Cash balance: ${format(snapshot.cash)}`"
-        >
-          <span class="resource-icon" aria-hidden="true">$</span>
-          <strong>{{ format(snapshot.cash) }}</strong>
-        </div>
-        <button type="button" class="reset-trigger" @click="requestReset">
-          Restart race
-        </button>
-      </div>
-    </header>
-
     <section class="ride-column">
-      <div class="stage-card">
-        <div class="stage-route">
-          <span>
-            Tour {{ snapshot.tourNumber }} ·
-            Sector {{ snapshot.stage }} / {{ stages.length }} ·
-            {{ snapshot.stageDefinition.name }}
-          </span>
-          <strong>
-            {{ snapshot.stageDefinition.start }}
-            <i aria-hidden="true">→</i>
-            {{ snapshot.stageDefinition.finish }}
-          </strong>
-          <small>{{ snapshot.stageDefinition.landmark }}</small>
-          <svg
-            class="terrain-profile"
-            viewBox="0 0 100 24"
-            role="img"
-            aria-label="Current sector elevation profile"
-          >
-            <line
-              class="terrain-profile-zero"
-              x1="0"
-              :y1="terrainProfile.startY"
-              x2="100"
-              :y2="terrainProfile.startY"
-            />
-            <polyline :points="terrainProfile.points" />
-            <line
-              class="terrain-profile-progress"
-              :x1="terrainProfile.markerX"
-              y1="1"
-              :x2="terrainProfile.markerX"
-              y2="23"
-            />
-            <circle
-              :cx="terrainProfile.markerX"
-              :cy="terrainProfile.markerY"
-              r="2.2"
-            />
-          </svg>
-        </div>
-        <div class="stage-metrics">
-          <div class="ride-metric ride-metric-primary">
-            <small>Speed</small>
-            <strong>
-              {{ snapshot.stats.speedKmh.toFixed(1) }}
-              <em>km/h</em>
-            </strong>
-          </div>
-          <div
-            class="ride-metric ride-metric-primary ride-metric-distance"
-          >
-            <small>Sector distance</small>
-            <strong>
-              <span>
-                {{
-                  displayStageDistanceKm(
-                    snapshot.stageDefinition,
-                    snapshot.stageDistanceM,
-                  ).toFixed(0)
-                }}
-              </span>
-              <em>/ {{ snapshot.stageDefinition.routeDistanceKm.toFixed(0) }} km</em>
-            </strong>
-          </div>
-          <div class="ride-metric">
-            <small>Wind</small>
-            <strong>{{ windLabel }}</strong>
-          </div>
-          <div class="ride-metric">
-            <small>Grade</small>
-            <strong>{{ gradeLabel }}</strong>
-          </div>
-        </div>
-        <div class="progress-track" aria-label="Sector progress">
-          <span :style="{ width: `${snapshot.stageProgress * 100}%` }"></span>
-        </div>
-      </div>
-
       <div class="game-frame">
         <GameCanvas :paused="ridePaused" />
+        <header class="tour-hud">
+          <section class="hud-panel hud-speed" aria-label="Current speed">
+            <div class="speed-dial" aria-hidden="true">
+              <span
+                class="speed-needle"
+                :style="{ transform: `rotate(${speedNeedleAngle})` }"
+              ></span>
+              <i></i>
+            </div>
+            <div class="hud-speed-copy">
+              <strong>
+                {{ snapshot.stats.speedKmh.toFixed(0) }}
+                <em>km/h</em>
+              </strong>
+              <div class="speed-segments" aria-hidden="true">
+                <span
+                  v-for="segment in 10"
+                  :key="segment"
+                  :class="{ active: segment <= speedGaugeSegments }"
+                ></span>
+              </div>
+              <small>{{ gradeLabel }} · {{ windLabel }}</small>
+            </div>
+          </section>
+
+          <div class="hud-title">
+            <div class="hud-title-plaque">
+              <small>
+                Tour {{ snapshot.tourNumber }} · Sector
+                {{ displayedStage.number }} /
+                {{ stages.length }}
+              </small>
+              <h1>Ze Tour</h1>
+            </div>
+            <div class="hud-route-ribbon">
+              <strong>
+                {{ displayedStage.start }}
+                <i aria-hidden="true">→</i>
+                {{ displayedStage.finish }}
+              </strong>
+              <small>{{ displayedStage.name }}</small>
+            </div>
+          </div>
+
+          <section class="hud-panel hud-distance" aria-label="Sector distance">
+            <div class="hud-distance-copy">
+              <strong>
+                <span>
+                  {{
+                    displayStageDistanceKm(
+                      displayedStage,
+                      displayedStageDistanceM,
+                    ).toFixed(0)
+                  }}
+                </span>
+                <em>/ {{ displayedStage.routeDistanceKm.toFixed(0) }} km</em>
+              </strong>
+              <div class="hud-distance-track" aria-hidden="true">
+                <span
+                  :style="{ width: `${displayedStageProgress * 100}%` }"
+                ></span>
+              </div>
+              <small>{{ displayedStage.landmark }}</small>
+            </div>
+            <span class="finish-badge" aria-hidden="true">
+              <i class="finish-flag"></i>
+            </span>
+          </section>
+        </header>
+
         <aside
           v-if="!snapshot.raceFinished"
           class="leaderboard-hud"
@@ -315,40 +288,72 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           </div>
         </Transition>
         <div v-if="activePowerUp" class="active-power-up" aria-live="polite">
-          <span aria-hidden="true">{{ activePowerUp.icon }}</span>
+          <img
+            :src="powerUpImage(activePowerUp.type)"
+            alt=""
+            aria-hidden="true"
+          />
           <strong>{{ activePowerUp.label }}</strong>
           <b>{{ activePowerUp.remainingSeconds.toFixed(1) }}s</b>
         </div>
-      </div>
 
-      <div class="ride-footer">
-        <span class="steering-hint">
-          Steer <kbd>↑</kbd> <kbd>↓</kbd>
-        </span>
-        <div
-          class="power-up-reserve"
-          :class="{ loaded: reservedPowerUp }"
-          aria-live="polite"
-        >
-          <span class="power-up-icon" aria-hidden="true">
-            {{ reservedPowerUp?.icon ?? "○" }}
-          </span>
-          <span>
-            <small>Power-up reserve</small>
-            <strong>{{ reservedPowerUp?.label ?? "Empty" }}</strong>
-            <em v-if="reservedPowerUp">{{ reservedPowerUp.description }}</em>
-          </span>
+        <footer class="hud-bottom">
+          <div class="hud-bottom-side hud-bottom-left">
+            <button type="button" class="reset-trigger" @click="requestReset">
+              Restart race
+            </button>
+            <span class="steering-hint">
+              Steer <kbd>↑</kbd> <kbd>↓</kbd>
+            </span>
+          </div>
+
+          <div class="hud-tray" aria-label="Resources and power-up reserve">
+            <div
+              class="hud-tray-slot"
+              :aria-label="`Sweat balance: ${format(snapshot.sweat)}`"
+            >
+              <img src="/assets/art/bag-sweat.png" alt="" aria-hidden="true" />
+              <strong>{{ format(snapshot.sweat) }}</strong>
+            </div>
+            <button
+              type="button"
+              class="hud-tray-slot hud-power-slot"
+              :class="{ loaded: reservedPowerUp }"
+              :disabled="!reservedPowerUp || !!activePowerUp"
+              :aria-label="
+                reservedPowerUp
+                  ? `Use ${reservedPowerUp.label}`
+                  : 'Power-up reserve empty'
+              "
+              @click="activatePowerUp"
+            >
+              <img
+                v-if="reservedPowerUp"
+                :src="powerUpImage(reservedPowerUp.type)"
+                alt=""
+                aria-hidden="true"
+              />
+              <span v-else aria-hidden="true">○</span>
+              <strong>{{ reservedPowerUp?.label ?? "Reserve" }}</strong>
+              <kbd>Space</kbd>
+            </button>
+            <div
+              class="hud-tray-slot"
+              :aria-label="`Cash balance: ${format(snapshot.cash)}`"
+            >
+              <img src="/assets/art/bag-cash.png" alt="" aria-hidden="true" />
+              <strong>{{ format(snapshot.cash) }}</strong>
+            </div>
+          </div>
+
           <button
             type="button"
-            :disabled="!reservedPowerUp || !!activePowerUp"
-            @click="activatePowerUp"
+            class="workshop-trigger hud-workshop"
+            @click="openWorkshop"
           >
-            {{ activePowerUp ? "Wait" : "Use" }} <kbd>Space</kbd>
+            Workshop <kbd>W</kbd>
           </button>
-        </div>
-        <button type="button" class="workshop-trigger" @click="openWorkshop">
-          Open workshop <kbd>W</kbd>
-        </button>
+        </footer>
       </div>
     </section>
 
@@ -369,11 +374,19 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               </div>
               <div class="workshop-resources" aria-label="Available resources">
                 <span :aria-label="`Sweat balance: ${format(snapshot.sweat)}`">
-                  <b aria-hidden="true">💧</b>
+                  <img
+                    src="/assets/art/bag-sweat.png"
+                    alt=""
+                    aria-hidden="true"
+                  />
                   <strong>{{ format(snapshot.sweat) }}</strong>
                 </span>
                 <span :aria-label="`Cash balance: ${format(snapshot.cash)}`">
-                  <b aria-hidden="true">$</b>
+                  <img
+                    src="/assets/art/bag-cash.png"
+                    alt=""
+                    aria-hidden="true"
+                  />
                   <strong>{{ format(snapshot.cash) }}</strong>
                 </span>
               </div>

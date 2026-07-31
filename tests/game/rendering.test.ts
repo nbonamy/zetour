@@ -7,6 +7,7 @@ import {
   RIDE_WORLD_WIDTH,
   ROAD_HAZARD_LANE_OFFSET_Y,
   cyclistLaneY,
+  laneCentersBetween,
   roadHazardLaneY,
   rideRenderSize,
   jumpHeightAt,
@@ -40,16 +41,26 @@ describe("ride rendering", () => {
     expect(rideRenderSize()).toEqual({ width: 1280, height: 720 });
   });
 
-  it("centers cyclist artwork in its lane", () => {
-    expect(CYCLIST_LANE_OFFSET_Y).toBe(-16);
-    expect(cyclistLaneY(248)).toBe(232);
+  it("aligns every cyclist wheel baseline with its lane", () => {
+    expect(CYCLIST_LANE_OFFSET_Y).toBe(-34);
+    [212.5, 250, 289.5].forEach((laneY) => {
+      expect(cyclistLaneY(laneY) - CYCLIST_LANE_OFFSET_Y).toBe(laneY);
+    });
+  });
+
+  it("centers pickups exactly between the road edges and lane dividers", () => {
+    expect(laneCentersBetween(194, [231, 269], 310)).toEqual([
+      212.5,
+      250,
+      289.5,
+    ]);
   });
 
   it("centers hazards on the same lane coordinate as pickups", () => {
     expect(ROAD_HAZARD_LANE_OFFSET_Y).toBe(0);
-    expect(roadHazardLaneY(196)).toBe(196);
-    expect(roadHazardLaneY(248)).toBe(248);
-    expect(roadHazardLaneY(300)).toBe(300);
+    expect(roadHazardLaneY(212.5)).toBe(212.5);
+    expect(roadHazardLaneY(250)).toBe(250);
+    expect(roadHazardLaneY(289.5)).toBe(289.5);
   });
 
   it("syncs collision bodies without replaying manually applied road motion", () => {

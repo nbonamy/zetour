@@ -23,7 +23,9 @@ import {
   roadAngleDegrees,
   roadOffsetAtX,
   roadPowerUpChoices,
+  roadScrollDistance,
   roadScrollSpeed,
+  roadTileScrollDelta,
   roadVisualRise,
 } from "../../src/game/rideSystems";
 
@@ -136,6 +138,11 @@ describe("active ride systems", () => {
     expect(roadScrollSpeed(18)).toBeCloseTo(93.6);
     expect(roadScrollSpeed(27)).toBeCloseTo(140.4);
     expect(roadScrollSpeed(27) / roadScrollSpeed(18)).toBeCloseTo(1.5);
+    expect(roadScrollDistance(104, 500)).toBe(52);
+    expect(roadScrollDistance(104, -20)).toBe(0);
+    expect(roadTileScrollDelta(104, 500, 0.38) * 0.38).toBeCloseTo(
+      52,
+    );
   });
 
   it("advances roadside objects from right to left using frame time", () => {

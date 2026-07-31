@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {
   gameStore,
   powerUpDefinitions,
+  stages,
   type GameSnapshot,
   type PowerUpType,
 } from "../core/gameStore";
@@ -28,6 +29,7 @@ import {
   roadOffsetAtX,
   roadPowerUpChoices,
   roadScrollSpeed,
+  roadTileScrollDelta,
   type RideEncounter,
 } from "./rideSystems";
 import {
@@ -38,13 +40,16 @@ import {
   cyclistFrameTexture,
   cyclistLaneY,
   jumpHeightAt,
+  laneCentersBetween,
   roadHazardLaneY,
   syncRoadBodyPosition,
 } from "./rendering";
+import { readVisualQaOverrides } from "./visualQa";
 
 type RoadObject = Phaser.Physics.Arcade.Image & {
   eventType?: "sweat" | "cash" | "pothole" | PowerUpType;
   companion?: Phaser.GameObjects.Image;
+  companionVariant?: number;
   sequenceId?: number;
   sequenceIndex?: number;
   sequenceFailed?: boolean;
@@ -57,17 +62,31 @@ type RoadObject = Phaser.Physics.Arcade.Image & {
 
 const WIDTH = RIDE_WORLD_WIDTH;
 const HEIGHT = RIDE_WORLD_HEIGHT;
-const LANE_Y = [196, 248, 300];
-const CANVAS_FONT = "Inter, Arial, sans-serif";
-const CYCLIST_WIDTH = 56;
-const CYCLIST_HEIGHT = 48;
-const CYCLIST_TEXTURE_SCALE = 3;
-const ROAD_TOP_Y = 178;
-const ROAD_BOTTOM_Y = 338;
-const VERGE_TOP_Y = 164;
-const FAN_WIDTH = 16;
-const FAN_HEIGHT = 22;
-const FAN_TEXTURE_SCALE = 3;
+const CANVAS_FONT = "Georgia, 'Times New Roman', serif";
+const CYCLIST_WIDTH = 96;
+const CYCLIST_HEIGHT = 72;
+const ROAD_TOP_Y = 194;
+const ROAD_BOTTOM_Y = 310;
+const LANE_DIVIDER_Y = [231, 269] as const;
+const LANE_Y = laneCentersBetween(
+  ROAD_TOP_Y,
+  LANE_DIVIDER_Y,
+  ROAD_BOTTOM_Y,
+);
+const SCENERY_OVERDRAW = 36;
+const SCENERY_HEIGHT = ROAD_TOP_Y + SCENERY_OVERDRAW;
+const SCENERY_TILE_SCALE = 0.36;
+const SCENERY_TILE_SCALE_Y = SCENERY_HEIGHT / 512;
+const ROADSIDE_TILE_WIDTH = WIDTH + 144;
+const ROADSIDE_TILE_SCALE_X = 0.38;
+const UPPER_ROADSIDE_HEIGHT = 26;
+const UPPER_ROADSIDE_TEXTURE_HEIGHT = 68;
+const LOWER_ROADSIDE_HEIGHT = 118;
+const ROAD_TILE_SCALE = 0.32;
+const FAN_WIDTH = 32;
+const FAN_HEIGHT = 42;
+const FAN_VARIANT_COUNT = 4;
+const DRAFT_LABEL_OFFSET_Y = 42;
 const ROAD_MARKER_SPACING = 64;
 const ROAD_MARKER_MIN_X = -ROAD_MARKER_SPACING;
 const ROAD_MARKER_MAX_X =
@@ -78,6 +97,7 @@ const POWER_UP_COLORS: Record<PowerUpType, { css: string; hex: number }> = {
   "lucky-bidon": { css: "#a7e8ff", hex: 0xa7e8ff },
   jump: { css: "#ffe26f", hex: 0xffe26f },
 };
+const VISUAL_QA = readVisualQaOverrides();
 const isPowerUpType = (
   type: RoadObject["eventType"],
 ): type is PowerUpType =>
@@ -88,11 +108,11 @@ export class GameScene extends Phaser.Scene {
   private powerUpAura!: Phaser.GameObjects.Ellipse;
   private pickups!: Phaser.Physics.Arcade.Group;
   private hazards!: Phaser.Physics.Arcade.Group;
-  private sky!: Phaser.GameObjects.Rectangle;
-  private sun!: Phaser.GameObjects.Arc;
-  private mountain!: Phaser.GameObjects.TileSprite;
-  private fields!: Phaser.GameObjects.TileSprite;
+  private scenery!: Phaser.GameObjects.TileSprite;
+  private upperRoadside!: Phaser.GameObjects.TileSprite;
+  private lowerRoadside!: Phaser.GameObjects.TileSprite;
   private roadGraphics!: Phaser.GameObjects.Graphics;
+  private roadTexture!: Phaser.GameObjects.TileSprite;
   private encounterText!: Phaser.GameObjects.Text;
   private flowText!: Phaser.GameObjects.Text;
   private flowBar!: Phaser.GameObjects.Rectangle;
@@ -128,11 +148,39 @@ export class GameScene extends Phaser.Scene {
     super("ride");
   }
 
+  preload(): void {
+    const pngTextures = [
+      "rider-a",
+      "rider-b",
+      "draft-rider-a",
+      "draft-rider-b",
+      "domestique-rider-a",
+      "domestique-rider-b",
+      "bag-sweat",
+      "bag-cash",
+      "power-super-draft",
+      "power-lucky-bidon",
+      "power-jump",
+      "pothole",
+    ];
+    for (let variant = 1; variant <= FAN_VARIANT_COUNT; variant += 1) {
+      pngTextures.push(`fan-${variant}-a`, `fan-${variant}-b`);
+    }
+    pngTextures.forEach((key) =>
+      this.load.image(key, `/assets/art/${key}.png`),
+    );
+    for (let stage = 1; stage <= 5; stage += 1) {
+      this.load.image(`stage-${stage}`, `/assets/art/stage-${stage}.jpg`);
+    }
+    this.load.image("roadside-upper", "/assets/art/roadside-upper.png");
+    this.load.image("roadside-lower", "/assets/art/roadside-lower.jpg");
+    this.load.image("road-texture", "/assets/art/road-texture.jpg");
+  }
+
   create(): void {
     this.cameras.main
       .setZoom(RIDE_RENDER_SCALE)
       .centerOn(WIDTH / 2, HEIGHT / 2);
-    this.createTextures();
     this.createWorld();
     this.createRider();
 
@@ -176,12 +224,29 @@ export class GameScene extends Phaser.Scene {
     const snapshot = gameStore.getSnapshot();
     if (snapshot.raceFinished) return;
     const scrollSpeed = roadScrollSpeed(snapshot.stats.speedKmh);
-    const windPenalty = snapshot.stageDefinition.windPenalty;
-    const gradient = snapshot.currentGradient;
-
-    this.updateStageScenery(snapshot.stageDefinition);
-    this.mountain.tilePositionX += scrollSpeed * delta * 0.00014;
-    this.fields.tilePositionX += scrollSpeed * delta * 0.00035;
+    const gradient = VISUAL_QA.gradient ?? snapshot.currentGradient;
+    const stageDefinition =
+      VISUAL_QA.stage === null
+        ? snapshot.stageDefinition
+        : stages[VISUAL_QA.stage - 1];
+    const windPenalty = stageDefinition.windPenalty;
+    this.updateStageScenery(stageDefinition);
+    this.scenery.tilePositionX += scrollSpeed * delta * 0.00018;
+    this.upperRoadside.tilePositionX += roadTileScrollDelta(
+      scrollSpeed,
+      delta,
+      ROADSIDE_TILE_SCALE_X,
+    );
+    this.lowerRoadside.tilePositionX += roadTileScrollDelta(
+      scrollSpeed,
+      delta,
+      ROADSIDE_TILE_SCALE_X,
+    );
+    this.roadTexture.tilePositionX += roadTileScrollDelta(
+      scrollSpeed,
+      delta,
+      ROAD_TILE_SCALE,
+    );
     this.updateRoadIncline(gradient);
     this.updateLaneMarkers(scrollSpeed, delta);
     this.windStreaks.forEach((streak, index) => {
@@ -286,7 +351,7 @@ export class GameScene extends Phaser.Scene {
     syncRoadBodyPosition(this.rider.body);
     this.powerUpAura
       .setVisible(false)
-      .setPosition(this.rider.x - 2, this.rider.y)
+      .setPosition(this.rider.x - 2, this.rider.y + 24)
       .setAngle(0);
 
     this.encounterCountdown = 1_200;
@@ -311,8 +376,10 @@ export class GameScene extends Phaser.Scene {
     this.droppedFromDraft = false;
 
     this.sceneryStage = 0;
-    this.mountain.tilePositionX = 0;
-    this.fields.tilePositionX = 0;
+    this.scenery.tilePositionX = 0;
+    this.upperRoadside.tilePositionX = 0;
+    this.lowerRoadside.tilePositionX = 0;
+    this.roadTexture.tilePositionX = 0;
     this.windStreaks.forEach((streak, index) => {
       streak.x = 50 + index * 78;
       streak.setVisible(false);
@@ -330,14 +397,44 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createWorld(): void {
-    this.sky = this.add.rectangle(
+    this.add.rectangle(
       WIDTH / 2,
       HEIGHT / 2,
       WIDTH,
       HEIGHT,
-      0x8ed7e8,
+      0x79695b,
     );
-    this.sun = this.add.circle(545, 58, 28, 0xffe390);
+    this.scenery = this.add
+      .tileSprite(0, 0, WIDTH, SCENERY_HEIGHT, "stage-1")
+      .setOrigin(0)
+      .setTileScale(SCENERY_TILE_SCALE, SCENERY_TILE_SCALE_Y)
+      .setDepth(1);
+    this.upperRoadside = this.add
+      .tileSprite(
+        WIDTH / 2,
+        ROAD_TOP_Y - UPPER_ROADSIDE_HEIGHT / 2,
+        ROADSIDE_TILE_WIDTH,
+        UPPER_ROADSIDE_HEIGHT,
+        "roadside-upper",
+      )
+      .setTileScale(
+        ROADSIDE_TILE_SCALE_X,
+        UPPER_ROADSIDE_HEIGHT / UPPER_ROADSIDE_TEXTURE_HEIGHT,
+      )
+      .setDepth(1.5);
+    this.lowerRoadside = this.add
+      .tileSprite(
+        WIDTH / 2,
+        ROAD_BOTTOM_Y + LOWER_ROADSIDE_HEIGHT / 2,
+        ROADSIDE_TILE_WIDTH,
+        LOWER_ROADSIDE_HEIGHT,
+        "roadside-lower",
+      )
+      .setTileScale(
+        ROADSIDE_TILE_SCALE_X,
+        LOWER_ROADSIDE_HEIGHT / 256,
+      )
+      .setDepth(1.5);
     this.windStreaks = Array.from({ length: 9 }, (_, index) =>
       this.add
         .rectangle(
@@ -345,35 +442,40 @@ export class GameScene extends Phaser.Scene {
           32 + (index % 4) * 31,
           18 + (index % 3) * 8,
           2,
-          0xe9fbff,
+          0xfff0ce,
         )
         .setDepth(2)
         .setVisible(false),
     );
 
-    this.mountain = this.add
-      .tileSprite(WIDTH / 2, 104, WIDTH, 110, "mountains")
-      .setOrigin(0.5);
-    this.fields = this.add
-      .tileSprite(WIDTH / 2, 147, WIDTH, 56, "fields")
-      .setOrigin(0.5);
-
     this.roadGraphics = this.add.graphics().setDepth(2);
+    this.roadTexture = this.add
+      .tileSprite(
+        WIDTH / 2,
+        (ROAD_TOP_Y + ROAD_BOTTOM_Y) / 2,
+        WIDTH + 72,
+        ROAD_BOTTOM_Y - ROAD_TOP_Y - 8,
+        "road-texture",
+      )
+      .setTileScale(ROAD_TILE_SCALE)
+      .setTint(0xd1b998)
+      .setAlpha(0.58)
+      .setDepth(2.5);
     this.roadParticles = Array.from({ length: 14 }, (_, index) =>
       this.add
         .rectangle(
           (index * 53) % WIDTH,
-          188 + (index % 3) * 52,
+          204 + (index % 3) * 38,
           3 + (index % 4),
           2,
-          0xf5f0df,
-          0.2,
+          0xf3dfb6,
+          0.16,
         )
-        .setDepth(4)
-        .setData("baseRoadY", 188 + (index % 3) * 52),
+        .setDepth(5)
+        .setData("baseRoadY", 204 + (index % 3) * 38),
     );
 
-    [222, 274].forEach((y) => {
+    [231, 269].forEach((y) => {
       for (
         let x = ROAD_MARKER_MIN_X;
         x < ROAD_MARKER_MAX_X;
@@ -381,8 +483,8 @@ export class GameScene extends Phaser.Scene {
       ) {
         this.laneMarkers.push(
           this.add
-            .rectangle(x, y, 30, 3, 0xe8e0c9)
-            .setDepth(3)
+            .rectangle(x, y, 30, 3, 0xe5c98e)
+            .setDepth(4)
             .setData("baseRoadY", y),
         );
       }
@@ -390,29 +492,29 @@ export class GameScene extends Phaser.Scene {
     this.updateRoadIncline(0, true);
 
     this.encounterText = this.add
-      .text(WIDTH / 2, 42, "", {
+      .text(WIDTH / 2, 92, "", {
         fontFamily: CANVAS_FONT,
         fontSize: "12px",
-        color: "#f1cf4b",
-        stroke: "#26323a",
+        color: "#f5d66f",
+        stroke: "#3a241b",
         strokeThickness: 4,
       })
       .setOrigin(0.5)
       .setDepth(25);
     this.add
-      .rectangle(626, 17, 106, 8, 0x26323a, 0.75)
+      .rectangle(626, 17, 106, 8, 0x3a241b, 0.82)
       .setOrigin(1, 0.5)
       .setDepth(20);
     this.flowBar = this.add
-      .rectangle(522, 17, 0, 4, 0xf1cf4b)
+      .rectangle(522, 17, 0, 4, 0xe3ad32)
       .setOrigin(0, 0.5)
       .setDepth(21);
     this.flowText = this.add
       .text(626, 27, "FLOW x1.0", {
         fontFamily: CANVAS_FONT,
         fontSize: "9px",
-        color: "#fff8d8",
-        stroke: "#26323a",
+        color: "#fff0ce",
+        stroke: "#3a241b",
         strokeThickness: 3,
       })
       .setOrigin(1, 0)
@@ -422,52 +524,8 @@ export class GameScene extends Phaser.Scene {
   private updateStageScenery(stage: GameSnapshot["stageDefinition"]): void {
     if (this.sceneryStage === stage.number) return;
     this.sceneryStage = stage.number;
-
-    const palettes = {
-      1: {
-        sky: 0xa5dfeb,
-        sun: 0xffe39a,
-        mountains: 0xc8ded4,
-        mountainAlpha: 0.28,
-        fields: 0x8bcf72,
-      },
-      2: {
-        sky: 0x96d4e4,
-        sun: 0xffdc83,
-        mountains: 0x96b4aa,
-        mountainAlpha: 0.68,
-        fields: 0x75b65b,
-      },
-      3: {
-        sky: 0xf4c58b,
-        sun: 0xffd05d,
-        mountains: 0xb79882,
-        mountainAlpha: 0.58,
-        fields: 0xc29c58,
-      },
-      4: {
-        sky: 0xb9d5dc,
-        sun: 0xffe4a6,
-        mountains: 0x9fb1ae,
-        mountainAlpha: 0.45,
-        fields: 0x84ad68,
-      },
-      5: {
-        sky: 0x81c7df,
-        sun: 0xffdf7e,
-        mountains: 0xffffff,
-        mountainAlpha: 1,
-        fields: 0x5f9d54,
-      },
-    } as const;
-    const palette = palettes[stage.number as keyof typeof palettes] ?? palettes[1];
-
-    this.sky.setFillStyle(palette.sky);
-    this.sun.setFillStyle(palette.sun);
-    this.mountain
-      .setTint(palette.mountains)
-      .setAlpha(palette.mountainAlpha);
-    this.fields.setTint(palette.fields);
+    const stageNumber = Phaser.Math.Clamp(stage.number, 1, 5);
+    this.scenery.setTexture(`stage-${stageNumber}`);
     this.showEncounter(
       `${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`,
       2_400,
@@ -476,7 +534,7 @@ export class GameScene extends Phaser.Scene {
 
   private createRider(): void {
     this.powerUpAura = this.add
-      .ellipse(112, cyclistLaneY(LANE_Y[1]), 68, 38, 0x71f5cc, 0.12)
+      .ellipse(112, cyclistLaneY(LANE_Y[1]) + 24, 68, 38, 0x71f5cc, 0.12)
       .setStrokeStyle(3, 0x71f5cc, 0.8)
       .setDepth(9)
       .setVisible(false);
@@ -486,10 +544,7 @@ export class GameScene extends Phaser.Scene {
       cyclistFrameTexture("player", false),
     );
     this.rider.setDisplaySize(CYCLIST_WIDTH, CYCLIST_HEIGHT).setDepth(10);
-    this.rider.body?.setSize(
-      24 * CYCLIST_TEXTURE_SCALE,
-      24 * CYCLIST_TEXTURE_SCALE,
-    );
+    this.rider.body?.setSize(88, 72, false).setOffset(84, 114);
   }
 
   private steerWithKeyboard(
@@ -512,17 +567,7 @@ export class GameScene extends Phaser.Scene {
 
     this.roadGraphics
       .clear()
-      .fillStyle(0x3f8b52)
-      .fillPoints(
-        [
-          point(0, VERGE_TOP_Y + leftOffset),
-          point(WIDTH, VERGE_TOP_Y + rightOffset),
-          point(WIDTH, ROAD_TOP_Y + rightOffset),
-          point(0, ROAD_TOP_Y + leftOffset),
-        ],
-        true,
-      )
-      .fillStyle(0x59636b)
+      .fillStyle(0x5d5751)
       .fillPoints(
         [
           point(0, ROAD_TOP_Y + leftOffset),
@@ -532,17 +577,7 @@ export class GameScene extends Phaser.Scene {
         ],
         true,
       )
-      .fillStyle(0x3f8b52)
-      .fillPoints(
-        [
-          point(0, ROAD_BOTTOM_Y + leftOffset),
-          point(WIDTH, ROAD_BOTTOM_Y + rightOffset),
-          point(WIDTH, HEIGHT),
-          point(0, HEIGHT),
-        ],
-        true,
-      )
-      .lineStyle(2, 0xd7d2b5)
+      .lineStyle(2, 0xe1c690)
       .lineBetween(
         0,
         ROAD_TOP_Y + leftOffset,
@@ -557,6 +592,25 @@ export class GameScene extends Phaser.Scene {
       );
 
     const angle = roadAngleDegrees(gradient);
+    const centerOffset = roadOffsetAtX(WIDTH / 2, gradient);
+    this.upperRoadside
+      .setPosition(
+        WIDTH / 2,
+        ROAD_TOP_Y - UPPER_ROADSIDE_HEIGHT / 2 + centerOffset,
+      )
+      .setAngle(angle);
+    this.lowerRoadside
+      .setPosition(
+        WIDTH / 2,
+        ROAD_BOTTOM_Y + LOWER_ROADSIDE_HEIGHT / 2 + centerOffset,
+      )
+      .setAngle(angle);
+    this.roadTexture
+      .setPosition(
+        WIDTH / 2,
+        (ROAD_TOP_Y + ROAD_BOTTOM_Y) / 2 + centerOffset,
+      )
+      .setAngle(angle);
     this.laneMarkers.forEach((marker) => {
       marker
         .setY(
@@ -606,17 +660,19 @@ export class GameScene extends Phaser.Scene {
     object.sequenceIndex = sequenceIndex;
     object.roadLane = lane;
     object.roadYOffset = 0;
-    object.setDepth(8);
+    object.setDisplaySize(28, 28).setDepth(8);
+    object.body?.setSize(24, 24);
     this.pickups.add(object);
 
-    const fanAboveRoad = lane === 0;
-    const fanY = fanAboveRoad ? ROAD_TOP_Y - 2 : ROAD_BOTTOM_Y + 2;
+    const fanY = ROAD_TOP_Y - 4;
+    const fanVariant = Phaser.Math.Between(1, FAN_VARIANT_COUNT);
     const fan = this.add
-      .image(x, this.roadY(fanY, x), "fan-a")
+      .image(x, this.roadY(fanY, x), `fan-${fanVariant}-a`)
       .setDisplaySize(FAN_WIDTH, FAN_HEIGHT)
-      .setOrigin(0.5, fanAboveRoad ? 1 : 0)
+      .setOrigin(0.5, 1)
       .setDepth(6);
     object.companion = fan;
+    object.companionVariant = fanVariant;
     object.companionBaseY = fanY;
     object.companionFrameOffset = (sequenceIndex ?? lane) * 130;
   }
@@ -636,12 +692,15 @@ export class GameScene extends Phaser.Scene {
     object.powerUpChoiceId = choiceId;
     object.roadLane = lane;
     object.roadYOffset = 0;
-    object.setDisplaySize(30, 30).setDepth(12);
+    object.setDisplaySize(34, 34).setDepth(12);
     object.body?.setSize(26, 26);
     this.pickups.add(object);
+    const fittedScaleX = object.scaleX;
+    const fittedScaleY = object.scaleY;
     this.tweens.add({
       targets: object,
-      scale: 1.16,
+      scaleX: fittedScaleX * 1.12,
+      scaleY: fittedScaleY * 1.12,
       alpha: 0.78,
       duration: 360,
       yoyo: true,
@@ -661,8 +720,8 @@ export class GameScene extends Phaser.Scene {
     pothole.eventType = "pothole";
     pothole.roadLane = lane;
     pothole.roadYOffset = ROAD_HAZARD_LANE_OFFSET_Y;
-    pothole.setDepth(9);
-    pothole.body?.setSize(38, 12);
+    pothole.setDisplaySize(54, 22).setDepth(9);
+    pothole.body?.setSize(46, 14);
     this.hazards.add(pothole);
   }
 
@@ -696,8 +755,14 @@ export class GameScene extends Phaser.Scene {
           object.companionBaseY ?? object.companion.y,
           object.x,
         );
+        const frame = fanFrameAt(
+          this.time.now,
+          object.companionFrameOffset,
+        ).endsWith("-a")
+          ? "a"
+          : "b";
         object.companion.setTexture(
-          fanFrameAt(this.time.now, object.companionFrameOffset),
+          `fan-${object.companionVariant ?? 1}-${frame}`,
         );
       }
       if (
@@ -949,7 +1014,7 @@ export class GameScene extends Phaser.Scene {
 
   private showEncounter(label: string, duration = 2_200): void {
     this.encounterText
-      .setPosition(WIDTH / 2, 42)
+      .setPosition(WIDTH / 2, 92)
       .setText(label)
       .setAlpha(1);
     this.time.delayedCall(duration, () => {
@@ -963,7 +1028,7 @@ export class GameScene extends Phaser.Scene {
     this.flow = addFlow(this.flow, amount);
     this.combo += 1;
     this.lastFlowActionAt = this.time.now;
-    this.floatText(this.rider.x + 12, this.rider.y - 24, label, "#f1cf4b");
+    this.floatText(this.rider.x + 18, this.rider.y - 46, label, "#f1cf4b");
   }
 
   private updateFlow(delta: number, decayPerSecond: number): void {
@@ -995,7 +1060,7 @@ export class GameScene extends Phaser.Scene {
     this.draftTimerText = this.add
       .text(
         -42,
-        this.roadY(LANE_Y[this.draftLane], -42) - 27,
+        this.roadY(LANE_Y[this.draftLane], -42) - DRAFT_LABEL_OFFSET_Y,
         "CATCH",
         {
         fontFamily: CANVAS_FONT,
@@ -1131,7 +1196,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private positionDraftTimer(cyclist: Phaser.GameObjects.Sprite): void {
-    this.draftTimerText?.setPosition(cyclist.x, cyclist.y - 27);
+    this.draftTimerText?.setPosition(
+      cyclist.x,
+      cyclist.y - DRAFT_LABEL_OFFSET_Y,
+    );
   }
 
   private syncDomestiques(level: number): void {
@@ -1214,7 +1282,7 @@ export class GameScene extends Phaser.Scene {
     const color = POWER_UP_COLORS[activePowerUp.type].hex;
     this.powerUpAura
       .setVisible(true)
-      .setPosition(this.rider.x - 2, this.rider.y)
+      .setPosition(this.rider.x - 2, this.rider.y + 24)
       .setAngle(this.rider.angle)
       .setFillStyle(color, 0.1)
       .setStrokeStyle(3, color, 0.65 + Math.sin(this.time.now / 90) * 0.2)
@@ -1227,8 +1295,8 @@ export class GameScene extends Phaser.Scene {
         fontFamily: CANVAS_FONT,
         fontSize: "14px",
         color,
-        stroke: "#26323a",
-        strokeThickness: 3,
+        stroke: "#3a241b",
+        strokeThickness: 4,
       })
       .setOrigin(0.5)
       .setDepth(30);
@@ -1241,311 +1309,4 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private createCyclistTexture(
-    key: string,
-    jerseyColor: string,
-    bikeColor: string,
-    alternatePedal = false,
-  ): void {
-    if (this.textures.exists(key)) return;
-
-    const texture = this.textures.createCanvas(
-      key,
-      CYCLIST_WIDTH * CYCLIST_TEXTURE_SCALE,
-      CYCLIST_HEIGHT * CYCLIST_TEXTURE_SCALE,
-    );
-    if (!texture) {
-      throw new Error(`Unable to create cyclist texture: ${key}`);
-    }
-    const context = texture.context;
-    context.scale(CYCLIST_TEXTURE_SCALE, CYCLIST_TEXTURE_SCALE);
-    context.lineCap = "round";
-    context.lineJoin = "round";
-
-    const line = (
-      color: string,
-      width: number,
-      points: Array<[number, number]>,
-    ): void => {
-      context.beginPath();
-      context.strokeStyle = color;
-      context.lineWidth = width;
-      context.moveTo(points[0][0], points[0][1]);
-      points.slice(1).forEach(([x, y]) => context.lineTo(x, y));
-      context.stroke();
-    };
-
-    const wheel = (x: number): void => {
-      context.beginPath();
-      context.strokeStyle = "#17232a";
-      context.lineWidth = 3;
-      context.arc(x, 37, 10, 0, Math.PI * 2);
-      context.stroke();
-      context.beginPath();
-      context.strokeStyle = "#dce9e8";
-      context.lineWidth = 1.25;
-      context.arc(x, 37, 7, 0, Math.PI * 2);
-      context.stroke();
-      context.strokeStyle = "rgba(220, 233, 232, 0.58)";
-      context.lineWidth = 0.75;
-      for (let spoke = 0; spoke < 8; spoke += 1) {
-        const angle = (spoke * Math.PI) / 4;
-        line("rgba(220, 233, 232, 0.58)", 0.75, [
-          [x, 37],
-          [x + Math.cos(angle) * 6.5, 37 + Math.sin(angle) * 6.5],
-        ]);
-      }
-    };
-
-    context.fillStyle = "rgba(16, 27, 32, 0.22)";
-    context.beginPath();
-    context.ellipse(28, 46, 25, 2, 0, 0, Math.PI * 2);
-    context.fill();
-    wheel(12);
-    wheel(44);
-
-    line(bikeColor, 2.7, [
-      [12, 37],
-      [25, 23],
-      [29, 37],
-      [12, 37],
-      [31, 37],
-      [40, 22],
-      [44, 37],
-      [29, 37],
-      [25, 23],
-      [39, 23],
-    ]);
-    line("#17232a", 1.8, [
-      [22, 21],
-      [28, 21],
-    ]);
-    line("#17232a", 1.8, [
-      [38, 21],
-      [43, 19],
-    ]);
-    context.beginPath();
-    context.fillStyle = "#f4d35e";
-    context.arc(29, 37, 2.8, 0, Math.PI * 2);
-    context.fill();
-
-    const frontKnee: [number, number] = alternatePedal ? [20, 30] : [33, 29];
-    const frontFoot: [number, number] = alternatePedal ? [24, 38] : [36, 37];
-    const rearKnee: [number, number] = alternatePedal ? [33, 29] : [20, 30];
-    const rearFoot: [number, number] = alternatePedal ? [36, 37] : [24, 38];
-    line("#26323a", 3.2, [
-      [26, 21],
-      rearKnee,
-      rearFoot,
-    ]);
-    line("#f1a27d", 2.6, [
-      [26, 20],
-      frontKnee,
-      frontFoot,
-    ]);
-
-    context.beginPath();
-    context.fillStyle = "#26323a";
-    context.moveTo(23, 18);
-    context.lineTo(31, 17);
-    context.lineTo(30, 24);
-    context.lineTo(24, 24);
-    context.closePath();
-    context.fill();
-
-    context.beginPath();
-    context.fillStyle = jerseyColor;
-    context.moveTo(24, 10);
-    context.quadraticCurveTo(31, 10, 36, 16);
-    context.lineTo(31, 22);
-    context.lineTo(24, 19);
-    context.closePath();
-    context.fill();
-    line("#f1a27d", 2.8, [
-      [32, 13],
-      [38, 17],
-      [41, 22],
-    ]);
-
-    context.beginPath();
-    context.fillStyle = "#f2b28c";
-    context.arc(30, 7, 4.3, 0, Math.PI * 2);
-    context.fill();
-    context.beginPath();
-    context.fillStyle = "#26323a";
-    context.moveTo(25, 6);
-    context.quadraticCurveTo(29, 0.5, 36, 5);
-    context.lineTo(35, 7);
-    context.lineTo(26, 7);
-    context.closePath();
-    context.fill();
-    line("#f5f0df", 1.1, [
-      [27, 5],
-      [33, 5],
-    ]);
-
-    texture.refresh();
-  }
-
-  private createFanTexture(key: string, raisedArm: boolean): void {
-    if (this.textures.exists(key)) return;
-
-    const texture = this.textures.createCanvas(
-      key,
-      FAN_WIDTH * FAN_TEXTURE_SCALE,
-      FAN_HEIGHT * FAN_TEXTURE_SCALE,
-    );
-    if (!texture) {
-      throw new Error(`Unable to create fan texture: ${key}`);
-    }
-
-    const context = texture.context;
-    context.scale(FAN_TEXTURE_SCALE, FAN_TEXTURE_SCALE);
-    context.lineCap = "round";
-    context.lineJoin = "round";
-
-    context.fillStyle = "rgba(19, 31, 36, 0.3)";
-    context.beginPath();
-    context.ellipse(8, 20.5, 7, 1.3, 0, 0, Math.PI * 2);
-    context.fill();
-
-    context.strokeStyle = "#26323a";
-    context.lineWidth = 2.4;
-    context.beginPath();
-    context.moveTo(6, 14);
-    context.lineTo(5, 20);
-    context.moveTo(10, 14);
-    context.lineTo(11, 20);
-    context.stroke();
-
-    context.fillStyle = "#4f7cac";
-    context.beginPath();
-    context.roundRect(4, 7, 8, 9, 2);
-    context.fill();
-
-    context.strokeStyle = "#f2b28c";
-    context.lineWidth = 2.2;
-    context.beginPath();
-    context.moveTo(5, 9);
-    context.lineTo(raisedArm ? 1.5 : 0.5, raisedArm ? 3 : 10);
-    context.moveTo(11, 9);
-    context.lineTo(raisedArm ? 15 : 15.5, raisedArm ? 1.5 : 10);
-    context.stroke();
-
-    context.fillStyle = "#f2b28c";
-    context.beginPath();
-    context.arc(8, 4, 3.5, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#26323a";
-    context.beginPath();
-    context.arc(8, 3, 3.5, Math.PI, Math.PI * 2);
-    context.fill();
-
-    texture.refresh();
-  }
-
-  private createTextures(): void {
-    const texture = (
-      key: string,
-      width: number,
-      height: number,
-      draw: (graphics: Phaser.GameObjects.Graphics) => void,
-    ) => {
-      if (this.textures.exists(key)) return;
-      const graphics = this.add.graphics({ x: 0, y: 0 });
-      draw(graphics);
-      graphics.generateTexture(key, width, height);
-      graphics.destroy();
-    };
-
-    this.createCyclistTexture("rider-a", "#ef6f51", "#f1cf4b");
-    this.createCyclistTexture("rider-b", "#ef6f51", "#f1cf4b", true);
-    this.createCyclistTexture("draft-rider-a", "#4f7cac", "#71f5cc");
-    this.createCyclistTexture(
-      "draft-rider-b",
-      "#4f7cac",
-      "#71f5cc",
-      true,
-    );
-    this.createCyclistTexture(
-      "domestique-rider-a",
-      "#8ee36b",
-      "#f1cf4b",
-    );
-    this.createCyclistTexture(
-      "domestique-rider-b",
-      "#8ee36b",
-      "#f1cf4b",
-      true,
-    );
-    this.createFanTexture("fan-a", false);
-    this.createFanTexture("fan-b", true);
-    texture("bag-sweat", 18, 18, (g) => {
-      g.fillStyle(0x26323a, 0.24).fillEllipse(9, 16, 14, 3);
-      g.fillStyle(0x6fe3cb).fillRect(2, 4, 14, 12);
-      g.fillStyle(0xe9fff8)
-        .fillTriangle(9, 5, 5.5, 10, 12.5, 10)
-        .fillCircle(9, 10, 3.5);
-      g.fillStyle(0x26323a).fillRect(6, 1, 6, 4);
-    });
-    texture("bag-cash", 18, 18, (g) => {
-      g.fillStyle(0x26323a, 0.24).fillEllipse(9, 16, 14, 3);
-      g.fillStyle(0xf1cf4b).fillRect(2, 4, 14, 12);
-      g.fillStyle(0x26323a).fillRect(8, 7, 2, 6);
-      g.fillStyle(0x26323a).fillRect(6, 9, 6, 2);
-      g.fillStyle(0x26323a).fillRect(6, 1, 6, 4);
-    });
-    texture("power-super-draft", 32, 32, (g) => {
-      g.fillStyle(0x162b32, 0.92).fillCircle(16, 16, 15);
-      g.lineStyle(2, 0x71f5cc, 1).strokeCircle(16, 16, 13);
-      g.lineStyle(3, 0x71f5cc, 1)
-        .lineBetween(6, 10, 21, 10)
-        .lineBetween(18, 6, 23, 10)
-        .lineBetween(18, 14, 23, 10)
-        .lineBetween(9, 21, 24, 21)
-        .lineBetween(21, 17, 26, 21)
-        .lineBetween(21, 25, 26, 21);
-    });
-    texture("power-lucky-bidon", 32, 32, (g) => {
-      g.fillStyle(0x16323a, 0.95).fillCircle(16, 16, 15);
-      g.lineStyle(2, 0xa7e8ff, 1).strokeCircle(16, 16, 13);
-      g.fillStyle(0xa7e8ff).fillRoundedRect(11, 8, 10, 17, 3);
-      g.fillStyle(0xf5f0df).fillRect(13, 5, 6, 5);
-      g.fillStyle(0x278f7b).fillCircle(16, 16, 3);
-    });
-    texture("power-jump", 32, 32, (g) => {
-      g.fillStyle(0x3a3117, 0.95).fillCircle(16, 16, 15);
-      g.lineStyle(2, 0xffe26f, 1).strokeCircle(16, 16, 13);
-      g.lineStyle(3, 0xffe26f, 1)
-        .lineBetween(16, 24, 16, 8)
-        .lineBetween(16, 8, 9, 15)
-        .lineBetween(16, 8, 23, 15);
-      g.lineStyle(2, 0xf5f0df, 0.9).strokeEllipse(16, 25, 16, 4);
-    });
-    texture("pothole", 44, 20, (g) => {
-      g.fillStyle(0xe7d8b5).fillEllipse(22, 10, 43, 18);
-      g.fillStyle(0x39434a).fillEllipse(22, 10, 38, 14);
-      g.fillStyle(0x171d21).fillEllipse(22, 11, 28, 9);
-      g.lineStyle(2, 0xf19b58, 0.95)
-        .lineBetween(3, 5, 10, 8)
-        .lineBetween(35, 4, 30, 8)
-        .lineBetween(39, 14, 33, 12);
-    });
-    texture("mountains", 128, 110, (g) => {
-      g.fillStyle(0x7099a1)
-        .fillTriangle(0, 110, 38, 28, 78, 110)
-        .fillTriangle(48, 110, 92, 12, 128, 110);
-      g.fillStyle(0xdbe9df)
-        .fillTriangle(27, 51, 38, 28, 49, 51)
-        .fillTriangle(80, 39, 92, 12, 103, 39);
-      g.fillStyle(0x50777d).fillTriangle(0, 110, 18, 63, 48, 110);
-    });
-    texture("fields", 128, 56, (g) => {
-      g.fillStyle(0x69a84f).fillRect(0, 0, 128, 56);
-      g.fillStyle(0x4a8b46)
-        .fillTriangle(0, 56, 24, 6, 42, 56)
-        .fillTriangle(45, 56, 78, 12, 104, 56)
-        .fillTriangle(92, 56, 116, 2, 128, 56);
-    });
-  }
 }

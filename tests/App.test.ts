@@ -45,17 +45,23 @@ describe("App", () => {
     expect(document.body.textContent).not.toContain("Reset career");
     expect(document.body.textContent).toContain("Paris");
     expect(document.body.textContent).toContain("Bordeaux");
-    expect(document.querySelector(".terrain-profile")).not.toBeNull();
-    expect(document.body.textContent).toContain("Speed");
-    expect(document.body.textContent).toContain("Sector distance");
+    expect(document.body.textContent).toContain("Slope 0.0%");
+    expect(document.body.textContent).toContain("Wind calm");
+    expect(document.body.textContent).toContain(
+      "Scandibérique · Atlantic plains",
+    );
+    expect(document.querySelector(".hud-title-plaque")).not.toBeNull();
+    expect(document.querySelector(".speed-dial")).not.toBeNull();
+    expect(document.querySelector(".hud-distance-track")).not.toBeNull();
+    expect(document.querySelector(".hud-tray")).not.toBeNull();
     expect(
-      document.querySelector(".ride-metric-distance strong"),
+      document.querySelector(".hud-distance-copy strong"),
     ).not.toBeNull();
     expect(
-      document.querySelector(".ride-metric-distance strong span")?.textContent?.trim(),
+      document.querySelector(".hud-distance-copy strong span")?.textContent?.trim(),
     ).toBe("0");
     expect(
-      document.querySelector(".ride-metric-distance strong em")?.textContent,
+      document.querySelector(".hud-distance-copy strong em")?.textContent,
     ).toBe("/ 580 km");
     expect(document.body.textContent).toContain("Steer ↑ ↓");
     expect(document.body.textContent).toContain("Leaderboard");
@@ -66,15 +72,14 @@ describe("App", () => {
     expect(document.body.textContent).toContain("/ 580 km");
     expect(document.body.textContent).not.toContain("580.00");
     expect(document.body.textContent).not.toContain("km ridden");
-    expect(document.body.textContent).toContain("Open workshop W");
-    expect(document.body.textContent).not.toContain("Open workshop U");
-    expect(document.querySelector(".resource.sweat strong")?.textContent).toBe(
-      "0",
-    );
-    expect(document.querySelector(".resource.cash strong")?.textContent).toBe(
-      "0",
-    );
-    expect(document.querySelector(".resource small")).toBeNull();
+    expect(document.body.textContent).toContain("Workshop W");
+    expect(document.body.textContent).not.toContain("Workshop U");
+    expect(
+      document.querySelector('[aria-label^="Sweat balance"] strong')?.textContent,
+    ).toBe("0");
+    expect(
+      document.querySelector('[aria-label^="Cash balance"] strong')?.textContent,
+    ).toBe("0");
     expect(document.body.textContent).not.toContain("Sweat");
     expect(document.body.textContent).not.toContain("Cash");
     expect(document.body.textContent).not.toContain("-2% to +2%");
@@ -140,7 +145,7 @@ describe("App", () => {
     expect(restarted.cash).toBe(0);
     expect(restarted.reservedPowerUp).toBeNull();
     expect(
-      document.querySelector(".ride-metric-distance strong span")?.textContent?.trim(),
+      document.querySelector(".hud-distance-copy strong span")?.textContent?.trim(),
     ).toBe("0");
     app.unmount();
   });
@@ -154,7 +159,7 @@ describe("App", () => {
 
     expect(document.body.textContent).toContain("Super Draft");
     const useButton = document.querySelector<HTMLButtonElement>(
-      ".power-up-reserve button",
+      ".hud-power-slot",
     );
     expect(useButton?.disabled).toBe(false);
     useButton?.click();

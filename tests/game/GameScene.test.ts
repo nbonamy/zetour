@@ -25,6 +25,40 @@ describe("GameScene", () => {
     expect(mocks.createdKeys).toEqual(["ride"]);
   });
 
+  it("preloads the complete painted ride asset pack", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const image = vi.fn();
+    scene.load = { image };
+
+    (scene.preload as () => void)();
+
+    expect(image).toHaveBeenCalledTimes(28);
+    expect(image).toHaveBeenCalledWith(
+      "rider-a",
+      "/assets/art/rider-a.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "fan-4-b",
+      "/assets/art/fan-4-b.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "stage-5",
+      "/assets/art/stage-5.jpg",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "roadside-upper",
+      "/assets/art/roadside-upper.png",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "roadside-lower",
+      "/assets/art/roadside-lower.jpg",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "road-texture",
+      "/assets/art/road-texture.jpg",
+    );
+  });
+
   it("reacts to a store race reset before advancing another frame", () => {
     const scene = new GameScene() as unknown as Record<string, unknown>;
     const resetRaceWorld = vi.fn();
@@ -90,8 +124,10 @@ describe("GameScene", () => {
       flowBar: { width: 72 },
       flowText: { setText: vi.fn() },
       encounterText,
-      mountain: { tilePositionX: 99 },
-      fields: { tilePositionX: 88 },
+      scenery: { tilePositionX: 99 },
+      upperRoadside: { tilePositionX: 66 },
+      lowerRoadside: { tilePositionX: 77 },
+      roadTexture: { tilePositionX: 88 },
       windStreaks: [],
       roadParticles: [],
       laneMarkers: [],
@@ -119,8 +155,10 @@ describe("GameScene", () => {
     expect(scene.combo).toBe(0);
     expect(scene.drafting).toBe(false);
     expect(scene.targetLane).toBe(1);
-    expect(scene.mountain.tilePositionX).toBe(0);
-    expect(scene.fields.tilePositionX).toBe(0);
+    expect(scene.scenery.tilePositionX).toBe(0);
+    expect(scene.upperRoadside.tilePositionX).toBe(0);
+    expect(scene.lowerRoadside.tilePositionX).toBe(0);
+    expect(scene.roadTexture.tilePositionX).toBe(0);
     expect(powerUpAura.setVisible).toHaveBeenCalledWith(false);
   });
 

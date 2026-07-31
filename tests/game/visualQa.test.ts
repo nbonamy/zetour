@@ -1,0 +1,28 @@
+import { describe, expect, it } from "vitest";
+import { parseVisualQaOverrides } from "../../src/game/visualQa";
+
+describe("visual QA overrides", () => {
+  it("parses deterministic stage and slope states for browser QA", () => {
+    expect(
+      parseVisualQaOverrides("?qaStage=2&qaGradient=-0.05"),
+    ).toEqual({
+      gradient: -0.05,
+      stage: 2,
+    });
+  });
+
+  it("clamps out-of-range values and ignores invalid input", () => {
+    expect(
+      parseVisualQaOverrides("?qaStage=99&qaGradient=0.8"),
+    ).toEqual({
+      gradient: 0.12,
+      stage: 5,
+    });
+    expect(
+      parseVisualQaOverrides("?qaStage=nope&qaGradient=nope"),
+    ).toEqual({
+      gradient: null,
+      stage: null,
+    });
+  });
+});
