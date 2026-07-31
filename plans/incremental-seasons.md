@@ -27,62 +27,76 @@ late-game numbers.
 
 ### 1. Economy primitives
 
-- [ ] Add compact large-number formatting.
-- [ ] Add repeatable upgrade cost and bulk-purchase helpers.
-- [ ] Add milestone multipliers and milestone metadata.
-- [ ] Scale roadside rewards from seconds of current production.
-- [ ] Cover the primitives with focused tests.
+- [x] Add compact large-number formatting.
+- [x] Add repeatable upgrade cost and bulk-purchase helpers.
+- [x] Add milestone multipliers and milestone metadata.
+- [x] Scale roadside rewards from seconds of current production.
+- [x] Cover the primitives with focused tests.
 
 Commit: `feat: add compounding economy primitives`
 
 ### 2. Career tree and ride production
 
-- [ ] Convert core upgrades to deep repeatable nodes with milestone names.
-- [ ] Add lubrication, gravel tires, suspension, mechanic, sponsor, and team
+- [x] Convert core upgrades to deep repeatable nodes with milestone names.
+- [x] Add lubrication, gravel tires, suspension, mechanic, sponsor, and team
       management nodes with coherent prerequisites.
-- [ ] Separate readable road speed from effective Tour pace.
-- [ ] Multiply production across independent upgrade families.
-- [ ] Apply gravel resistance and mechanical reliability to a gravel sector.
-- [ ] Cover purchases, multipliers, terrain effects, and migration with tests.
+- [x] Separate readable road speed from effective Tour pace.
+- [x] Multiply production across independent upgrade families.
+- [x] Apply gravel resistance and mechanical reliability to a gravel sector.
+- [x] Cover purchases, multipliers, terrain effects, and migration with tests.
 
 Commit: `feat: expand the incremental cycling career`
 
 ### 3. Seasons and Palmarès
 
-- [ ] Persist lifetime distance, Tours completed, season number, Palmarès, and
+- [x] Persist lifetime distance, Tours completed, season number, Palmarès, and
       permanent upgrades.
-- [ ] Replace the empty Ride again reset with a rewarded Next Season flow.
-- [ ] Preview reset rewards and next-season multiplier.
-- [ ] Preserve records and permanent progression across seasons.
-- [ ] Add Palmarès preparation, production, and automation upgrades.
-- [ ] Cover reset decisions, persistence, offline progress, and automation.
+- [x] Replace the empty Ride again reset with a rewarded Next Season flow.
+- [x] Preview reset rewards and next-season multiplier.
+- [x] Preserve records and permanent progression across seasons.
+- [x] Add Palmarès preparation, production, and automation upgrades.
+- [x] Cover reset decisions, persistence, offline progress, and automation.
 
 Commit: `feat: add seasons and palmares progression`
 
 ### 4. UI and interaction polish
 
-- [ ] Show road speed and effective Tour pace without crowding the masthead.
-- [ ] Add compact number formatting throughout.
-- [ ] Make the large career graph navigable with deep levels, milestones,
+- [x] Show road speed and effective Tour pace without crowding the masthead.
+- [x] Add compact number formatting throughout.
+- [x] Make the large career graph navigable with deep levels, milestones,
       bulk-buy controls, and the new nodes.
-- [ ] Add a Palmarès panel and a satisfying season-complete dialog.
-- [ ] Update active rewards, pothole feedback, and gravel encounter language.
-- [ ] Preserve responsive behavior across desktop and constrained viewports.
+- [x] Add a Palmarès panel and a satisfying season-complete dialog.
+- [x] Update active rewards, pothole feedback, and gravel encounter language.
+- [x] Preserve responsive behavior across desktop and constrained viewports.
 
 Commit: `feat: surface the incremental season loop`
 
 ### 5. Verification and tuning
 
-- [ ] Run unit/component tests after every increment.
-- [ ] Run typecheck and production build.
-- [ ] Exercise first purchases, milestones, branch unlocks, gravel mechanics,
+- [x] Run unit/component tests after every increment.
+- [x] Run typecheck and production build.
+- [x] Exercise first purchases, milestones, branch unlocks, gravel mechanics,
       Tour completion, season reset, Palmarès purchases, and offline progress.
-- [ ] Perform browser QA at desktop and constrained viewport sizes.
-- [ ] Tune the first-session curve from observed runtime behavior.
-- [ ] Update game-design.md and README.md to match the shipped mechanics.
+- [x] Perform browser QA at desktop and constrained viewport sizes.
+- [x] Tune the first-session curve from observed runtime behavior.
+- [x] Update game-design.md and README.md to match the shipped mechanics.
 
 Commit: `test: harden incremental season progression`
 
 ## Key learnings
 
-To be completed after implementation and runtime QA.
+- Keeping physical road speed logarithmic while effective Tour pace compounds
+  preserves rider, lane, fan, and verge readability even above 100,000 km/h.
+- Active rewards must be production-time rewards, not fixed amounts. Twenty
+  seconds of Sweat, thirty seconds of Cash, and five Sweat bags for a completed
+  draft remain meaningful in every Season.
+- A conservative no-pickup simulation reached its first purchase at 28
+  seconds, its first Level-10 breakthrough at 11:18, and the finish at 12:31
+  with 58 purchases and 152 km/h effective pace.
+- Browser QA found issues unit tests could not: collapsed Workshop tabs,
+  completion actions below the fold, and a clipped portrait detail panel.
+  Explicit grid rows and independently scrollable content fixed all three.
+- Gravel needed its own correctly proportioned texture. Recoloring asphalt
+  changed the palette but not the player's understanding of the surface.
+- The strongest finish decision is a visible tradeoff: keep the current machine
+  for a richer victory lap, or bank Palmarès now and make the next Season melt.

@@ -14,6 +14,7 @@ import {
   stages,
   terrainSpeedMultiplier,
   TOTAL_TOUR_DISTANCE_KM,
+  type SaveState,
 } from "../../src/core/gameStore";
 
 describe("riding economy", () => {
@@ -236,6 +237,63 @@ describe("stage and offline progression", () => {
     const state = store.getSnapshot();
     expect(state.stage).toBe(5);
     expect(state.stageDefinition.finish).toBe("Alpe d'Huez");
+  });
+
+  it("migrates version-one component levels and legacy ride Cash", () => {
+    const legacy = {
+      version: 1,
+      cash: 5,
+      rideCash: 9,
+      upgrades: {
+        "aluminium-frame": 1,
+        "carbon-frame": 1,
+        "reinforced-tires": 1,
+        "performance-tires": 1,
+      },
+    } as unknown as Partial<SaveState>;
+    const { store } = createTestStore(legacy);
+
+    const state = store.getSnapshot();
+    expect(state.version).toBe(2);
+    expect(state.cash).toBe(14);
+    expect(state.upgrades.frame).toBe(2);
+    expect(state.upgrades.tires).toBe(2);
+    expect(state.upgrades["aluminium-frame"]).toBeUndefined();
+    expect(state.upgrades["reinforced-tires"]).toBeUndefined();
+  });
+
+  it("salvages valid progress when individual save fields are corrupt", () => {
+    const corrupt = {
+      stage: "peloton",
+      stageDistanceM: "puncture",
+      distanceM: Number.POSITIVE_INFINITY,
+      seasonDistanceKm: "unknown",
+      lifetimeDistanceKm: Number.NaN,
+      sweat: "many",
+      cash: 42,
+      palmares: "legendary",
+      totalPalmares: Number.NaN,
+      palmaresUpgrades: { "tour-legend": "all of them" },
+      lastSavedAt: "yesterday-ish",
+    } as unknown as Partial<SaveState>;
+    const { store, advance } = createTestStore(corrupt);
+
+    let state = store.getSnapshot();
+    expect(state.stage).toBe(1);
+    expect(state.stageDistanceM).toBe(0);
+    expect(state.distanceM).toBe(0);
+    expect(state.seasonDistanceKm).toBe(0);
+    expect(state.lifetimeDistanceKm).toBe(0);
+    expect(state.sweat).toBe(0);
+    expect(state.cash).toBe(42);
+    expect(state.palmares).toBe(0);
+    expect(state.totalPalmares).toBe(0);
+    expect(state.palmaresUpgrades["tour-legend"]).toBe(0);
+
+    advance(1);
+    state = store.getSnapshot();
+    expect(Number.isFinite(state.stats.effectivePaceKmh)).toBe(true);
+    expect(state.distanceM).toBeGreaterThan(0);
   });
 
   it("turns a completed Tour into permanent Palmarès and a faster Season", () => {

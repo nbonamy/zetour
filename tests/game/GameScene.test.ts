@@ -32,7 +32,7 @@ describe("GameScene", () => {
 
     (scene.preload as () => void)();
 
-    expect(image).toHaveBeenCalledTimes(28);
+    expect(image).toHaveBeenCalledTimes(29);
     expect(image).toHaveBeenCalledWith(
       "rider-a",
       "/assets/art/rider-a.png",
@@ -56,6 +56,10 @@ describe("GameScene", () => {
     expect(image).toHaveBeenCalledWith(
       "road-texture",
       "/assets/art/road-texture.jpg",
+    );
+    expect(image).toHaveBeenCalledWith(
+      "road-texture-gravel",
+      "/assets/art/road-texture-gravel.jpg",
     );
   });
 

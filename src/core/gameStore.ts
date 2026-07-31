@@ -472,6 +472,25 @@ interface GameStoreOptions {
 type Listener = (snapshot: GameSnapshot) => void;
 type NoticeListener = (message: string, tone: "good" | "bad" | "neutral") => void;
 
+const finiteNumber = (value: unknown, fallback = 0): number => {
+  const candidate = Number(value);
+  return Number.isFinite(candidate) ? candidate : fallback;
+};
+
+const clampedInteger = (
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  fallback = minimum,
+): number =>
+  Math.max(
+    minimum,
+    Math.min(maximum, Math.floor(finiteNumber(value, fallback))),
+  );
+
+const nonNegativeInteger = (value: unknown, fallback = 0): number =>
+  Math.max(0, Math.floor(finiteNumber(value, fallback)));
+
 const normalizedSectorRecords = (
   value: unknown,
 ): Record<string, SectorTimeRecord> => {
@@ -1488,14 +1507,16 @@ export class GameStore {
           return level > 0 ? [[upgrade.id, level]] : [];
         }),
       );
-      const savedStage = Math.max(
+      const savedStage = clampedInteger(
+        currentState.stage,
         1,
-        Math.min(stages.length, Math.floor(Number(currentState.stage ?? 1))),
+        stages.length,
+        1,
       );
       const savedStageDefinition = stages[savedStage - 1];
       const rawStageDistanceM = Math.max(
         0,
-        Number(currentState.stageDistanceM ?? 0),
+        finiteNumber(currentState.stageDistanceM),
       );
       const completedLegacyFinale =
         savedStage === stages.length &&
@@ -1530,25 +1551,19 @@ export class GameStore {
           : 1;
       const raceFinished =
         Boolean(currentState.raceFinished) || completedLegacyFinale;
-      const season = Math.max(
-        1,
-        Math.floor(Number(currentState.season ?? 1)),
-      );
+      const season = Math.max(1, nonNegativeInteger(currentState.season, 1));
       const toursCompleted = Math.max(
         raceFinished ? 1 : 0,
-        Math.floor(Number(currentState.toursCompleted ?? 0)),
+        nonNegativeInteger(currentState.toursCompleted),
       );
       const toursThisSeason = Math.max(
         raceFinished ? 1 : 0,
-        Math.floor(Number(currentState.toursThisSeason ?? 0)),
+        nonNegativeInteger(currentState.toursThisSeason),
       );
-      const palmares = Math.max(
-        0,
-        Math.floor(Number(currentState.palmares ?? 0)),
-      );
+      const palmares = nonNegativeInteger(currentState.palmares);
       const totalPalmares = Math.max(
         palmares,
-        Math.floor(Number(currentState.totalPalmares ?? palmares)),
+        nonNegativeInteger(currentState.totalPalmares, palmares),
       );
       const rawPalmaresUpgrades =
         currentState.palmaresUpgrades &&
@@ -1568,12 +1583,10 @@ export class GameStore {
           const definition = palmaresUpgradeById(id);
           return [
             id,
-            Math.max(
+            clampedInteger(
+              rawPalmaresUpgrades[id],
               0,
-              Math.min(
-                definition.maxLevel,
-                Math.floor(Number(rawPalmaresUpgrades[id] ?? 0)),
-              ),
+              definition.maxLevel,
             ),
           ];
         }),
@@ -1585,11 +1598,11 @@ export class GameStore {
           : displayTourDistanceKm(stage, stageDistanceM));
       const seasonDistanceKm = Math.max(
         inferredSeasonDistanceKm,
-        Number(currentState.seasonDistanceKm ?? 0),
+        finiteNumber(currentState.seasonDistanceKm),
       );
       const lifetimeDistanceKm = Math.max(
         seasonDistanceKm,
-        Number(currentState.lifetimeDistanceKm ?? seasonDistanceKm),
+        finiteNumber(currentState.lifetimeDistanceKm, seasonDistanceKm),
       );
       const raceStageTimes = normalizedRaceStageTimes(
         currentState.raceStageTimes,
@@ -1617,6 +1630,7 @@ export class GameStore {
         automationEnabled:
           Boolean(currentState.automationEnabled) &&
           (palmaresUpgrades["race-radio"] ?? 0) > 0,
+        distanceM: Math.max(0, finiteNumber(currentState.distanceM)),
         seasonDistanceKm,
         lifetimeDistanceKm,
         raceFinished,
@@ -1631,10 +1645,9 @@ export class GameStore {
         sectorRecords: normalizedSectorRecords(
           currentState.sectorRecords,
         ),
-        sweat: Math.max(0, Math.floor(Number(currentState.sweat ?? 0))),
-        cash: Math.max(
-          0,
-          Math.floor(Number(currentState.cash ?? 0) + rideCash),
+        sweat: nonNegativeInteger(currentState.sweat),
+        cash: nonNegativeInteger(
+          finiteNumber(currentState.cash) + finiteNumber(rideCash),
         ),
         reservedPowerUp:
           currentState.reservedPowerUp === "super-draft" ||
@@ -1643,6 +1656,10 @@ export class GameStore {
             ? currentState.reservedPowerUp
             : null,
         upgrades: normalizedUpgrades,
+        lastSavedAt: Math.min(
+          this.now(),
+          finiteNumber(currentState.lastSavedAt, this.now()),
+        ),
       };
     } catch {
       return initialState(this.now());

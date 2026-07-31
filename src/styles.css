@@ -672,9 +672,11 @@ kbd {
 }
 
 .race-results-window {
+  display: grid;
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
   width: min(720px, 100%);
   max-height: min(820px, 100%);
-  overflow: auto;
+  overflow: hidden;
   padding: 28px;
   border: 3px solid #26323a;
   border-radius: 18px;
@@ -745,6 +747,8 @@ kbd {
 
 .race-result-list {
   display: grid;
+  min-height: 0;
+  overflow-y: auto;
   gap: 6px;
   margin: 0;
   padding: 0;
@@ -1599,11 +1603,13 @@ kbd {
 
   .upgrade-graph {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(440px, 1fr) auto;
+    grid-template-rows: minmax(0, 2fr) minmax(112px, 1fr);
+    overflow: hidden;
   }
 
   .node-detail {
-    max-height: 220px;
+    min-height: 0;
+    max-height: none;
     overflow: auto;
     border-top: 2px solid #26323a;
     border-left: 0;
@@ -3176,12 +3182,16 @@ kbd {
   background: rgba(83, 49, 32, 0.12);
 }
 
+.workshop-window {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .workshop-tabs button {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 15px 9px;
-  transform: translateY(3px);
+  transform: none;
   border: 3px solid #5a3927;
   border-bottom: 0;
   border-radius: 12px 9px 0 0;
@@ -3553,6 +3563,10 @@ kbd {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 9px;
+}
+
+.season-actions .race-restart {
+  margin-top: 12px;
 }
 
 .race-victory-lap {

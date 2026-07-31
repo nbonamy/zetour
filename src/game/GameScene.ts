@@ -6,7 +6,10 @@ import {
   type GameSnapshot,
   type PowerUpType,
 } from "../core/gameStore";
-import { RANDOM_RIDER_DRAFT_BONUS } from "../core/drafting";
+import {
+  RANDOM_RIDER_DRAFT_BONUS,
+  RANDOM_RIDER_DRAFT_SWEAT_BAG_MULTIPLIER,
+} from "../core/drafting";
 import {
   addFlow,
   advanceLoopingRoadMarkerX,
@@ -155,6 +158,7 @@ export class GameScene extends Phaser.Scene {
   private drafting = false;
   private droppedFromDraft = false;
   private sceneryStage = 0;
+  private roadSurface: GameSnapshot["stageDefinition"]["surface"] = "road";
   private raceRevision = 0;
 
   constructor() {
@@ -188,6 +192,10 @@ export class GameScene extends Phaser.Scene {
     this.load.image("roadside-upper", "/assets/art/roadside-upper.png");
     this.load.image("roadside-lower", "/assets/art/roadside-lower.jpg");
     this.load.image("road-texture", "/assets/art/road-texture.jpg");
+    this.load.image(
+      "road-texture-gravel",
+      "/assets/art/road-texture-gravel.jpg",
+    );
   }
 
   create(): void {
@@ -612,11 +620,30 @@ export class GameScene extends Phaser.Scene {
   private updateStageScenery(stage: GameSnapshot["stageDefinition"]): void {
     if (this.sceneryStage === stage.number) return;
     this.sceneryStage = stage.number;
+    this.roadSurface = stage.surface;
     const stageNumber = Phaser.Math.Clamp(stage.number, 1, 5);
     this.scenery.setTexture(`stage-${stageNumber}`);
-    this.roadTexture.setTint(
-      stage.surface === "gravel" ? 0xb48860 : 0xd1b998,
+    this.roadTexture
+      .setTexture(
+        stage.surface === "gravel"
+          ? "road-texture-gravel"
+          : "road-texture",
+      )
+      .setTint(stage.surface === "gravel" ? 0xe5c38f : 0xd1b998)
+      .setAlpha(stage.surface === "gravel" ? 0.86 : 0.58);
+    this.laneMarkers.forEach((marker) =>
+      marker.setFillStyle(
+        stage.surface === "gravel" ? 0xf1d7a2 : 0xe5c98e,
+        stage.surface === "gravel" ? 0.4 : 1,
+      ),
     );
+    this.roadParticles.forEach((particle) =>
+      particle.setFillStyle(
+        stage.surface === "gravel" ? 0xffe3ab : 0xf3dfb6,
+        stage.surface === "gravel" ? 0.26 : 0.16,
+      ),
+    );
+    this.updateRoadIncline(this.roadGradient, true);
     this.showEncounter(
       stage.surface === "gravel"
         ? `GRAVEL SECTOR · ${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`
@@ -670,10 +697,11 @@ export class GameScene extends Phaser.Scene {
     const leftOffset = roadOffsetAtX(0, gradient);
     const rightOffset = roadOffsetAtX(WIDTH, gradient);
     const point = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
+    const gravel = this.roadSurface === "gravel";
 
     this.roadGraphics
       .clear()
-      .fillStyle(0x5d5751)
+      .fillStyle(gravel ? 0x846a4e : 0x5d5751)
       .fillPoints(
         [
           point(0, ROAD_TOP_Y + leftOffset),
@@ -683,7 +711,7 @@ export class GameScene extends Phaser.Scene {
         ],
         true,
       )
-      .lineStyle(2, 0xe1c690)
+      .lineStyle(2, gravel ? 0xe4c17f : 0xe1c690)
       .lineBetween(
         0,
         ROAD_TOP_Y + leftOffset,
@@ -1322,8 +1350,12 @@ export class GameScene extends Phaser.Scene {
     this.drafting = false;
     this.droppedFromDraft = true;
     gameStore.setTemporaryDraftBonus(0);
+    const reward = gameStore.collectBag(
+      "sweat",
+      RANDOM_RIDER_DRAFT_SWEAT_BAG_MULTIPLIER,
+    );
     this.draftTimerText?.setText("0s");
-    this.showEncounter("RIDER ACCELERATES AWAY", 1_500);
+    this.showEncounter(`DRAFT COMPLETE · +${reward} SWEAT`, 1_800);
   }
 
   private positionDraftTimer(cyclist: Phaser.GameObjects.Sprite): void {

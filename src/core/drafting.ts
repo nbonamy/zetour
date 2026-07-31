@@ -1,6 +1,6 @@
 export const RANDOM_RIDER_DRAFT_BONUS = 0.5;
 export const RANDOM_RIDER_DRAFT_DURATION_SECONDS = 15;
-export const RANDOM_RIDER_DRAFT_SWEAT_REWARD = 100;
+export const RANDOM_RIDER_DRAFT_SWEAT_BAG_MULTIPLIER = 5;
 export const RANDOM_RIDER_DRAFT_WIND_SHELTER = 0.45;
 
 export const domestiqueDraftBonus = (count: number): number => {
