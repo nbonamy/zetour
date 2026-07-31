@@ -9,11 +9,21 @@
 
 Ze Tour combines a three-lane arcade ride with an incremental economy. Draft riders, collect resources, avoid potholes and oncoming traffic, buy real-world cycling upgrades, finish the Tour, then start a stronger Season and watch the numbers explode.
 
+![Ze Tour road gameplay with the rider and domestiques crossing France](docs/screenshots/ride.jpg)
+
 ## Entirely vibe-coded with Codex
 
-**This game was entirely vibe-coded using [Codex](https://openai.com/codex/).** Nicolas supplied the idea, taste, product direction, play-testing, and a healthy amount of blunt feedback; Codex helped turn that conversation into the game design, code, generated visual assets, balancing, tests, and documentation.
+**This game was entirely vibe-coded using [Codex](https://openai.com/codex/).** Creative direction, taste, play-testing, and a healthy amount of blunt feedback stayed human; Codex helped turn that conversation into the game design, code, generated visual assets, balancing, tests, and documentation.
 
 It is an experiment in building a complete, playable game through tight human–AI iteration: describe the feeling, play the result, point at what is boring or ugly, and keep going until it is fun.
+
+## Screenshots
+
+### Career Workshop
+
+The workshop presents Rider, Nutrition, Equipment, Bike, and Team progression as a draggable, zoomable career map.
+
+![Ze Tour Career Workshop skill tree](docs/screenshots/career-map.jpg)
 
 ## What is in the game
 
@@ -113,7 +123,5 @@ Issues and focused pull requests are welcome. Please run `npm test`, `npm run ty
 The living design notes are in [game-design.md](game-design.md), with the incremental progression proposal in [plans/incremental-seasons.md](plans/incremental-seasons.md).
 
 ## License
-
-Copyright 2026 Nicolas Bonamy.
 
 Licensed under the [Apache License 2.0](LICENSE).
