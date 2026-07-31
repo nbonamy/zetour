@@ -35,39 +35,45 @@ interface GraphConnection {
 const selectedId = ref<string | null>(null);
 const viewport = ref<HTMLElement | null>(null);
 const dragging = ref(false);
-const world = { width: 1_460, height: 980 };
-const center: Point = { x: 730, y: 480 };
+const zoom = ref(0.7);
+const world = { width: 1_120, height: 780 };
+const grid = { originX: 48, originY: 70, column: 64, row: 64 };
+const gridPoint = (column: number, row: number): Point => ({
+  x: grid.originX + column * grid.column,
+  y: grid.originY + row * grid.row,
+});
+const center: Point = gridPoint(8, 5);
 const branchPositions: Record<Branch, Point> = {
-  bike: { x: 490, y: 525 },
-  rider: { x: 625, y: 320 },
-  nutrition: { x: 850, y: 315 },
-  equipment: { x: 985, y: 485 },
-  team: { x: 785, y: 680 },
+  bike: gridPoint(5, 5),
+  rider: gridPoint(7, 2),
+  nutrition: gridPoint(9, 2),
+  equipment: gridPoint(11, 5),
+  team: gridPoint(8, 8),
 };
 const nodePositions: Record<string, Point> = {
-  "road-bike": { x: 355, y: 505 },
-  frame: { x: 235, y: 385 },
-  tires: { x: 175, y: 525 },
-  shifting: { x: 245, y: 665 },
-  wheels: { x: 105, y: 270 },
-  brakes: { x: 105, y: 790 },
-  "chain-lube": { x: 385, y: 745 },
-  endurance: { x: 490, y: 225 },
-  power: { x: 610, y: 120 },
-  hyperbike: { x: 740, y: 140 },
-  technique: { x: 760, y: 250 },
-  "body-composition": { x: 355, y: 120 },
-  hydration: { x: 980, y: 220 },
-  fueling: { x: 1_135, y: 125 },
-  "aero-socks": { x: 1_100, y: 350 },
-  helmet: { x: 1_225, y: 445 },
-  skinsuit: { x: 1_130, y: 555 },
-  "gravel-tires": { x: 1_080, y: 690 },
-  suspension: { x: 1_245, y: 800 },
-  domestique: { x: 670, y: 815 },
-  mechanic: { x: 815, y: 855 },
-  sponsor: { x: 965, y: 790 },
-  "team-director": { x: 590, y: 930 },
+  "road-bike": gridPoint(4, 5),
+  frame: gridPoint(3, 4),
+  tires: gridPoint(3, 5),
+  shifting: gridPoint(3, 6),
+  wheels: gridPoint(2, 3),
+  brakes: gridPoint(2, 7),
+  "chain-lube": gridPoint(4, 7),
+  endurance: gridPoint(6, 1),
+  power: gridPoint(7, 0),
+  hyperbike: gridPoint(8, 0),
+  technique: gridPoint(8, 1),
+  "body-composition": gridPoint(5, 0),
+  hydration: gridPoint(10, 1),
+  fueling: gridPoint(11, 0),
+  "aero-socks": gridPoint(12, 4),
+  helmet: gridPoint(13, 5),
+  skinsuit: gridPoint(12, 6),
+  "gravel-tires": gridPoint(11, 7),
+  suspension: gridPoint(12, 8),
+  domestique: gridPoint(7, 9),
+  mechanic: gridPoint(8, 10),
+  sponsor: gridPoint(9, 9),
+  "team-director": gridPoint(6, 10),
 };
 const branches = Object.keys(branchLabels) as Branch[];
 const branchIcons: Record<Branch, string> = {
@@ -98,15 +104,7 @@ const visibleNodes = computed(() =>
 );
 
 const connectionPath = (from: Point, to: Point): string => {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const bend = Math.min(92, Math.max(34, Math.hypot(dx, dy) * 0.28));
-  if (Math.abs(dx) > Math.abs(dy)) {
-    const direction = Math.sign(dx) || 1;
-    return `M ${from.x} ${from.y} C ${from.x + direction * bend} ${from.y}, ${to.x - direction * bend} ${to.y}, ${to.x} ${to.y}`;
-  }
-  const direction = Math.sign(dy) || 1;
-  return `M ${from.x} ${from.y} C ${from.x} ${from.y + direction * bend}, ${to.x} ${to.y - direction * bend}, ${to.x} ${to.y}`;
+  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 };
 
 const graphConnections = computed<GraphConnection[]>(() => {
@@ -151,6 +149,7 @@ const graphConnections = computed<GraphConnection[]>(() => {
 
   return [...branchConnections, ...nodeConnections];
 });
+const zoomPercent = computed(() => Math.round(zoom.value * 100));
 
 const selected = computed(() =>
   selectedId.value ? upgradeById(selectedId.value) : undefined,
@@ -287,8 +286,54 @@ const buySelected = (quantity: PurchaseQuantity): void => {
 const centerViewport = async (): Promise<void> => {
   await nextTick();
   if (!viewport.value) return;
-  viewport.value.scrollLeft = center.x - viewport.value.clientWidth / 2;
-  viewport.value.scrollTop = center.y - viewport.value.clientHeight / 2;
+  viewport.value.scrollLeft =
+    center.x * zoom.value - viewport.value.clientWidth / 2;
+  viewport.value.scrollTop =
+    center.y * zoom.value - viewport.value.clientHeight / 2;
+};
+
+const setZoom = async (
+  nextZoom: number,
+  anchor?: { clientX: number; clientY: number },
+): Promise<void> => {
+  const target = viewport.value;
+  const previousZoom = zoom.value;
+  const clampedZoom = Math.min(1.3, Math.max(0.6, nextZoom));
+  if (clampedZoom === previousZoom) return;
+
+  const bounds = target?.getBoundingClientRect();
+  const anchorX =
+    target && bounds && anchor
+      ? anchor.clientX - bounds.left
+      : (target?.clientWidth ?? 0) / 2;
+  const anchorY =
+    target && bounds && anchor
+      ? anchor.clientY - bounds.top
+      : (target?.clientHeight ?? 0) / 2;
+  const focusX = target
+    ? (target.scrollLeft + anchorX) / previousZoom
+    : center.x;
+  const focusY = target
+    ? (target.scrollTop + anchorY) / previousZoom
+    : center.y;
+  zoom.value = clampedZoom;
+  await nextTick();
+  if (!target) return;
+  target.scrollLeft = focusX * clampedZoom - anchorX;
+  target.scrollTop = focusY * clampedZoom - anchorY;
+};
+
+const zoomOut = (): Promise<void> =>
+  setZoom(Number((zoom.value - 0.1).toFixed(1)));
+const zoomIn = (): Promise<void> =>
+  setZoom(Number((zoom.value + 0.1).toFixed(1)));
+const zoomWithWheel = (event: WheelEvent): void => {
+  if (event.deltaY === 0) return;
+  const direction = event.deltaY > 0 ? -0.1 : 0.1;
+  void setZoom(Number((zoom.value + direction).toFixed(1)), {
+    clientX: event.clientX,
+    clientY: event.clientY,
+  });
 };
 
 let dragOrigin:
@@ -331,135 +376,156 @@ onMounted(centerViewport);
 
 <template>
   <div class="upgrade-graph">
-    <div
-      ref="viewport"
-      class="graph-viewport"
-      :class="{ dragging }"
-      @pointerdown="startPan"
-      @pointermove="pan"
-      @pointerup="stopPan"
-      @pointercancel="stopPan"
-    >
+    <div class="graph-pane">
       <div
-        class="graph-map"
-        :style="{
-          width: `${world.width}px`,
-          height: `${world.height}px`,
-        }"
+        ref="viewport"
+        class="graph-viewport"
+        :class="{ dragging }"
+        @pointerdown="startPan"
+        @pointermove="pan"
+        @pointerup="stopPan"
+        @pointercancel="stopPan"
+        @wheel.prevent="zoomWithWheel"
       >
-        <div class="graph-map-title" aria-hidden="true">
-          <strong>Career map</strong>
-          <span>Choose your line</span>
-        </div>
-
-        <svg
-          class="graph-connections"
-          :viewBox="`0 0 ${world.width} ${world.height}`"
-          aria-hidden="true"
-        >
-          <path
-            v-for="connection in graphConnections"
-            :key="connection.id"
-            class="graph-connection"
-            :class="`edge-${connection.state}`"
-            :data-edge="connection.id"
-            :data-branch="connection.branch"
-            :d="connectionPath(connection.from, connection.to)"
-          />
-        </svg>
-
         <div
-          class="graph-center"
-          :style="{ left: `${center.x}px`, top: `${center.y}px` }"
-        >
-          <span class="center-emblem">🚲</span>
-          <strong>Season {{ snapshot.season }}</strong>
-          <small>Career</small>
-        </div>
-
-        <div
-          v-for="branch in branches"
-          :key="branch"
-          class="branch-hub"
-          :data-branch="branch"
-          :class="{ locked: !gameStore.isBranchUnlocked(branch) }"
+          class="graph-stage"
           :style="{
-            left: `${branchPositions[branch].x}px`,
-            top: `${branchPositions[branch].y}px`,
+            width: `${world.width * zoom}px`,
+            height: `${world.height * zoom}px`,
           }"
         >
-          <span class="hub-icon">
-            {{ gameStore.isBranchUnlocked(branch) ? branchIcons[branch] : "×" }}
-          </span>
-          <strong>{{ branchLabels[branch] }}</strong>
-          <small v-if="!gameStore.isBranchUnlocked(branch)">
-            Sector {{ branchUnlockStages[branch] }}
-          </small>
-        </div>
-
-        <button
-          v-for="node in visibleNodes"
-          :key="node.id"
-          type="button"
-          class="tree-node"
-          :data-branch="node.branch"
-          :class="[
-            `node-${visibility(node)}`,
-            {
-              selected: selectedId === node.id,
-              acquired: level(node) > 0,
-              complete: level(node) >= node.maxLevel,
-              locked: !gameStore.isBranchUnlocked(node.branch),
-            },
-          ]"
-          :style="{
-            left: `${nodePositions[node.id]?.x ?? center.x}px`,
-            top: `${nodePositions[node.id]?.y ?? center.y}px`,
-          }"
-          :disabled="!gameStore.isBranchUnlocked(node.branch)"
-          :title="visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name"
-          :aria-label="
-            visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name
-          "
-          @pointerenter="activateNode(node)"
-          @focus="activateNode(node)"
-          @click="activateAndBuyNode(node)"
-        >
-          <span class="node-main">
-            <span class="node-medallion">
-              <span class="node-icon">
-                {{ visibility(node) === "mystery" ? "?" : node.icon }}
-              </span>
-            </span>
-            <span class="node-label">
-              {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
-            </span>
-            <small
-              v-if="
-                visibility(node) === 'revealed' &&
-                node.id === 'hyperbike' &&
-                level(node) === 0
-              "
-            >
-              $2B DREAM
-            </small>
-          </span>
-          <span
-            v-if="visibility(node) === 'revealed'"
-            class="node-progress"
-            :aria-label="`${nodeProgressPercent(node)}% complete — ${level(node)} of ${node.maxLevel} steps`"
-            :title="`${level(node)} of ${node.maxLevel} steps complete`"
+          <div
+            class="graph-map"
+            :style="{
+              width: `${world.width}px`,
+              height: `${world.height}px`,
+              transform: `scale(${zoom})`,
+            }"
           >
-            <span
-              class="node-progress-fill"
-              :style="{ width: `${nodeProgressPercent(node)}%` }"
-            ></span>
-          </span>
-        </button>
+          <div class="graph-map-title" aria-hidden="true">
+            <strong>Career map</strong>
+            <span>Choose your line</span>
+          </div>
+
+          <svg
+            class="graph-connections"
+            :viewBox="`0 0 ${world.width} ${world.height}`"
+            aria-hidden="true"
+          >
+            <path
+              v-for="connection in graphConnections"
+              :key="connection.id"
+              class="graph-connection"
+              :class="`edge-${connection.state}`"
+              :data-edge="connection.id"
+              :data-branch="connection.branch"
+              :d="connectionPath(connection.from, connection.to)"
+            />
+          </svg>
+
+          <div
+            class="graph-center"
+            :style="{ left: `${center.x}px`, top: `${center.y}px` }"
+          >
+            <span class="center-emblem">🚲</span>
+            <strong>Season {{ snapshot.season }}</strong>
+            <small>Career</small>
+          </div>
+
+          <div
+            v-for="branch in branches"
+            :key="branch"
+            class="branch-hub"
+            :data-branch="branch"
+            :class="{ locked: !gameStore.isBranchUnlocked(branch) }"
+            :style="{
+              left: `${branchPositions[branch].x}px`,
+              top: `${branchPositions[branch].y}px`,
+            }"
+          >
+            <span class="hub-icon">
+              {{ gameStore.isBranchUnlocked(branch) ? branchIcons[branch] : "×" }}
+            </span>
+            <strong>{{ branchLabels[branch] }}</strong>
+            <small v-if="!gameStore.isBranchUnlocked(branch)">
+              Sector {{ branchUnlockStages[branch] }}
+            </small>
+          </div>
+
+            <button
+              v-for="node in visibleNodes"
+              :key="node.id"
+              type="button"
+              class="tree-node"
+              :data-branch="node.branch"
+              :class="[
+                `node-${visibility(node)}`,
+                {
+                  selected: selectedId === node.id,
+                  acquired: level(node) > 0,
+                  complete: level(node) >= node.maxLevel,
+                  locked: !gameStore.isBranchUnlocked(node.branch),
+                },
+              ]"
+              :style="{
+                left: `${nodePositions[node.id]?.x ?? center.x}px`,
+                top: `${nodePositions[node.id]?.y ?? center.y}px`,
+              }"
+              :disabled="!gameStore.isBranchUnlocked(node.branch)"
+              :title="visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name"
+              :aria-label="
+                visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name
+              "
+              @pointerenter="activateNode(node)"
+              @focus="activateNode(node)"
+              @click="activateAndBuyNode(node)"
+            >
+              <span class="node-main">
+                <span class="node-medallion">
+                  <span class="node-icon">
+                    {{ visibility(node) === "mystery" ? "?" : node.icon }}
+                  </span>
+                </span>
+                <span class="node-label">
+                  {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
+                </span>
+                <small
+                  v-if="
+                    visibility(node) === 'revealed' &&
+                    node.id === 'hyperbike' &&
+                    level(node) === 0
+                  "
+                >
+                  $2B DREAM
+                </small>
+              </span>
+              <span
+                v-if="visibility(node) === 'revealed'"
+                class="node-progress"
+                :aria-label="`${nodeProgressPercent(node)}% complete — ${level(node)} of ${node.maxLevel} steps`"
+                :title="`${level(node)} of ${node.maxLevel} steps complete`"
+              >
+                <span
+                  class="node-progress-fill"
+                  :style="{ width: `${nodeProgressPercent(node)}%` }"
+                ></span>
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="graph-help">
-        Drag or scroll to explore
+        <span>Drag or scroll</span>
+        <span class="graph-zoom" aria-label="Map zoom">
+          <button type="button" aria-label="Zoom out" @click.stop="zoomOut">
+            −
+          </button>
+          <output>{{ zoomPercent }}%</output>
+          <button type="button" aria-label="Zoom in" @click.stop="zoomIn">
+            +
+          </button>
+        </span>
         <button type="button" @click="centerViewport">Center</button>
       </div>
     </div>

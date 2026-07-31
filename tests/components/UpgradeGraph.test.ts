@@ -26,8 +26,12 @@ describe("UpgradeGraph", () => {
     mountGraph();
 
     const map = host.querySelector<HTMLElement>(".graph-map");
-    expect(map?.style.width).toBe("1460px");
-    expect(map?.style.height).toBe("980px");
+    const stage = host.querySelector<HTMLElement>(".graph-stage");
+    expect(map?.style.width).toBe("1120px");
+    expect(map?.style.height).toBe("780px");
+    expect(map?.style.transform).toBe("scale(0.7)");
+    expect(stage?.style.width).toBe("784px");
+    expect(stage?.style.height).toBe("546px");
     expect(map?.style.getPropertyValue("--hex-width")).toBe("");
     expect(host.querySelector(".graph-connections")).not.toBeNull();
     expect(host.querySelectorAll(".hex-branch")).toHaveLength(0);
@@ -37,14 +41,14 @@ describe("UpgradeGraph", () => {
       host.querySelector<HTMLElement>(
         '.branch-hub[data-branch="nutrition"]',
       )?.style.left,
-    ).toBe("850px");
+    ).toBe("624px");
     expect(
       Number.parseFloat(
         host.querySelector<HTMLElement>(
           '.branch-hub[data-branch="nutrition"]',
         )?.style.top ?? "0",
       ),
-    ).toBe(315);
+    ).toBe(198);
     expect(host.querySelectorAll(".tree-node > .node-main")).toHaveLength(
       host.querySelectorAll(".tree-node").length,
     );
@@ -57,6 +61,11 @@ describe("UpgradeGraph", () => {
     expect(
       host.querySelector('[data-edge="hub:nutrition"]'),
     ).not.toBeNull();
+    expect(
+      host.querySelector('[data-edge="hub:nutrition"]')?.getAttribute("d"),
+    ).toBe("M 560 390 L 624 198");
+    expect(host.querySelector(".graph-viewport .graph-help")).toBeNull();
+    expect(host.querySelector(".graph-pane > .graph-help")).not.toBeNull();
     expect(
       host
         .querySelector('[data-edge="node:fueling"]')
@@ -96,6 +105,45 @@ describe("UpgradeGraph", () => {
     expect(host.textContent).toContain("Sector 2");
     expect(host.textContent).toContain("Sector 3");
     expect(host.textContent).toContain("Sector 4");
+    app?.unmount();
+    host.remove();
+  });
+
+  it("zooms the scrollable map in fixed steps", async () => {
+    mountGraph();
+
+    host.querySelector<HTMLButtonElement>('button[aria-label="Zoom out"]')?.click();
+    await nextTick();
+
+    expect(
+      host.querySelector<HTMLElement>(".graph-map")?.style.transform,
+    ).toBe("scale(0.6)");
+    expect(host.querySelector<HTMLElement>(".graph-stage")?.style.width).toBe(
+      "672px",
+    );
+    expect(host.querySelector(".graph-zoom output")?.textContent).toBe("60%");
+
+    host.querySelector<HTMLButtonElement>('button[aria-label="Zoom in"]')?.click();
+    await nextTick();
+    expect(
+      host.querySelector<HTMLElement>(".graph-map")?.style.transform,
+    ).toBe("scale(0.7)");
+
+    const viewport = host.querySelector<HTMLElement>(".graph-viewport");
+    const wheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 120,
+      clientY: 90,
+      deltaY: -100,
+    });
+    viewport?.dispatchEvent(wheel);
+    await nextTick();
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(
+      host.querySelector<HTMLElement>(".graph-map")?.style.transform,
+    ).toBe("scale(0.8)");
+    expect(host.querySelector(".graph-zoom output")?.textContent).toBe("80%");
     app?.unmount();
     host.remove();
   });

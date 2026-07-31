@@ -3763,33 +3763,54 @@ kbd {
 /* Organic career map ----------------------------------------------------- */
 
 .upgrade-graph {
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.graph-pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .graph-viewport {
-  background: #3b251a;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(rgba(246, 225, 179, 0.86), rgba(218, 184, 120, 0.86)),
+    url("/assets/art/paper-texture.jpg");
   scrollbar-color: #b77b32 #2b190f;
 }
 
+.graph-stage {
+  position: relative;
+  flex: 0 0 auto;
+  margin-inline: auto;
+}
+
 .graph-map {
+  position: absolute;
+  top: 0;
+  left: 0;
   overflow: hidden;
+  transform-origin: top left;
   color: #44291c;
   background:
     radial-gradient(circle at 50% 49%, rgba(175, 118, 47, 0.13), transparent 27%),
     radial-gradient(circle at 26% 22%, rgba(115, 132, 66, 0.1), transparent 21%),
     radial-gradient(circle at 79% 74%, rgba(113, 77, 55, 0.09), transparent 23%),
-    linear-gradient(rgba(250, 234, 194, 0.82), rgba(222, 190, 127, 0.82)),
-    url("/assets/art/paper-texture.jpg");
+    radial-gradient(circle, rgba(105, 73, 44, 0.12) 0 1px, transparent 1.35px)
+      48px 70px / 64px 64px;
   isolation: isolate;
 }
 
 .graph-map::before {
   position: absolute;
   z-index: 0;
-  top: 480px;
-  left: 730px;
-  width: 410px;
-  height: 410px;
+  top: 390px;
+  left: 560px;
+  width: 320px;
+  height: 320px;
   transform: translate(-50%, -50%);
   border: 2px solid rgba(103, 66, 37, 0.08);
   border-radius: 50%;
@@ -3803,12 +3824,12 @@ kbd {
 .graph-map::after {
   position: absolute;
   z-index: 0;
-  inset: 72px 92px;
+  inset: 68px 72px;
   color: rgba(103, 69, 38, 0.08);
   content: "✦                 △                    ⚙\A\A        ≈                                   ↟\A\A                       ◉                 ✦";
-  font-size: 54px;
-  line-height: 2.7;
-  letter-spacing: 36px;
+  font-size: 46px;
+  line-height: 2.55;
+  letter-spacing: 28px;
   white-space: pre;
   pointer-events: none;
 }
@@ -3816,10 +3837,10 @@ kbd {
 .graph-map-title {
   position: absolute;
   z-index: 5;
-  top: 24px;
-  left: 730px;
+  top: 3px;
+  left: 560px;
   display: grid;
-  min-width: 190px;
+  min-width: 170px;
   justify-items: center;
   transform: translateX(-50%) rotate(-0.4deg);
   color: #4c2d20;
@@ -3827,16 +3848,16 @@ kbd {
 }
 
 .graph-map-title strong {
-  padding: 0 9px 5px;
+  padding: 0 8px 3px;
   border-bottom: 2px solid #6b432d;
-  font: 800 27px/1 Georgia, "Times New Roman", serif;
+  font: 800 20px/1 Georgia, "Times New Roman", serif;
   letter-spacing: 0.015em;
 }
 
 .graph-map-title span {
-  margin-top: 4px;
+  margin-top: 2px;
   color: #8a6545;
-  font-size: 9px;
+  font-size: 7px;
   font-weight: 800;
   letter-spacing: 0.17em;
   text-transform: uppercase;
@@ -3857,8 +3878,8 @@ kbd {
   stroke: var(--branch-color);
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 3;
-  opacity: 0.6;
+  stroke-width: 2;
+  opacity: 0.64;
   filter: drop-shadow(0 1px 0 rgba(255, 241, 203, 0.75));
   transition:
     stroke 180ms ease,
@@ -3869,26 +3890,26 @@ kbd {
 
 .graph-connection.edge-acquired {
   stroke: color-mix(in srgb, var(--branch-color) 56%, #c98b1f);
-  stroke-width: 5;
+  stroke-width: 3.5;
   opacity: 0.95;
 }
 
 .graph-connection.edge-available {
-  stroke-width: 3.5;
-  opacity: 0.68;
+  stroke-width: 2.5;
+  opacity: 0.74;
 }
 
 .graph-connection.edge-mystery {
   stroke: color-mix(in srgb, var(--branch-color) 48%, #8b755d);
   stroke-dasharray: 4 7;
-  opacity: 0.56;
+  opacity: 0.64;
 }
 
 .graph-connection.edge-locked {
   stroke: #8c7a62;
   stroke-dasharray: 2 9;
-  stroke-width: 2.5;
-  opacity: 0.38;
+  stroke-width: 2;
+  opacity: 0.66;
 }
 
 .graph-center,
@@ -3905,7 +3926,8 @@ kbd {
   background: #efd69f;
   clip-path: none;
   color: #41271b;
-  filter: drop-shadow(0 5px 0 rgba(73, 42, 26, 0.42));
+  box-shadow: 0 5px 0 rgba(73, 42, 26, 0.42);
+  filter: none;
   isolation: isolate;
 }
 
@@ -3925,8 +3947,8 @@ kbd {
 
 .graph-center {
   z-index: 4;
-  width: 112px;
-  height: 112px;
+  width: 96px;
+  height: 96px;
   flex-direction: column;
   gap: 1px;
   border-width: 5px;
@@ -3936,7 +3958,7 @@ kbd {
 .graph-center::after {
   position: absolute;
   z-index: -2;
-  inset: -14px;
+  inset: -11px;
   border: 2px dashed rgba(104, 66, 36, 0.3);
   border-radius: 50%;
   content: "";
@@ -3944,7 +3966,7 @@ kbd {
 
 .graph-center .center-emblem {
   color: #6f482a;
-  font-size: 34px;
+  font-size: 29px;
   line-height: 1;
   filter: sepia(0.75) saturate(0.65);
 }
@@ -3965,26 +3987,26 @@ kbd {
 
 .branch-hub {
   z-index: 3;
-  width: 78px;
-  height: 78px;
-  border-width: 4px;
+  width: 64px;
+  height: 64px;
+  border-width: 3px;
 }
 
 .branch-hub .hub-icon {
   color: var(--branch-color);
-  font-size: 27px;
+  font-size: 23px;
   font-weight: 900;
   line-height: 1;
 }
 
 .branch-hub strong {
   position: absolute;
-  top: calc(100% + 7px);
+  top: calc(100% + 6px);
   left: 50%;
   width: 122px;
   transform: translateX(-50%);
   color: #4d3021;
-  font: 900 11px/1 Georgia, "Times New Roman", serif;
+  font: 900 10px/1 Georgia, "Times New Roman", serif;
   letter-spacing: 0.08em;
   text-shadow: 0 1px 0 rgba(255, 239, 195, 0.9);
   text-transform: uppercase;
@@ -3992,7 +4014,7 @@ kbd {
 
 .branch-hub small {
   position: absolute;
-  top: calc(100% + 22px);
+  top: calc(100% + 19px);
   left: 50%;
   width: 118px;
   transform: translateX(-50%);
@@ -4005,7 +4027,7 @@ kbd {
 .branch-hub.locked {
   border-color: #8e7d66;
   background: #cfbc96;
-  opacity: 0.72;
+  opacity: 0.92;
 }
 
 .branch-hub.locked::before {
@@ -4013,19 +4035,19 @@ kbd {
 }
 
 .branch-hub.locked .hub-icon {
-  color: #715f4b;
+  color: #5f584d;
 }
 
 .tree-node {
   position: absolute;
   z-index: 4;
   display: flex;
-  width: 126px;
-  height: 108px;
+  width: 54px;
+  height: 54px;
   box-sizing: border-box;
   align-items: center;
   justify-content: flex-start;
-  gap: 3px;
+  gap: 0;
   flex-direction: column;
   padding: 0;
   transform: translate(-50%, -50%);
@@ -4046,29 +4068,29 @@ kbd {
 
 .tree-node .node-main {
   display: flex;
-  width: 100%;
-  height: auto;
+  width: 54px;
+  height: 44px;
   align-items: center;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 0;
   flex-direction: column;
 }
 
 .node-medallion {
   position: relative;
   display: grid;
-  width: 56px;
-  height: 56px;
-  flex: 0 0 56px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   place-items: center;
-  border: 3px solid var(--branch-color);
+  border: 2px solid var(--branch-color);
   border-radius: 50%;
   background:
     radial-gradient(circle at 38% 30%, rgba(255, 247, 215, 0.78), transparent 38%),
     color-mix(in srgb, var(--branch-color) 13%, #ecd39b);
   box-shadow:
-    inset 0 0 0 3px rgba(255, 239, 196, 0.45),
-    0 4px 0 rgba(72, 42, 25, 0.44);
+    inset 0 0 0 2px rgba(255, 239, 196, 0.45),
+    0 3px 0 rgba(72, 42, 25, 0.44);
   transition:
     transform 140ms ease,
     box-shadow 140ms ease,
@@ -4082,41 +4104,61 @@ kbd {
   flex: none;
   place-items: center;
   color: color-mix(in srgb, var(--branch-color) 78%, #40251a);
-  font: 900 24px/1 Georgia, "Times New Roman", serif;
+  font: 900 18px/1 Georgia, "Times New Roman", serif;
 }
 
 .node-label {
-  display: grid;
-  width: 124px;
-  min-height: 21px;
-  place-items: start center;
-  overflow: visible;
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 5px);
+  left: 50%;
+  display: block;
+  width: max-content;
+  max-width: 126px;
+  min-height: 0;
+  padding: 4px 7px;
+  transform: translate(-50%, -2px);
+  border: 1px solid rgba(83, 51, 32, 0.55);
+  border-radius: 6px;
+  background: rgba(248, 226, 177, 0.96);
+  box-shadow: 0 3px 0 rgba(66, 38, 22, 0.24);
   color: #472b1e;
-  font: 900 10px/1.05 Georgia, "Times New Roman", serif;
+  font: 900 9px/1.08 Georgia, "Times New Roman", serif;
+  opacity: 0;
+  pointer-events: none;
   text-align: center;
-  text-overflow: clip;
   text-shadow: 0 1px 0 rgba(255, 239, 195, 0.9);
   text-wrap: balance;
+  transition:
+    opacity 100ms ease,
+    transform 100ms ease;
+  white-space: normal;
 }
 
 .tree-node .node-main > small {
-  margin-top: -3px;
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  width: 70px;
+  transform: translateX(-50%);
+  margin: 0;
   color: color-mix(in srgb, var(--branch-color) 76%, #38241c);
-  font: 900 7px/1 Georgia, "Times New Roman", serif;
+  font: 900 6px/1 Georgia, "Times New Roman", serif;
   letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .tree-node .node-progress {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  bottom: auto;
-  left: auto;
-  width: 72px;
-  height: 5px;
-  flex: 0 0 5px;
-  margin-top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 30px;
+  height: 3px;
+  flex: none;
+  margin: 0;
   overflow: hidden;
-  transform: none;
+  transform: translateX(-50%);
   border-radius: 99px;
   background: rgba(64, 39, 27, 0.2);
   box-shadow:
@@ -4140,11 +4182,18 @@ kbd {
 
 .tree-node:hover .node-medallion,
 .tree-node.selected .node-medallion {
-  transform: translateY(-3px) scale(1.08) rotate(-1deg);
+  transform: translateY(-2px) scale(1.1) rotate(-1deg);
   box-shadow:
-    inset 0 0 0 3px rgba(255, 244, 210, 0.58),
-    0 0 0 4px color-mix(in srgb, var(--branch-color) 30%, transparent),
-    0 7px 0 rgba(72, 42, 25, 0.46);
+    inset 0 0 0 2px rgba(255, 244, 210, 0.58),
+    0 0 0 3px color-mix(in srgb, var(--branch-color) 30%, transparent),
+    0 5px 0 rgba(72, 42, 25, 0.46);
+}
+
+.tree-node:hover .node-label,
+.tree-node.selected .node-label,
+.tree-node:focus-visible .node-label {
+  transform: translate(-50%, 0);
+  opacity: 1;
 }
 
 .tree-node:not(:disabled):active {
@@ -4154,7 +4203,7 @@ kbd {
 .tree-node:not(:disabled):active .node-medallion {
   transform: translateY(1px) scale(0.98);
   box-shadow:
-    inset 0 0 0 3px rgba(255, 244, 210, 0.58),
+    inset 0 0 0 2px rgba(255, 244, 210, 0.58),
     0 2px 0 rgba(72, 42, 25, 0.5);
 }
 
@@ -4176,25 +4225,25 @@ kbd {
 .tree-node.complete .node-medallion {
   border-color: color-mix(in srgb, var(--branch-color) 62%, #c4871e);
   box-shadow:
-    inset 0 0 0 3px rgba(255, 244, 205, 0.62),
-    0 0 0 3px rgba(197, 137, 29, 0.2),
-    0 4px 0 rgba(72, 42, 25, 0.44);
+    inset 0 0 0 2px rgba(255, 244, 205, 0.62),
+    0 0 0 2px rgba(197, 137, 29, 0.2),
+    0 3px 0 rgba(72, 42, 25, 0.44);
 }
 
 .tree-node.complete .node-medallion::after {
   position: absolute;
-  right: -5px;
-  bottom: -4px;
+  right: -4px;
+  bottom: -3px;
   display: grid;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   place-items: center;
   border: 2px solid #68421f;
   border-radius: 50%;
   background: #dba934;
   color: #3d2717;
   content: "✓";
-  font: 900 11px/1 Georgia, "Times New Roman", serif;
+  font: 900 8px/1 Georgia, "Times New Roman", serif;
 }
 
 .tree-node.node-mystery .node-medallion {
@@ -4208,27 +4257,62 @@ kbd {
 }
 
 .tree-node.locked {
-  opacity: 0.48;
+  opacity: 0.84;
   cursor: not-allowed;
 }
 
 .tree-node.locked .node-medallion {
-  border-color: #8d7c65;
-  background: #c9b68e;
+  border-color: #6f685d;
+  background: #b9ad92;
   box-shadow:
-    inset 0 0 0 3px rgba(235, 217, 176, 0.35),
+    inset 0 0 0 2px rgba(235, 217, 176, 0.35),
     0 3px 0 rgba(72, 42, 25, 0.35);
 }
 
+.tree-node.locked .node-icon,
+.tree-node.locked .node-label {
+  color: #5c554a;
+}
+
 .graph-help {
+  position: absolute;
+  z-index: 20;
+  bottom: 12px;
+  left: 12px;
+  margin: 0;
   border-color: #654026;
   background: rgba(63, 38, 25, 0.94);
   box-shadow: 0 3px 0 rgba(34, 18, 10, 0.32);
 }
 
+.graph-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 7px;
+  border-left: 1px solid rgba(239, 211, 151, 0.34);
+}
+
+.graph-zoom button {
+  display: grid;
+  width: 24px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.graph-zoom output {
+  min-width: 34px;
+  color: #f5d88e;
+  font-size: 9px;
+  text-align: center;
+}
+
 @media (max-width: 980px) {
   .upgrade-graph {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 280px;
   }
 }
 
