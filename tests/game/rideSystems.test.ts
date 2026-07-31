@@ -119,12 +119,16 @@ describe("active ride systems", () => {
 
   it("places outside riders ahead of the full domestique formation", () => {
     expect(domestiqueFormationX(0)).toEqual([]);
-    expect(domestiqueFormationX(3)).toEqual([155, 198, 241]);
+    expect(domestiqueFormationX(3)).toEqual([184, 256, 328]);
     expect(outsideDraftTargetX(0)).toBe(190);
-    expect(outsideDraftTargetX(3)).toBe(319);
+    expect(outsideDraftTargetX(3)).toBe(406);
     expect(outsideDraftTargetX(3)).toBeGreaterThan(
       Math.max(...domestiqueFormationX(3)),
     );
+    expect(domestiqueFormationX(3)[0] - 112).toBe(72);
+    expect(
+      domestiqueFormationX(3)[1] - domestiqueFormationX(3)[0],
+    ).toBe(72);
   });
 
   it("formats the visible random-rider countdown", () => {

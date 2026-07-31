@@ -69,11 +69,11 @@ export const draftRulesForStage = (stage: number): DraftRules => {
 export const domestiqueFormationX = (count: number): number[] =>
   Array.from(
     { length: Math.max(0, Math.min(3, Math.floor(count))) },
-    (_, index) => 155 + index * 43,
+    (_, index) => 184 + index * 72,
   );
 
 export const outsideDraftTargetX = (domestiqueCount: number): number =>
-  190 + Math.max(0, Math.min(3, Math.floor(domestiqueCount))) * 43;
+  190 + Math.max(0, Math.min(3, Math.floor(domestiqueCount))) * 72;
 
 export const formatDraftTimer = (seconds: number): string =>
   `${Math.max(0, Math.ceil(seconds))}s`;

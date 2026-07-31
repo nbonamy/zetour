@@ -103,6 +103,7 @@ describe("GameScene", () => {
       return rider;
     });
     rider.setAngle = vi.fn(() => rider);
+    rider.setDepth = vi.fn(() => rider);
     const powerUpAura: Record<string, any> = {};
     powerUpAura.setVisible = vi.fn(() => powerUpAura);
     powerUpAura.setPosition = vi.fn(() => powerUpAura);
@@ -196,5 +197,42 @@ describe("GameScene", () => {
     )(pickups, 0, 16, true);
 
     expect(collect).toHaveBeenCalledWith(loot);
+  });
+
+  it("destroys every power-up choice and cancels its visual tweens", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const children: Record<string, any>[] = [];
+    const makePickup = (choiceId: number, withCompanion = false) => {
+      const companion = withCompanion ? { destroy: vi.fn() } : undefined;
+      const pickup: Record<string, any> = {
+        powerUpChoiceId: choiceId,
+        companion,
+      };
+      pickup.destroy = vi.fn(() => {
+        children.splice(children.indexOf(pickup), 1);
+      });
+      children.push(pickup);
+      return pickup;
+    };
+    const first = makePickup(7, true);
+    const firstCompanion = first.companion;
+    const second = makePickup(7);
+    const unrelated = makePickup(8);
+    const killTweensOf = vi.fn();
+    Object.assign(scene, {
+      pickups: { getChildren: () => children },
+      tweens: { killTweensOf },
+    });
+
+    (scene.clearPowerUpChoice as (choiceId: number) => void)(7);
+
+    expect(first.destroy).toHaveBeenCalledOnce();
+    expect(second.destroy).toHaveBeenCalledOnce();
+    expect(unrelated.destroy).not.toHaveBeenCalled();
+    expect(firstCompanion.destroy).toHaveBeenCalledOnce();
+    expect(killTweensOf).toHaveBeenCalledWith(first);
+    expect(killTweensOf).toHaveBeenCalledWith(second);
+    expect(killTweensOf).toHaveBeenCalledWith(firstCompanion);
+    expect(children).toEqual([unrelated]);
   });
 });
