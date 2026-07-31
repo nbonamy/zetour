@@ -166,11 +166,11 @@ describe("incremental upgrade tree", () => {
       rider: 1,
       nutrition: 1,
       equipment: 2,
-      bike: 4,
+      bike: 3,
       team: 6,
     });
     const levelTwo = createTestStore({ riderXp: 150, cash: 500 }).store;
-    const levelFour = createTestStore({ riderXp: 550, cash: 500 }).store;
+    const levelThree = createTestStore({ riderXp: 350, cash: 500 }).store;
     const levelSix = createTestStore({ riderXp: 1_100, cash: 500 }).store;
 
     expect(levelTwo.isBranchUnlocked("equipment")).toBe(true);
@@ -181,8 +181,8 @@ describe("incremental upgrade tree", () => {
     expect(levelTwo.purchaseStatus(upgrade("road-bike")).state).toBe(
       "branch-locked",
     );
-    expect(levelFour.isBranchUnlocked("bike")).toBe(true);
-    expect(levelFour.isBranchUnlocked("team")).toBe(false);
+    expect(levelThree.isBranchUnlocked("bike")).toBe(true);
+    expect(levelThree.isBranchUnlocked("team")).toBe(false);
     expect(levelSix.isBranchUnlocked("team")).toBe(true);
   });
 

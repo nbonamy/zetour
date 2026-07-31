@@ -2,7 +2,7 @@
   "branches": {
     "bike": {
       "label": "Bike",
-      "unlockLevel": 4
+      "unlockLevel": 3
     },
     "rider": {
       "label": "Rider",

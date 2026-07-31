@@ -43,7 +43,7 @@ The workshop presents Rider, Nutrition, Equipment, Bike, and Team progression as
 1. Ride automatically, earn Rider XP, and generate **Sweat** and **Cash**.
 2. Steer into bags, drafting lines, and power-ups while avoiding road hazards.
 3. Spend resources in the Career Workshop to compound pace and production.
-4. Raise Rider Level to unlock Equipment at 2, Bike at 4, and Team at 6.
+4. Raise Rider Level to unlock Equipment at 2, Bike at 3, and Team at 6.
 5. Reach Alpe d'Huez and take a victory lap, or bank the run as **Palmarès**.
 6. Start a stronger Season, buy permanent bonuses, and chase the next impossible number.
 

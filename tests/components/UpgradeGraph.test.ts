@@ -124,7 +124,7 @@ describe("UpgradeGraph", () => {
     expect(host.textContent).toContain("Equipment");
     expect(host.textContent).toContain("Team");
     expect(host.textContent).toContain("Level 2");
-    expect(host.textContent).toContain("Level 4");
+    expect(host.textContent).toContain("Level 3");
     expect(host.textContent).toContain("Level 6");
     app?.unmount();
     host.remove();

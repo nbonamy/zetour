@@ -154,7 +154,7 @@ progress from basic to premium to aero, with only the aero tier affecting pace.
 | Rider | Level 1 | Sweat | Endurance, power, handling, climbing |
 | Nutrition | Level 1 | Sweat | Hydration, fueling, Flow retention |
 | Equipment | Level 2 | Cash | Aero kit, gravel tires, suspension |
-| Bike | Level 4 | Cash | Road bike, frame, drivetrain, wheels, brakes, lubrication |
+| Bike | Level 3 | Cash | Road bike, frame, drivetrain, wheels, brakes, lubrication |
 | Team | Level 6 | Cash | Domestiques, mechanic, sponsors, directeur sportif |
 
 Mechanical paths are first-class progression, not flavor text:
