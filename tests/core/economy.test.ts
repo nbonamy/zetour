@@ -38,11 +38,11 @@ describe("incremental economy", () => {
   });
 
   it("keeps the first Sweat and Cash milestone in the same price range", () => {
-    const powerMilestoneCost = upgradeBulkCost(upgrade("power"), 0, 10);
+    const powerMilestoneCost = upgradeBulkCost(upgrade("power"), 0, 1);
     const aeroMilestoneCost = upgradeBulkCost(
       upgrade("aero-socks"),
       0,
-      10,
+      1,
     );
 
     expect(powerMilestoneCost / aeroMilestoneCost).toBeGreaterThan(1);

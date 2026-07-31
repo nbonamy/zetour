@@ -2,6 +2,7 @@ import { createApp, h, nextTick, type App as VueApp } from "vue";
 import { beforeEach, describe, expect, it } from "vitest";
 import UpgradeGraph from "../../src/components/UpgradeGraph.vue";
 import { gameStore } from "../../src/core/gameStore";
+import { upgradeById } from "../../src/core/upgrades";
 
 describe("UpgradeGraph", () => {
   let app: VueApp<Element> | undefined;
@@ -55,14 +56,24 @@ describe("UpgradeGraph", () => {
     expect(host.querySelector(".node-level")).toBeNull();
     expect(
       host.querySelectorAll(
+        'button[aria-label="Hydration protocol"] .node-progress-fill',
+      ),
+    ).toHaveLength(1);
+    expect(
+      host.querySelectorAll(
         'button[aria-label="Hydration protocol"] .node-progress-segment',
       ),
-    ).toHaveLength(4);
+    ).toHaveLength(0);
     expect(
       host.querySelector(
         'button[aria-label="Hydration protocol"] .node-progress',
       )?.getAttribute("aria-label"),
-    ).toBe("Level 0 of 100");
+    ).toBe("0% complete — 0 of 5 steps");
+    expect(
+      host.querySelector<HTMLElement>(
+        'button[aria-label="Hydration protocol"] .node-progress-fill',
+      )?.style.width,
+    ).toBe("0%");
     expect(host.querySelector(".node-level-count")).toBeNull();
     expect(host.textContent).toContain("Rider");
     expect(host.textContent).toContain("Nutrition");
@@ -77,7 +88,7 @@ describe("UpgradeGraph", () => {
   });
 
   it("buys an available upgrade by clicking its tile", async () => {
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 100; index += 1) {
       gameStore.collectBag("sweat");
     }
     mountGraph();
@@ -88,10 +99,10 @@ describe("UpgradeGraph", () => {
 
     hydration.dispatchEvent(new PointerEvent("pointerenter"));
     await nextTick();
-    expect(host.textContent).toContain("Start with a bidon");
-    expect(host.querySelectorAll(".purchase-option")).toHaveLength(3);
-    expect(host.textContent).toContain("Buy up to 10");
-    expect(host.textContent).toContain("Buy max");
+    expect(host.textContent).toContain("Turn ad-hoc bottles");
+    expect(host.querySelectorAll(".purchase-option")).toHaveLength(2);
+    expect(host.textContent).toContain("Buy next step");
+    expect(host.textContent).toContain("Buy all affordable");
     expect(host.textContent).toContain("×3");
     expect(host.textContent).toContain("×15");
     expect(host.textContent).toContain("×150");
@@ -121,12 +132,35 @@ describe("UpgradeGraph", () => {
     await nextTick();
 
     expect(gameStore.getSnapshot().upgrades.hydration).toBeUndefined();
-    expect(host.textContent).toContain("Start with a bidon");
+    expect(host.textContent).toContain("Turn ad-hoc bottles");
     expect(
       host.querySelector<HTMLButtonElement>(
         '.purchase-option[data-quantity="1"]',
       )?.disabled,
     ).toBe(true);
+    app?.unmount();
+    host.remove();
+  });
+
+  it("fills one continuous bar without putting a level in the tile title", () => {
+    const hydration = upgradeById("hydration");
+    if (!hydration) throw new Error("Missing Hydration upgrade");
+    for (let index = 0; index < 5; index += 1) {
+      gameStore.collectBag("sweat");
+    }
+    expect(gameStore.purchase(hydration)).toBe(true);
+    mountGraph();
+
+    const tile = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Hydration protocol"]',
+    );
+    expect(tile?.textContent).not.toContain("Lv");
+    expect(
+      tile?.querySelector<HTMLElement>(".node-progress-fill")?.style.width,
+    ).toBe("20%");
+    expect(
+      tile?.querySelector(".node-progress")?.getAttribute("aria-label"),
+    ).toBe("20% complete — 1 of 5 steps");
     app?.unmount();
     host.remove();
   });

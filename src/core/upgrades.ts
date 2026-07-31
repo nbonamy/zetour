@@ -1,6 +1,6 @@
 export type Currency = "sweat" | "cash";
 export type Branch = "bike" | "rider" | "nutrition" | "equipment" | "team";
-export type PurchaseQuantity = 1 | 10 | "max";
+export type PurchaseQuantity = 1 | "max";
 
 export interface UpgradeMilestone {
   level: number;
@@ -30,6 +30,7 @@ export interface UpgradeDefinition {
   baseCost: number;
   costScale: number;
   maxLevel: number;
+  progressionStep?: number;
   costs?: number[];
   levelNames?: string[];
   milestones?: readonly UpgradeMilestone[];
@@ -58,20 +59,52 @@ export const branchUnlockStages: Record<Branch, number> = {
   team: 4,
 };
 
-const deepMilestones = (labels: readonly [string, string, string, string]) =>
+const tenStepMilestones = (
+  labels: readonly [string, string, string, string],
+) =>
   [
-    { level: 10, multiplier: 3, label: labels[0] },
-    { level: 25, multiplier: 5, label: labels[1] },
-    { level: 50, multiplier: 10, label: labels[2] },
-    { level: 100, multiplier: 25, label: labels[3] },
+    { level: 1, multiplier: 3, label: labels[0] },
+    { level: 3, multiplier: 5, label: labels[1] },
+    { level: 5, multiplier: 10, label: labels[2] },
+    { level: 10, multiplier: 25, label: labels[3] },
   ] as const;
 
-const mediumMilestones = (labels: readonly [string, string, string]) =>
+const fiveStepMilestones = (
+  labels: readonly [string, string, string],
+) =>
   [
-    { level: 10, multiplier: 3, label: labels[0] },
-    { level: 25, multiplier: 5, label: labels[1] },
-    { level: 50, multiplier: 10, label: labels[2] },
+    { level: 1, multiplier: 3, label: labels[0] },
+    { level: 3, multiplier: 5, label: labels[1] },
+    { level: 5, multiplier: 10, label: labels[2] },
   ] as const;
+
+const fiveStepDeepMilestones = (
+  labels: readonly [string, string, string, string],
+) =>
+  [
+    { level: 1, multiplier: 3, label: labels[0] },
+    { level: 2, multiplier: 5, label: labels[1] },
+    { level: 3, multiplier: 10, label: labels[2] },
+    { level: 5, multiplier: 25, label: labels[3] },
+  ] as const;
+
+const tierMilestones = (
+  labels: readonly string[],
+): UpgradeMilestone[] => {
+  const multipliers =
+    labels.length === 4
+      ? [3, 5, 10, 25]
+      : labels.length === 3
+        ? [3, 5, 10]
+        : labels.length === 2
+          ? [3, 10]
+          : [1];
+  return labels.map((label, index) => ({
+    level: index + 1,
+    multiplier: multipliers[index] ?? 1,
+    label,
+  }));
+};
 
 export const upgrades: UpgradeDefinition[] = [
   {
@@ -98,17 +131,18 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "bike",
     name: "Frame laboratory",
     description:
-      "Keep removing weight until the bicycle becomes mostly confidence.",
+      "Move from alloy to increasingly lighter and more aerodynamic carbon frames.",
     icon: "◇",
     currency: "cash",
     baseCost: 120,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
+    maxLevel: 4,
+    progressionStep: 25,
+    milestones: tierMilestones([
       "Aluminium race frame",
-      "Carbon monocoque",
-      "Wind-tunnel prototype",
-      "Negative-mass frame",
+      "Entry carbon frame",
+      "Aero carbon frame",
+      "Pro carbon monocoque",
     ]),
     effects: {
       pacePerLevel: 0.025,
@@ -128,12 +162,13 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 45,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Reinforced tires",
-      "Performance tubeless",
-      "Silica race compound",
-      "Tires that intimidate asphalt",
+    maxLevel: 4,
+    progressionStep: 25,
+    milestones: tierMilestones([
+      "Training clinchers",
+      "Performance clinchers",
+      "Tubeless race tires",
+      "Low-resistance race compound",
     ]),
     effects: {
       pacePerLevel: 0.02,
@@ -150,17 +185,18 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "bike",
     name: "Drivetrain",
     description:
-      "Add gears, remove hesitation, and eventually shift before physics asks.",
+      "Move through real groupsets from mechanical shifting to wireless electronic control.",
     icon: "⚙",
     currency: "cash",
     baseCost: 70,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Indexed shifting",
+    maxLevel: 4,
+    progressionStep: 25,
+    milestones: tierMilestones([
+      "Mechanical 11-speed",
+      "Mechanical 12-speed",
       "Electronic shifting",
-      "Predictive shifting",
-      "Telepathic derailleur",
+      "Wireless electronic groupset",
     ]),
     effects: {
       pacePerLevel: 0.024,
@@ -175,17 +211,18 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "bike",
     name: "Wheel program",
     description:
-      "Trade weight for aero until the wheels look expensive while standing still.",
+      "Progress from dependable alloy wheels to light and aerodynamic carbon race wheels.",
     icon: "◉",
     currency: "cash",
     baseCost: 150,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Lightweight alloy",
+    maxLevel: 4,
+    progressionStep: 25,
+    milestones: tierMilestones([
+      "Basic alloy wheels",
+      "Light aluminium wheels",
       "Carbon wheels",
-      "Deep aero wheels",
-      "Orbital flywheels",
+      "Deep aero carbon wheels",
     ]),
     effects: {
       pacePerLevel: 0.028,
@@ -206,11 +243,12 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 110,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
+    maxLevel: 3,
+    progressionStep: 50 / 3,
+    milestones: tierMilestones([
+      "Dual-pivot calipers",
       "Mechanical discs",
       "Hydraulic discs",
-      "Last-possible-moment braking",
     ]),
     effects: {
       pacePerLevel: 0.016,
@@ -226,17 +264,18 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "bike",
     name: "Chain lubrication",
     description:
-      "Oil, wax, ceramic particles, classified aerospace goo. Every watt matters.",
+      "Move from everyday oil through drip wax to a race-day hot-wax drivetrain.",
     icon: "♨",
     currency: "cash",
     baseCost: 80,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Clean chain",
-      "Hot wax ritual",
-      "Ceramic drivetrain",
-      "Zero-friction prophecy",
+    maxLevel: 4,
+    progressionStep: 25,
+    milestones: tierMilestones([
+      "All-weather oil",
+      "Dry-condition lube",
+      "Drip wax",
+      "Hot-melt race wax",
     ]),
     effects: {
       pacePerLevel: 0.03,
@@ -257,12 +296,13 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "sweat",
     baseCost: 20,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
+    maxLevel: 10,
+    progressionStep: 10,
+    milestones: tenStepMilestones([
       "Aerobic base",
       "Fatigue resistance",
-      "Grand-tour engine",
-      "Perpetual-motion legs",
+      "Grand-tour endurance",
+      "Elite stage-race engine",
     ]),
     effects: {
       pacePerLevel: 0.022,
@@ -281,12 +321,13 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "sweat",
     baseCost: 35,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
+    maxLevel: 10,
+    progressionStep: 10,
+    milestones: tenStepMilestones([
+      "Tempo power",
       "Threshold power",
       "Climbing power",
-      "World-tour watts",
-      "Portable thunderstorm",
+      "Elite race watts",
     ]),
     effects: {
       pacePerLevel: 0.03,
@@ -325,11 +366,12 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "sweat",
     baseCost: 50,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
-      "Fast line changes",
-      "Pro handling",
-      "Bicycle telekinesis",
+    maxLevel: 5,
+    progressionStep: 10,
+    milestones: fiveStepMilestones([
+      "Confident line changes",
+      "Advanced cornering",
+      "Race-level handling",
     ]),
     effects: {
       pacePerLevel: 0.014,
@@ -348,11 +390,12 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "sweat",
     baseCost: 60,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
-      "Lean endurance build",
+    maxLevel: 5,
+    progressionStep: 10,
+    milestones: fiveStepMilestones([
+      "Sustainable race weight",
       "Grand-tour condition",
-      "Alpine cryptid",
+      "Elite climbing condition",
     ]),
     effects: {
       pacePerLevel: 0.02,
@@ -366,17 +409,18 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "nutrition",
     name: "Hydration protocol",
     description:
-      "Start with a bidon. End with a mobile weather system attached to the bike.",
+      "Turn ad-hoc bottles into a measured plan for electrolytes, heat, and race duration.",
     icon: "◍",
     currency: "sweat",
     baseCost: 25,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
+    maxLevel: 5,
+    progressionStep: 20,
+    milestones: fiveStepDeepMilestones([
+      "Planned bottles",
       "Electrolyte mix",
       "Timed hydration",
-      "Pro hydration",
-      "Internal rain cloud",
+      "Heat-adapted race protocol",
     ]),
     effects: {
       pacePerLevel: 0.016,
@@ -395,12 +439,13 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "sweat",
     baseCost: 40,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Energy bars",
-      "Fueling schedule",
-      "Team nutrition lab",
-      "Infinite emergency banana",
+    maxLevel: 5,
+    progressionStep: 20,
+    milestones: fiveStepDeepMilestones([
+      "Solid-food race plan",
+      "Gel and drink schedule",
+      "High-carb fueling",
+      "Team nutrition protocol",
     ]),
     effects: {
       pacePerLevel: 0.024,
@@ -420,12 +465,11 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 25,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Compression socks",
-      "Wind-tunnel socks",
-      "Boundary-layer hosiery",
-      "Socks faster than sound",
+    maxLevel: 2,
+    progressionStep: 50,
+    milestones: tierMilestones([
+      "Performance socks",
+      "Ribbed aero socks",
     ]),
     effects: {
       pacePerLevel: 0.018,
@@ -440,17 +484,16 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "equipment",
     name: "Aero helmet",
     description:
-      "Protect the head, then gradually reshape it into an aerodynamic argument.",
+      "Move from a well-ventilated road helmet to a faster aero road shell.",
     icon: "◒",
     currency: "cash",
     baseCost: 60,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
+    maxLevel: 2,
+    progressionStep: 50,
+    milestones: tierMilestones([
       "Performance helmet",
       "Aero road helmet",
-      "Custom wind-tunnel lid",
-      "Personal atmospheric cone",
     ]),
     effects: {
       pacePerLevel: 0.022,
@@ -470,12 +513,11 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 90,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Race-cut kit",
-      "Skinsuit",
-      "Custom aero suit",
-      "Vacuum-sealed champion",
+    maxLevel: 2,
+    progressionStep: 50,
+    milestones: tierMilestones([
+      "Race-fit kit",
+      "Aero skinsuit",
     ]),
     effects: {
       pacePerLevel: 0.025,
@@ -495,11 +537,12 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 55,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
-      "File-tread tires",
+    maxLevel: 3,
+    progressionStep: 50 / 3,
+    milestones: tierMilestones([
+      "All-road tires",
+      "File-tread race tires",
       "Gravel race casing",
-      "All-surface tractor mode",
     ]),
     effects: {
       pacePerLevel: 0.012,
@@ -515,16 +558,17 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "equipment",
     name: "Micro-suspension",
     description:
-      "First compliance, then travel, then a bicycle that laughs at farm roads.",
+      "Add cockpit compliance, then a suspension stem, then a short-travel gravel fork.",
     icon: "≋",
     currency: "cash",
     baseCost: 130,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
+    maxLevel: 3,
+    progressionStep: 50 / 3,
+    milestones: tierMilestones([
       "Compliant cockpit",
-      "Gravel suspension",
-      "Paris-Dakar conversion",
+      "Suspension stem",
+      "Short-travel gravel fork",
     ]),
     effects: {
       pacePerLevel: 0.015,
@@ -546,11 +590,12 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 260,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
+    maxLevel: 3,
+    progressionStep: 50 / 3,
+    milestones: tierMilestones([
+      "One domestique",
+      "Two-rider train",
       "Three-rider train",
-      "World-tour squad",
-      "Entire peloton on payroll",
     ]),
     effects: {
       pacePerLevel: 0.035,
@@ -569,11 +614,12 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 180,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
-      "Team mechanic",
-      "Rolling service course",
-      "Mechanical omniscience",
+    maxLevel: 3,
+    progressionStep: 50 / 3,
+    milestones: tierMilestones([
+      "Club mechanic",
+      "Race mechanic",
+      "Service-course mechanic",
     ]),
     effects: {
       pacePerLevel: 0.018,
@@ -588,17 +634,18 @@ export const upgrades: UpgradeDefinition[] = [
     branch: "team",
     name: "Sponsor empire",
     description:
-      "Sell jersey space, naming rights, and eventually weather itself.",
+      "Grow from local jersey support into a global title partnership.",
     icon: "$",
     currency: "cash",
     baseCost: 220,
     costScale: 1.28,
-    maxLevel: 100,
-    milestones: deepMilestones([
-      "Regional sponsor",
-      "Global campaign",
-      "Broadcast empire",
-      "Economy with a logo",
+    maxLevel: 4,
+    progressionStep: 25,
+    milestones: tierMilestones([
+      "Local shop sponsor",
+      "Regional brand sponsor",
+      "National team sponsor",
+      "Global title sponsor",
     ]),
     effects: {
       pacePerLevel: 0.01,
@@ -617,11 +664,12 @@ export const upgrades: UpgradeDefinition[] = [
     currency: "cash",
     baseCost: 420,
     costScale: 1.28,
-    maxLevel: 50,
-    milestones: mediumMilestones([
+    maxLevel: 3,
+    progressionStep: 50 / 3,
+    milestones: tierMilestones([
       "Team radio",
-      "Tactical command car",
-      "Omniscient race director",
+      "Tactical race director",
+      "Full performance staff",
     ]),
     effects: {
       pacePerLevel: 0.04,
@@ -640,6 +688,11 @@ export const upgradesByBranch = (branch: Branch): UpgradeDefinition[] =>
 export const upgradeById = (id: string): UpgradeDefinition | undefined =>
   upgrades.find((upgrade) => upgrade.id === id);
 
+export const upgradeProgressionLevel = (
+  upgrade: UpgradeDefinition,
+  level: number,
+): number => Math.max(0, level) * (upgrade.progressionStep ?? 1);
+
 export const upgradeCost = (
   upgrade: UpgradeDefinition,
   currentLevel: number,
@@ -647,7 +700,10 @@ export const upgradeCost = (
   upgrade.costs?.[currentLevel] ??
   Math.max(
     1,
-    Math.round(upgrade.baseCost * upgrade.costScale ** currentLevel),
+    Math.round(
+      upgrade.baseCost *
+        upgrade.costScale ** upgradeProgressionLevel(upgrade, currentLevel),
+    ),
   );
 
 export const upgradeBulkCost = (
@@ -721,8 +777,9 @@ export const upgradeEffectMultiplier = (
   if (level <= 0) return 1;
   const perLevel = upgrade.effects[effect] ?? 0;
   if (perLevel <= 0) return 1;
+  const progressionLevel = upgradeProgressionLevel(upgrade, level);
   return (
-    (1 + perLevel * level) *
+    (1 + perLevel * progressionLevel) *
     upgradeMilestoneMultiplier(upgrade, level)
   );
 };

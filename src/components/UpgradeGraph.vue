@@ -107,10 +107,15 @@ const purchaseOptions = computed(() => {
   void snapshot.sweat;
   void snapshot.cash;
   void snapshot.upgrades[upgrade.id];
-  return ([1, 10, "max"] as const).map((quantity) => ({
-    quantity,
-    status: gameStore.purchaseStatus(upgrade, quantity),
-  }));
+  return ([1, "max"] as const)
+    .map((quantity) => ({
+      quantity,
+      status: gameStore.purchaseStatus(upgrade, quantity),
+    }))
+    .filter(
+      (option) =>
+        option.quantity === 1 || option.status.levels > 1,
+    );
 });
 const currentMilestone = computed(() => {
   if (!selected.value) return undefined;
@@ -128,7 +133,7 @@ const nextMilestone = computed(() =>
 );
 const installedLevelName = computed(() => {
   if (!selected.value || level(selected.value) === 0) return "Not started";
-  return currentMilestone.value?.label ?? `Level ${level(selected.value)}`;
+  return currentMilestone.value?.label ?? `Step ${level(selected.value)}`;
 });
 const effectSummary = computed(() => {
   const upgrade = selected.value;
@@ -161,6 +166,11 @@ const nodeMarkers = (upgrade: UpgradeDefinition) =>
     ? upgrade.milestones
     : [{ level: upgrade.maxLevel, multiplier: 1, label: "Installed" }];
 
+const nodeProgressPercent = (upgrade: UpgradeDefinition): number =>
+  Math.round(
+    Math.min(1, Math.max(0, level(upgrade) / upgrade.maxLevel)) * 100,
+  );
+
 const formatCost = (upgrade: UpgradeDefinition, cost: number): string =>
   upgrade.currency === "cash"
     ? `$${formatCompactNumber(cost)}`
@@ -168,18 +178,16 @@ const formatCost = (upgrade: UpgradeDefinition, cost: number): string =>
 
 const purchaseOptionLabel = (quantity: PurchaseQuantity): string =>
   quantity === 1
-    ? "Buy 1 level"
-    : quantity === 10
-      ? "Buy up to 10"
-      : "Buy max";
+    ? "Buy next step"
+    : "Buy all affordable";
 
 const purchaseOptionDetail = (
   upgrade: UpgradeDefinition,
   option: (typeof purchaseOptions.value)[number],
 ): string => {
   if (!option.status.available) return option.status.reason ?? "Unavailable";
-  const levelLabel = option.status.levels === 1 ? "level" : "levels";
-  return `+${option.status.levels} ${levelLabel} · ${formatCost(
+  const stepLabel = option.status.levels === 1 ? "step" : "steps";
+  return `+${option.status.levels} ${stepLabel} · ${formatCost(
     upgrade,
     option.status.cost,
   )}`;
@@ -342,24 +350,25 @@ onMounted(centerViewport);
             <span class="node-label">
               {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
             </span>
-            <small v-if="visibility(node) === 'revealed'">
-              <template v-if="node.id === 'hyperbike' && level(node) === 0">
-                $2B DREAM
-              </template>
-              <template v-else>Lv {{ level(node) }}</template>
+            <small
+              v-if="
+                visibility(node) === 'revealed' &&
+                node.id === 'hyperbike' &&
+                level(node) === 0
+              "
+            >
+              $2B DREAM
             </small>
           </span>
           <span
             v-if="visibility(node) === 'revealed'"
             class="node-progress"
-            :aria-label="`Level ${level(node)} of ${node.maxLevel}`"
+            :aria-label="`${nodeProgressPercent(node)}% complete — ${level(node)} of ${node.maxLevel} steps`"
+            :title="`${level(node)} of ${node.maxLevel} steps complete`"
           >
             <span
-              v-for="marker in nodeMarkers(node)"
-              :key="marker.level"
-              class="node-progress-segment"
-              :class="{ filled: marker.level <= level(node) }"
-              :title="`${marker.label} at Level ${marker.level}`"
+              class="node-progress-fill"
+              :style="{ width: `${nodeProgressPercent(node)}%` }"
             ></span>
           </span>
         </button>
@@ -392,8 +401,9 @@ onMounted(centerViewport);
               :key="marker.level"
               :class="{ filled: marker.level <= level(selected) }"
             >
-              <strong>Lv {{ marker.level }}</strong>
+              <strong>{{ marker.label }}</strong>
               <small>
+                Step {{ marker.level }} ·
                 {{
                   formatMultiplier(
                     upgradeMilestoneMultiplier(selected, marker.level),
@@ -413,14 +423,16 @@ onMounted(centerViewport);
             </dd>
           </div>
           <div class="detail-stat detail-level-stat">
-            <dt>Level</dt>
-            <dd>{{ level(selected) }} / {{ selected.maxLevel }}</dd>
+            <dt>Progress</dt>
+            <dd>{{ level(selected) }} of {{ selected.maxLevel }}</dd>
           </div>
           <div v-if="nextMilestone" class="detail-stat detail-next-stat">
             <dt>Next breakthrough</dt>
             <dd>{{ nextMilestone.label }}</dd>
             <dd class="next-level-cost">
-              {{ nextMilestone.level - level(selected) }} levels away ·
+              {{ nextMilestone.level - level(selected) }}
+              {{ nextMilestone.level - level(selected) === 1 ? "step" : "steps" }}
+              away ·
               {{
                 formatMultiplier(
                   upgradeMilestoneMultiplier(selected, nextMilestone.level),
@@ -434,10 +446,10 @@ onMounted(centerViewport);
         <section
           v-if="purchaseOptions.length"
           class="detail-purchase"
-          aria-label="Buy upgrade levels"
+          aria-label="Buy upgrade steps"
         >
           <div class="purchase-heading">
-            <strong>Buy levels now</strong>
+            <strong>Install the next step</strong>
             <small>Each button purchases immediately</small>
           </div>
           <div class="purchase-options">
@@ -477,9 +489,8 @@ onMounted(centerViewport);
         <div class="detail-kicker">Compounding career</div>
         <h3>Select a node</h3>
         <p>
-          Every branch multiplies the others. Push nodes to Levels 10, 25, 50,
-          and 100 for the breakthroughs that turn a bicycle into an economic
-          incident.
+          Every branch multiplies the others. Equipment follows short, named
+          product tiers; training develops through a longer ten-step path.
         </p>
       </template>
     </aside>

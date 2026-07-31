@@ -120,7 +120,12 @@ describe("incremental progression pacing", () => {
     expect(result.firstThousandPerMinuteSeconds).toBeLessThanOrEqual(4 * 60);
     expect(result.firstMillionPerMinuteSeconds).toBeLessThanOrEqual(25 * 60);
     expect(result.hyperbikeSeconds).toBeLessThanOrEqual(30 * 60);
-    expect(result.purchases).toBeGreaterThanOrEqual(100);
+    const availableSteps = upgrades.reduce(
+      (total, upgrade) => total + upgrade.maxLevel,
+      0,
+    );
+    expect(result.purchases).toBeGreaterThanOrEqual(availableSteps * 0.75);
+    expect(result.purchases).toBeLessThanOrEqual(availableSteps);
     expect(result.tours).toBeGreaterThanOrEqual(2);
     expect(result.effectivePaceKmh).toBeGreaterThan(100_000);
     expect(result.combinedIncomePerMinute).toBeGreaterThan(1_000_000);

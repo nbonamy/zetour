@@ -307,12 +307,35 @@ describe("stage and offline progression", () => {
     const { store } = createTestStore(legacy);
 
     const state = store.getSnapshot();
-    expect(state.version).toBe(2);
+    expect(state.version).toBe(3);
     expect(state.cash).toBe(14);
     expect(state.upgrades.frame).toBe(2);
     expect(state.upgrades.tires).toBe(2);
     expect(state.upgrades["aluminium-frame"]).toBeUndefined();
     expect(state.upgrades["reinforced-tires"]).toBeUndefined();
+  });
+
+  it("preserves proportional progress when compressing version-two upgrades", () => {
+    const legacy = {
+      version: 2,
+      upgrades: {
+        hydration: 12,
+        power: 25,
+        wheels: 50,
+        helmet: 100,
+      },
+    } as unknown as Partial<SaveState>;
+    const { store } = createTestStore(legacy);
+
+    expect(store.getSnapshot()).toMatchObject({
+      version: 3,
+      upgrades: {
+        hydration: 1,
+        power: 3,
+        wheels: 2,
+        helmet: 2,
+      },
+    });
   });
 
   it("salvages valid progress when individual save fields are corrupt", () => {
@@ -550,10 +573,10 @@ describe("stage and offline progression", () => {
     const base = createTestStore().store.getSnapshot();
     const upgraded = createTestStore({
       upgrades: {
-        power: 25,
-        endurance: 25,
-        hydration: 25,
-        fueling: 25,
+        power: 5,
+        endurance: 5,
+        hydration: 3,
+        fueling: 3,
       },
     }).store.getSnapshot();
 

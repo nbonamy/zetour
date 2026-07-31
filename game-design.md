@@ -21,7 +21,7 @@ The game starts as cycling and ends as a friendly argument with arithmetic.
 - Sweat and Cash are the only resources spent during a Season.
 - Palmarès is a permanent prestige reward earned only from completed Tours.
 - Every repeatable family compounds with the others.
-- Major level milestones must feel larger than the levels between them.
+- Major upgrade milestones must feel larger than the steps between them.
 - A player never loses a finished Tour without seeing and choosing the
   associated Palmarès reward.
 - Physical road speed stays readable even when effective Tour pace exceeds
@@ -35,9 +35,9 @@ The game starts as cycling and ends as a friendly argument with arithmetic.
 2. The player optionally changes lanes to collect bags, draft, build Flow, and
    avoid hazards.
 3. The Career Workshop pauses the ride and exposes affordable upgrades.
-4. Upgrade levels improve production, effective pace, physical capability, or
+4. Upgrade steps improve production, effective pace, physical capability, or
    terrain mitigation.
-5. Levels 10, 25, 50, and 100 trigger named multiplicative breakthroughs.
+5. Equipment follows real named product tiers; training uses at most ten steps.
 6. New sectors unlock new branches and mechanics.
 7. Alpe d'Huez completes a Tour and presents two choices:
    - keep the complete build for another Tour and a larger eventual reward;
@@ -126,18 +126,22 @@ Every repeatable node defines:
 
 - one currency;
 - a base cost and exponential cost scale;
-- a maximum level;
+- a short maximum path;
 - an optional prerequisite and sector gate;
 - one or more effects;
 - named milestones.
 
-The workshop supports `+1`, `+10`, and `MAX`. A bulk purchase buys only the
-affordable portion and reports the exact level count and total cost.
+The workshop buys either the next step or every currently affordable step.
+Equipment paths contain only the real choices that exist: two helmet tiers,
+four wheel tiers, three brake tiers, and so on. Technique and nutrition use five
+steps; endurance and power use ten.
 
-Repeatable costs use a ×1.28 geometric curve. A 25-Cash node therefore grows
-from 25 to roughly 5.7M at Level 50, 2.7B at Level 75, and 1T near Level 100.
-The always-visible **Hyperbike moonshot** costs exactly $2B and multiplies pace,
-Sweat, and Cash by ×10 once the surrounding economy finally catches it.
+Repeatable costs still use the underlying ×1.28 geometric curve, but each
+meaningful step advances a large distance along it. A ten-step training path
+therefore moves from pocket money to billions without asking for one hundred
+nearly identical clicks. The always-visible **Hyperbike moonshot** costs exactly
+$2B and multiplies pace, Sweat, and Cash by ×10 once the surrounding economy
+finally catches it.
 
 This cost-versus-production seesaw follows the geometric model in
 [The Math of Idle Games](https://blog.kongregate.com/the-math-of-idle-games-part-i/):
@@ -148,18 +152,18 @@ in [A Brief Look at the Idle Games Genre](https://blog.kongregate.com/idle-games
 
 ### Milestones
 
-Deep Level-100 nodes use cumulative breakthroughs:
+Ten-step training paths use cumulative breakthroughs:
 
-| Level | New multiplier | Cumulative milestone multiplier |
+| Step | New multiplier | Cumulative milestone multiplier |
 | ---: | ---: | ---: |
-| 10 | ×3 | ×3 |
-| 25 | ×5 | ×15 |
-| 50 | ×10 | ×150 |
-| 100 | ×25 | ×3,750 |
+| 1 | ×3 | ×3 |
+| 3 | ×5 | ×15 |
+| 5 | ×10 | ×150 |
+| 10 | ×25 | ×3,750 |
 
-Some Level-50 families stop after the ×10 breakthrough. Named late milestones
-are intentionally ridiculous—examples include “Negative-mass frame,” “Internal
-rain cloud,” and “Economy with a logo.”
+Shorter paths attach breakthroughs directly to named real-world tiers. Wheels,
+for example, progress through basic alloy, light aluminium, carbon, and deep
+aero carbon; helmets progress from a performance road helmet to an aero shell.
 
 ### Branches and unlocks
 

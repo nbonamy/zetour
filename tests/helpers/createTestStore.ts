@@ -22,7 +22,7 @@ class MemoryStorage {
 }
 
 const savedState = (overrides: Partial<SaveState>): SaveState => ({
-  version: 2,
+  version: 3,
   sweat: 0,
   cash: 0,
   distanceM: 0,

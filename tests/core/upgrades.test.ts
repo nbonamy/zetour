@@ -8,6 +8,7 @@ import {
   upgradeCost,
   upgradeEffectMultiplier,
   upgradeMilestoneMultiplier,
+  upgrades,
 } from "../../src/core/upgrades";
 import { createTestStore } from "../helpers/createTestStore";
 
@@ -48,29 +49,27 @@ describe("incremental upgrade tree", () => {
     });
   });
 
-  it("escalates deep upgrades from pocket money to billions", () => {
-    const socks = upgrade("aero-socks");
+  it("compresses the exponential economy into ten meaningful purchases", () => {
+    const power = upgrade("power");
 
-    expect([0, 1, 2, 10].map((level) => upgradeCost(socks, level))).toEqual([
-      25, 32, 41, 295,
-    ]);
-    expect(upgradeCost(socks, 50)).toBeGreaterThan(5_000_000);
-    expect(upgradeCost(socks, 75)).toBeGreaterThan(2_000_000_000);
-    expect(upgradeCost(socks, 99)).toBeGreaterThan(1_000_000_000_000);
+    expect(upgradeCost(power, 0)).toBe(35);
+    expect(upgradeCost(power, 1)).toBeGreaterThan(300);
+    expect(upgradeCost(power, 5)).toBeGreaterThan(5_000_000);
+    expect(upgradeCost(power, 9)).toBeGreaterThan(2_000_000_000);
   });
 
-  it("supports buy ten and buy max calculations", () => {
+  it("supports buying every currently affordable step", () => {
     const power = upgrade("power");
-    const tenCost = upgradeBulkCost(power, 0, 10);
+    const maxCost = upgradeBulkCost(power, 0, power.maxLevel);
 
-    expect(affordableUpgradeLevels(power, 0, tenCost - 1, 10)).toBe(9);
-    expect(affordableUpgradeLevels(power, 0, tenCost, 10)).toBe(10);
+    expect(affordableUpgradeLevels(power, 0, maxCost - 1, "max")).toBe(9);
+    expect(affordableUpgradeLevels(power, 0, maxCost, "max")).toBe(10);
     expect(
       affordableUpgradeLevels(power, 0, upgradeBulkCost(power, 0, 4), "max"),
     ).toBe(4);
 
-    const { store } = createTestStore({ sweat: tenCost });
-    expect(store.purchase(power, 10)).toBe(true);
+    const { store } = createTestStore({ sweat: maxCost });
+    expect(store.purchase(power, "max")).toBe(true);
     expect(store.getSnapshot().upgrades.power).toBe(10);
     expect(store.getSnapshot().sweat).toBe(0);
   });
@@ -78,15 +77,37 @@ describe("incremental upgrade tree", () => {
   it("creates deliberately huge production bumps at milestones", () => {
     const power = upgrade("power");
 
-    expect(nextUpgradeMilestone(power, 0)?.level).toBe(10);
-    expect(upgradeMilestoneMultiplier(power, 9)).toBe(1);
-    expect(upgradeMilestoneMultiplier(power, 10)).toBe(3);
-    expect(upgradeMilestoneMultiplier(power, 25)).toBe(15);
-    expect(upgradeMilestoneMultiplier(power, 50)).toBe(150);
-    expect(upgradeMilestoneMultiplier(power, 100)).toBe(3_750);
-    expect(upgradeEffectMultiplier(power, 10, "pacePerLevel")).toBeCloseTo(
+    expect(nextUpgradeMilestone(power, 0)?.level).toBe(1);
+    expect(upgradeMilestoneMultiplier(power, 0)).toBe(1);
+    expect(upgradeMilestoneMultiplier(power, 1)).toBe(3);
+    expect(upgradeMilestoneMultiplier(power, 3)).toBe(15);
+    expect(upgradeMilestoneMultiplier(power, 5)).toBe(150);
+    expect(upgradeMilestoneMultiplier(power, 10)).toBe(3_750);
+    expect(upgradeEffectMultiplier(power, 1, "pacePerLevel")).toBeCloseTo(
       3.9,
     );
+  });
+
+  it("uses short named product ladders and reserves ten steps for training", () => {
+    expect(Math.max(...upgrades.map(({ maxLevel }) => maxLevel))).toBe(10);
+    expect(upgrade("wheels")).toMatchObject({
+      maxLevel: 4,
+      milestones: [
+        { level: 1, label: "Basic alloy wheels" },
+        { level: 2, label: "Light aluminium wheels" },
+        { level: 3, label: "Carbon wheels" },
+        { level: 4, label: "Deep aero carbon wheels" },
+      ],
+    });
+    expect(upgrade("helmet")).toMatchObject({
+      maxLevel: 2,
+      milestones: [
+        { level: 1, label: "Performance helmet" },
+        { level: 2, label: "Aero road helmet" },
+      ],
+    });
+    expect(upgrade("endurance").maxLevel).toBe(10);
+    expect(upgrade("power").maxLevel).toBe(10);
   });
 
   it("includes units in insufficient-funds messages", () => {
@@ -159,18 +180,18 @@ describe("incremental upgrade tree", () => {
     ];
 
     for (const definition of firstSector) {
-      store.purchase(definition, 10);
+      store.purchase(definition, "max");
     }
 
     const state = store.getSnapshot();
-    expect(state.upgrades).toMatchObject({
-      endurance: 10,
-      power: 10,
-      technique: 10,
-      "body-composition": 10,
-      hydration: 10,
-      fueling: 10,
+    firstSector.forEach((definition) => {
+      const installed = state.upgrades[definition.id] ?? 0;
+      expect(installed).toBeGreaterThan(0);
+      expect(installed).toBeLessThanOrEqual(definition.maxLevel);
     });
+    expect(state.upgrades.endurance).toBeLessThan(
+      upgrade("endurance").maxLevel,
+    );
     expect(state.sweat).toBeGreaterThan(0);
   });
 });

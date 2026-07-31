@@ -27,9 +27,9 @@ npm run build
 1. Ride automatically and generate Sweat and Cash.
 2. Steer into bags, drafting lines, and power-ups; avoid potholes and oncoming
    traffic.
-3. Spend in the Career Workshop on repeatable upgrades.
-4. Hit Levels 10, 25, 50, and 100 for cumulative ×2, ×3, ×5, and ×10
-   breakthroughs.
+3. Spend in the Career Workshop on short, named upgrade paths.
+4. Move through concrete equipment tiers or longer five- and ten-step training
+   programs, with multiplicative breakthroughs along the way.
 5. Finish the Tour, then either keep the build for a victory lap or bank the
    run as Palmarès and start a faster Season.
 6. Spend Palmarès on permanent pace, starting resources, offline efficiency,
@@ -54,7 +54,7 @@ requirement for passive or offline progress.
 - The HUD separates physical **road speed** from effective **Tour pace**. Road
   speed stays visually coherent; Tour pace compounds without a physics ceiling.
 - Career upgrades multiply one another across Rider, Nutrition, Equipment,
-  Bike, and Team. Buy quantities are `+1`, `+10`, and `MAX`.
+  Bike, and Team. Buy the next step or every currently affordable step.
 - Roadside Sweat bags award 20 seconds of current Sweat production. Cash bags
   award 30 seconds of current Cash production, so active play remains relevant
   in late Seasons.

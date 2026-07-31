@@ -10,6 +10,7 @@ import {
   upgradeBulkCost,
   upgradeCost,
   upgradeEffectMultiplier,
+  upgradeProgressionLevel,
   upgrades,
 } from "./upgrades";
 import { bagRewardForRate } from "./economy";
@@ -377,7 +378,7 @@ export const courseRecordForStage = (
 };
 
 export interface SaveState {
-  version: 2;
+  version: 3;
   sweat: number;
   cash: number;
   distanceM: number;
@@ -586,7 +587,7 @@ const migratedCurrentSplits = (
 };
 
 const initialState = (now: number): SaveState => ({
-  version: 2,
+  version: 3,
   sweat: 0,
   cash: 0,
   distanceM: 0,
@@ -993,7 +994,7 @@ export class GameStore {
     this.notice(
       crossedMilestone
         ? `${upgrade.name}: ${crossedMilestone.label} ${crossedMilestone.multiplier}×!`
-        : `${upgrade.name} +${status.levels} · Level ${nextLevel}`,
+        : `${upgrade.name} +${status.levels} · Step ${nextLevel}/${upgrade.maxLevel}`,
       "good",
     );
     this.save();
@@ -1343,6 +1344,13 @@ export class GameStore {
     return this.state.upgrades[id] ?? 0;
   }
 
+  private progressionLevel(id: string): number {
+    const upgrade = upgradeById(id);
+    return upgrade
+      ? upgradeProgressionLevel(upgrade, this.level(id))
+      : this.level(id);
+  }
+
   private computeStats(currentGradient = this.currentGradient()): ComputedStats {
     const stage = this.currentStage();
     const effectTotal = (
@@ -1358,7 +1366,10 @@ export class GameStore {
         const perLogLevel = upgrade.effects[effect] ?? 0;
         return (
           total +
-          logarithmicUpgradeLevel(this.level(upgrade.id)) * perLogLevel
+          logarithmicUpgradeLevel(
+            upgradeProgressionLevel(upgrade, this.level(upgrade.id)),
+          ) *
+            perLogLevel
         );
       }, 0);
     const multiplicativeEffect = (
@@ -1376,11 +1387,11 @@ export class GameStore {
       );
 
     const bodyComposition = logarithmicUpgradeLevel(
-      this.level("body-composition"),
+      this.progressionLevel("body-composition"),
     );
     const technique =
-      logarithmicUpgradeLevel(this.level("technique")) +
-      logarithmicUpgradeLevel(this.level("brakes"));
+      logarithmicUpgradeLevel(this.progressionLevel("technique")) +
+      logarithmicUpgradeLevel(this.progressionLevel("brakes"));
     const windMitigation = Math.min(
       0.68,
       effectTotal("windMitigationPerLogLevel"),
@@ -1575,7 +1586,12 @@ export class GameStore {
         version?: number;
         rideCash?: number;
       };
-      if (parsed.version !== 1 && parsed.version !== 2) {
+      const saveVersion = parsed.version;
+      if (
+        saveVersion !== 1 &&
+        saveVersion !== 2 &&
+        saveVersion !== 3
+      ) {
         return initialState(this.now());
       }
       const { rideCash = 0, ...currentState } = parsed;
@@ -1585,7 +1601,7 @@ export class GameStore {
           2,
           (migratedUpgrades["aluminium-frame"] ?? 0) +
             (migratedUpgrades["carbon-frame"] ?? 0),
-        );
+        ) * 25;
       }
       if (migratedUpgrades.tires === undefined) {
         migratedUpgrades.tires = Math.min(
@@ -1593,7 +1609,7 @@ export class GameStore {
           (migratedUpgrades["reinforced-tires"] ?? 0) +
             (migratedUpgrades["performance-tires"] ?? 0) +
             (migratedUpgrades["tubeless-tires"] ?? 0),
-        );
+        ) * 25;
       }
       delete migratedUpgrades["aluminium-frame"];
       delete migratedUpgrades["carbon-frame"];
@@ -1603,10 +1619,14 @@ export class GameStore {
       const normalizedUpgrades = Object.fromEntries(
         upgrades.flatMap((upgrade) => {
           const candidate = Number(migratedUpgrades[upgrade.id] ?? 0);
-          const level = Number.isFinite(candidate)
+          const migratedLevel =
+            saveVersion < 3
+              ? Math.ceil(candidate / (upgrade.progressionStep ?? 1))
+              : candidate;
+          const level = Number.isFinite(migratedLevel)
             ? Math.max(
                 0,
-                Math.min(upgrade.maxLevel, Math.floor(candidate)),
+                Math.min(upgrade.maxLevel, Math.floor(migratedLevel)),
               )
             : 0;
           return level > 0 ? [[upgrade.id, level]] : [];
@@ -1722,7 +1742,7 @@ export class GameStore {
       return {
         ...initialState(this.now()),
         ...currentState,
-        version: 2,
+        version: 3,
         stage,
         highestStage,
         season,
