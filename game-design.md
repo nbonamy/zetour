@@ -63,6 +63,9 @@ responds to:
 This number controls wheel cadence, parallax, road particles, fans, hazards,
 lane markers, and both verges. It does not grow exponentially.
 
+Physical road speed is intentionally internal. The HUD shows only effective
+Tour pace, avoiding two competing values with the same km/h unit.
+
 ### Effective Tour pace
 
 Effective pace advances the compressed route simulation:

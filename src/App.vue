@@ -137,14 +137,21 @@ const displayedPendingPalmares = computed(() =>
     ? 10
     : snapshot.value.pendingPalmares,
 );
-const speedGaugeRatio = computed(() =>
-  Math.min(1, Math.max(0, snapshot.value.stats.speedKmh / 48)),
+const paceGaugeRatio = computed(() =>
+  Math.min(
+    1,
+    Math.max(
+      0,
+      Math.log10(1 + snapshot.value.stats.effectivePaceKmh) /
+        Math.log10(100_001),
+    ),
+  ),
 );
-const speedGaugeSegments = computed(() =>
-  Math.round(speedGaugeRatio.value * 10),
+const paceGaugeSegments = computed(() =>
+  Math.round(paceGaugeRatio.value * 10),
 );
 const speedNeedleAngle = computed(
-  () => `${-135 + speedGaugeRatio.value * 180}deg`,
+  () => `${-135 + paceGaugeRatio.value * 180}deg`,
 );
 const displayedFlowMultiplier = computed(() =>
   visualQa.flow === null
@@ -257,7 +264,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
       <div class="game-frame" :class="{ 'is-paused': ridePaused }">
         <GameCanvas :paused="ridePaused" />
         <header class="tour-hud">
-          <section class="hud-panel hud-speed" aria-label="Current speed">
+          <section class="hud-panel hud-speed" aria-label="Tour pace">
             <div class="speed-dial" aria-hidden="true">
               <span
                 class="speed-needle"
@@ -267,19 +274,18 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             </div>
             <div class="hud-speed-copy">
               <strong>
-                {{ snapshot.stats.speedKmh.toFixed(0) }}
+                {{ format(snapshot.stats.effectivePaceKmh) }}
                 <em>km/h</em>
               </strong>
               <div class="speed-segments" aria-hidden="true">
                 <span
                   v-for="segment in 10"
                   :key="segment"
-                  :class="{ active: segment <= speedGaugeSegments }"
+                  :class="{ active: segment <= paceGaugeSegments }"
                 ></span>
               </div>
               <b class="effective-pace">
-                Pace
-                {{ format(snapshot.stats.effectivePaceKmh) }} km/h
+                <span>Tour pace</span>
                 <span
                   v-if="displayedFlowMultiplier > 1"
                   class="flow-bonus"

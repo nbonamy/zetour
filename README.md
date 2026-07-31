@@ -51,8 +51,8 @@ requirement for passive or offline progress.
 
 ## Incremental systems
 
-- The HUD separates physical **road speed** from effective **Tour pace**. Road
-  speed stays visually coherent; Tour pace compounds without a physics ceiling.
+- The road simulation keeps physical speed visually coherent while the HUD
+  shows only effective **Tour pace**, which compounds without a physics ceiling.
 - Career upgrades multiply one another across Rider, Nutrition, Equipment,
   Bike, and Team. Buy the next step or every currently affordable step.
 - Roadside Sweat bags award 20 seconds of current Sweat production. Cash bags

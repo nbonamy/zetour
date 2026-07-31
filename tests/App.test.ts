@@ -55,6 +55,8 @@ describe("App", () => {
     expect(document.querySelectorAll(".hud-title .title-sprig")).toHaveLength(2);
     expect(document.querySelector(".hud-route-ribbon .sr-only")).not.toBeNull();
     expect(document.querySelector(".speed-dial")).not.toBeNull();
+    expect(document.querySelector('[aria-label="Tour pace"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Current speed"]')).toBeNull();
     expect(document.querySelector(".hud-distance-track")).not.toBeNull();
     expect(document.querySelector(".hud-tray")).not.toBeNull();
     expect(
@@ -230,10 +232,24 @@ describe("App", () => {
     app.mount(host);
 
     const flowBonus = document.querySelector<HTMLElement>(".flow-bonus");
+    const pacePanel = document.querySelector<HTMLElement>(
+      '[aria-label="Tour pace"]',
+    );
+    expect(gameStore.getSnapshot().stats.speedKmh).toBe(18);
+    expect(gameStore.getSnapshot().stats.effectivePaceKmh).toBeCloseTo(32.4);
+    expect(pacePanel?.querySelector("strong")?.textContent).toContain("32");
+    expect(pacePanel?.querySelector("strong")?.textContent).not.toContain(
+      "18",
+    );
     expect(flowBonus?.textContent).toContain("Flow ×1.8");
     expect(flowBonus?.title).toContain("boost Tour pace and income");
     expect(document.querySelectorAll(".flow-bonus")).toHaveLength(1);
-    expect(document.querySelector(".effective-pace i")).toBeNull();
+    expect(document.querySelector(".effective-pace")?.textContent).toContain(
+      "Tour pace",
+    );
+    expect(document.querySelector(".effective-pace")?.textContent).not.toContain(
+      "km/h",
+    );
     expect(document.querySelector(".game-canvas .flow-bonus")).toBeNull();
     app.unmount();
   });
