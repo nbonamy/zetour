@@ -131,14 +131,24 @@ describe("active ride systems", () => {
     });
   });
 
-  it("gives traffic a readable one-lane-at-a-time clean route", () => {
-    expect(trafficGauntletPattern.map(({ hazardLane }) => hazardLane)).toEqual(
-      [1, 0, 1, 0, 0],
+  it("gives traffic a readable route through single cars and two-car walls", () => {
+    const hazardLanes = trafficGauntletPattern.map(
+      ({ hazardLanes: lanes }) => [...lanes],
+    );
+    expect(hazardLanes).toEqual(
+      [[1], [0, 2], [2], [0, 2], [1]],
     );
     const rewardLanes = trafficGauntletPattern.map(
       ({ rewardLane }) => rewardLane,
     );
     expect(rewardLanes).toEqual([2, 1, 0, 1, 2]);
+    expect(new Set(hazardLanes.flat())).toEqual(new Set([0, 1, 2]));
+    expect(
+      trafficGauntletPattern.every(
+        ({ hazardLanes: lanes, rewardLane }) =>
+          lanes.length <= 2 && ![...lanes].includes(rewardLane),
+      ),
+    ).toBe(true);
     expect(
       rewardLanes.slice(1).every(
         (lane, index) => Math.abs(lane - rewardLanes[index]) === 1,

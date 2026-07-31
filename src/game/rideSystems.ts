@@ -42,11 +42,11 @@ export const roadPowerUpChoices: readonly PowerUpType[] = [
 ];
 
 export const trafficGauntletPattern = [
-  { hazardLane: 1, rewardLane: 2 },
-  { hazardLane: 0, rewardLane: 1 },
-  { hazardLane: 1, rewardLane: 0 },
-  { hazardLane: 0, rewardLane: 1 },
-  { hazardLane: 0, rewardLane: 2 },
+  { hazardLanes: [1], rewardLane: 2 },
+  { hazardLanes: [0, 2], rewardLane: 1 },
+  { hazardLanes: [2], rewardLane: 0 },
+  { hazardLanes: [0, 2], rewardLane: 1 },
+  { hazardLanes: [1], rewardLane: 2 },
 ] as const;
 
 export const lootMixForStage = (stage: number): LootMix => {

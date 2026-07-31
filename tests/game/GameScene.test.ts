@@ -414,6 +414,20 @@ describe("GameScene", () => {
     expect(collect).toHaveBeenCalledWith(loot);
   });
 
+  it("waits for every active road object to clear before the next encounter", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const pickup = { active: true };
+    const hazard = { active: true };
+    scene.pickups = { getChildren: () => [pickup] };
+    scene.hazards = { getChildren: () => [hazard] };
+
+    expect(scene.isEncounterRoadClear()).toBe(false);
+    pickup.active = false;
+    expect(scene.isEncounterRoadClear()).toBe(false);
+    hazard.active = false;
+    expect(scene.isEncounterRoadClear()).toBe(true);
+  });
+
   it("lets Invincibility absorb potholes and traffic without breaking challenges", () => {
     gameStore.resetCareer();
     gameStore.collectPowerUp("jump");

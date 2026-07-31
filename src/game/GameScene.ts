@@ -359,7 +359,11 @@ export class GameScene extends Phaser.Scene {
       gradient,
     );
     this.encounterCountdown -= delta;
-    if (this.encounterCountdown <= 0 && !this.draftCyclist) {
+    if (
+      this.encounterCountdown <= 0 &&
+      !this.draftCyclist &&
+      this.isEncounterRoadClear()
+    ) {
       const encounter =
         VISUAL_QA.encounter ??
         nextEncounter(
@@ -998,6 +1002,14 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private isEncounterRoadClear(): boolean {
+    return [this.pickups, this.hazards].every((group) =>
+      group
+        .getChildren()
+        .every((child) => !(child as RoadObject).active),
+    );
+  }
+
   private destroyRoadObject(object: RoadObject): void {
     this.tweens.killTweensOf(object);
     object.destroy();
@@ -1280,12 +1292,14 @@ export class GameScene extends Phaser.Scene {
       case "traffic": {
         const placements = trafficGauntletPattern.map((column, index) => {
           const x = startX + index * 132;
-          this.spawnOncomingVehicle(
-            column.hazardLane,
-            x,
-            sequenceId,
-            index % 3 === 2 ? "van" : "car",
-          );
+          column.hazardLanes.forEach((lane, laneIndex) => {
+            this.spawnOncomingVehicle(
+              lane,
+              x,
+              sequenceId,
+              (index + laneIndex) % 3 === 2 ? "van" : "car",
+            );
+          });
           return { lane: column.rewardLane, x: x + 52 };
         });
         spawnLootSequence(placements);
