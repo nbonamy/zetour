@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const componentState = vi.hoisted(() => ({
   paused: false,
 }));
+const WORKSHOP_INVITATION_STORAGE_KEY =
+  "ze-tour-workshop-invitation-seen-v1";
 
 vi.mock("../src/components/GameCanvas.vue", () => ({
   default: {
@@ -30,8 +32,61 @@ import { gameStore } from "../src/core/gameStore";
 describe("App", () => {
   beforeEach(() => {
     gameStore.resetCareer();
+    window.localStorage.setItem(WORKSHOP_INVITATION_STORAGE_KEY, "1");
     document.body.innerHTML = '<div id="test-app"></div>';
     componentState.paused = false;
+  });
+
+  it("invites the rider into the workshop once when the first upgrade becomes affordable", async () => {
+    window.localStorage.removeItem(WORKSHOP_INVITATION_STORAGE_KEY);
+    const app = createApp(App);
+    const host = document.querySelector("#test-app");
+    if (!host) throw new Error("Missing test host");
+    app.mount(host);
+
+    expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
+    while (gameStore.getSnapshot().sweat < 100) {
+      gameStore.collectBag("sweat");
+    }
+    await nextTick();
+    await nextTick();
+
+    const invitation = document.querySelector<HTMLElement>(
+      ".first-upgrade-dialog",
+    );
+    const openButton = document.querySelector<HTMLButtonElement>(
+      ".first-upgrade-open",
+    );
+    expect(invitation?.textContent).toContain("First upgrade ready");
+    expect(invitation?.textContent).toContain("Endurance");
+    expect(invitation?.textContent).toContain("Open workshop");
+    expect(window.localStorage.getItem(WORKSHOP_INVITATION_STORAGE_KEY)).toBe(
+      "1",
+    );
+    expect(componentState.paused).toBe(true);
+    expect(document.activeElement).toBe(openButton);
+
+    openButton?.click();
+    await nextTick();
+    expect(document.body.textContent).toContain("Career workshop");
+    expect(componentState.paused).toBe(true);
+
+    document.querySelector<HTMLButtonElement>(".workshop-close")?.click();
+    await nextTick();
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+    expect(componentState.paused).toBe(false);
+    app.unmount();
+
+    document.body.innerHTML = '<div id="test-app-again"></div>';
+    const secondApp = createApp(App);
+    const secondHost = document.querySelector("#test-app-again");
+    if (!secondHost) throw new Error("Missing second test host");
+    secondApp.mount(secondHost);
+    await nextTick();
+
+    expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
+    expect(componentState.paused).toBe(false);
+    secondApp.unmount();
   });
 
   it("shows the clean race HUD and pauses the ride with the W workshop shortcut", async () => {

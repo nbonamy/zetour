@@ -33,7 +33,8 @@
         "frame",
         "tires",
         "shifting",
-        "chain-lube"
+        "chain-lube",
+        "hyperbike"
       ],
       "dependencies": [],
       "tree": {
@@ -1165,11 +1166,14 @@
     },
     {
       "id": "hyperbike",
-      "branch": "rider",
+      "branch": "bike",
       "name": "Hyperbike moonshot",
       "description": "The ultimate hundred-million-dollar machine. Master sustained power, build the economy that can afford it, then break the Tour wide open.",
       "icon": "✦",
-      "parent": null,
+      "parent": {
+        "id": "road-bike",
+        "requiredTier": 1
+      },
       "children": [],
       "dependencies": [
         {

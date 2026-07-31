@@ -274,7 +274,14 @@ describe("UpgradeGraph", () => {
     host.remove();
   });
 
-  it("shows the $100M capstone and its full payoff from the opening", async () => {
+  it("shows the $100M Bike capstone as dependency locked with its full payoff", async () => {
+    for (let index = 0; index < 550; index += 1) {
+      gameStore.collectBag("sweat");
+    }
+    gameStore.activateKonamiCheat();
+    const roadBike = upgradeById("road-bike");
+    if (!roadBike) throw new Error("Missing road bike upgrade");
+    expect(gameStore.purchase(roadBike)).toBe(true);
     mountGraph();
     const hyperbike = host.querySelector<HTMLButtonElement>(
       'button[aria-label="Hyperbike moonshot"]',
@@ -282,6 +289,14 @@ describe("UpgradeGraph", () => {
     if (!hyperbike) throw new Error("Missing Hyperbike node");
 
     expect(hyperbike.textContent).not.toContain("$100M DREAM");
+    expect(hyperbike.dataset.branch).toBe("bike");
+    expect(hyperbike.dataset.purchaseState).toBe("dependency-locked");
+    expect(hyperbike.classList.contains("locked")).toBe(true);
+    expect(hyperbike.disabled).toBe(false);
+    expect(hyperbike.getAttribute("aria-disabled")).toBe("true");
+    expect(hyperbike.querySelector(".node-label small")?.textContent).toContain(
+      "Requires Sustained power tier 10",
+    );
     hyperbike.click();
     await nextTick();
 

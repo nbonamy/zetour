@@ -62,6 +62,7 @@ describe("incremental upgrade tree", () => {
     expect(upgradeCost(power, 1)).toBe(438);
     expect(upgradeCost(power, 9)).toBe(875_000_000);
     expect(upgradeCost(upgrade("hyperbike"), 0)).toBe(100_000_000);
+    expect(upgrade("hyperbike").branch).toBe("bike");
     expect(helmet.costs).toEqual([100, 300, 1_000]);
     for (const definition of upgrades) {
       for (let level = 1; level < definition.maxLevel; level += 1) {
@@ -138,8 +139,26 @@ describe("incremental upgrade tree", () => {
       "Need 100 more Sweat",
     );
     expect(store.purchaseStatus(upgrade("hyperbike")).reason).toBe(
+      "Requires Workshop road bike tier 1",
+    );
+
+    const roadReady = createTestStore({
+      riderXp: 550,
+      upgrades: { "road-bike": 1 },
+    }).store;
+    expect(roadReady.purchaseStatus(upgrade("hyperbike")).reason).toBe(
       "Requires Sustained power tier 10",
     );
+
+    const capstoneReady = createTestStore({
+      riderXp: 550,
+      cash: 99_000_000,
+      upgrades: { "road-bike": 1, power: 10 },
+    }).store;
+    expect(capstoneReady.purchaseStatus(upgrade("hyperbike"))).toMatchObject({
+      state: "unaffordable",
+      reason: "Need $1M more",
+    });
   });
 
   it("unlocks workshop branches from Rider Level rather than sector", () => {
@@ -193,9 +212,13 @@ describe("incremental upgrade tree", () => {
     const frame = upgrade("frame");
     const wheels = upgrade("wheels");
     const helmet = upgrade("helmet");
+    const roadBike = upgrade("road-bike");
+    const hyperbike = upgrade("hyperbike");
 
     expect(wheels.parent).toEqual({ id: "frame", requiredTier: 1 });
     expect(frame.children).toContain("wheels");
+    expect(hyperbike.parent).toEqual({ id: "road-bike", requiredTier: 1 });
+    expect(roadBike.children).toContain("hyperbike");
     expect(helmet.tiers[0]).toMatchObject({
       name: "Basic road helmet",
       price: { amount: 100, unit: "cash" },

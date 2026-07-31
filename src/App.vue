@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import GameCanvas from "./components/GameCanvas.vue";
 import PalmaresPanel from "./components/PalmaresPanel.vue";
 import UpgradeGraph from "./components/UpgradeGraph.vue";
@@ -14,6 +22,7 @@ import {
 } from "./core/gameStore";
 import { formatCompactNumber, formatMultiplier } from "./core/format";
 import { formatRaceTime } from "./core/timeTrial";
+import { upgrades } from "./core/upgrades";
 import { flowMultiplier as rideFlowMultiplier } from "./game/rideSystems";
 import { readVisualQaOverrides } from "./game/visualQa";
 
@@ -70,12 +79,15 @@ const displayedStageDistanceM = computed(() =>
 );
 const workshopOpen = ref(false);
 const workshopTab = ref<"career" | "palmares">("career");
+const firstUpgradeInvitationOpen = ref(false);
+const firstUpgradeInvitationButton = ref<HTMLButtonElement | null>(null);
 const resetConfirmationOpen = ref(false);
 const manuallyPaused = ref(visualQa.paused);
 const ridePaused = computed(
   () =>
     manuallyPaused.value ||
     workshopOpen.value ||
+    firstUpgradeInvitationOpen.value ||
     resetConfirmationOpen.value ||
     displayedRaceFinished.value,
 );
@@ -177,6 +189,38 @@ const konamiCode = [
   "a",
 ] as const;
 let konamiProgress = 0;
+const WORKSHOP_INVITATION_STORAGE_KEY =
+  "ze-tour-workshop-invitation-seen-v1";
+const workshopInvitationSeen = ref(false);
+
+try {
+  workshopInvitationSeen.value =
+    typeof window !== "undefined" &&
+    window.localStorage.getItem(WORKSHOP_INVITATION_STORAGE_KEY) === "1";
+} catch {
+  workshopInvitationSeen.value = false;
+}
+
+const firstAffordableUpgrade = computed(() => {
+  void snapshot.value;
+  return (
+    upgrades.find(
+      (upgrade) => gameStore.purchaseStatus(upgrade, 1).available,
+    ) ?? null
+  );
+});
+const hasPurchasedUpgrade = computed(() =>
+  Object.values(snapshot.value.upgrades).some((level) => level > 0),
+);
+
+const markWorkshopInvitationSeen = (): void => {
+  workshopInvitationSeen.value = true;
+  try {
+    window.localStorage.setItem(WORKSHOP_INVITATION_STORAGE_KEY, "1");
+  } catch {
+    // The in-memory flag still prevents repeated prompts for this session.
+  }
+};
 
 const unsubscribe = gameStore.subscribe((next) => {
   snapshot.value = next;
@@ -189,6 +233,35 @@ const unsubscribeNotices = gameStore.subscribeToNotices((message, tone) => {
   }, 2_200);
 });
 
+watch(
+  [
+    firstAffordableUpgrade,
+    hasPurchasedUpgrade,
+    workshopOpen,
+    resetConfirmationOpen,
+    displayedRaceFinished,
+    workshopInvitationSeen,
+  ],
+  ([affordableUpgrade, alreadyPurchased, isWorkshopOpen, isResetOpen, isFinished, wasSeen]) => {
+    if (wasSeen || firstUpgradeInvitationOpen.value) return;
+    if (alreadyPurchased) {
+      markWorkshopInvitationSeen();
+      return;
+    }
+    if (!affordableUpgrade) return;
+    if (isWorkshopOpen) {
+      markWorkshopInvitationSeen();
+      return;
+    }
+    if (isResetOpen || isFinished) return;
+
+    firstUpgradeInvitationOpen.value = true;
+    markWorkshopInvitationSeen();
+    void nextTick(() => firstUpgradeInvitationButton.value?.focus());
+  },
+  { immediate: true },
+);
+
 onBeforeUnmount(() => {
   unsubscribe();
   unsubscribeNotices();
@@ -200,6 +273,16 @@ const format = (value: number): string => formatCompactNumber(value);
 const openWorkshop = (): void => {
   if (displayedRaceFinished.value) return;
   workshopOpen.value = true;
+};
+
+const dismissFirstUpgradeInvitation = (): void => {
+  firstUpgradeInvitationOpen.value = false;
+};
+
+const openWorkshopFromInvitation = (): void => {
+  firstUpgradeInvitationOpen.value = false;
+  workshopTab.value = "career";
+  openWorkshop();
 };
 
 const closeWorkshop = (): void => {
@@ -226,6 +309,7 @@ const toggleManualPause = (): void => {
   if (
     displayedRaceFinished.value ||
     workshopOpen.value ||
+    firstUpgradeInvitationOpen.value ||
     resetConfirmationOpen.value
   ) {
     return;
@@ -266,6 +350,17 @@ const trackKonamiCode = (event: KeyboardEvent): boolean => {
 const onKeydown = (event: KeyboardEvent): void => {
   if (trackKonamiCode(event)) {
     event.preventDefault();
+  } else if (
+    event.key === "Escape" &&
+    firstUpgradeInvitationOpen.value
+  ) {
+    dismissFirstUpgradeInvitation();
+  } else if (
+    event.key.toLowerCase() === "w" &&
+    firstUpgradeInvitationOpen.value
+  ) {
+    event.preventDefault();
+    openWorkshopFromInvitation();
   } else if (event.key === "Escape" && resetConfirmationOpen.value) {
     cancelReset();
   } else if (event.key === "Escape" && workshopOpen.value) {
@@ -279,6 +374,7 @@ const onKeydown = (event: KeyboardEvent): void => {
   } else if (
     event.key.toLowerCase() === "r" &&
     !resetConfirmationOpen.value &&
+    !firstUpgradeInvitationOpen.value &&
     !workshopOpen.value &&
     !displayedRaceFinished.value
   ) {
@@ -595,6 +691,43 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
     </section>
 
     <Teleport to="body">
+      <Transition name="workshop">
+        <div
+          v-if="firstUpgradeInvitationOpen && firstAffordableUpgrade"
+          class="workshop-overlay first-upgrade-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="first-upgrade-title"
+          aria-describedby="first-upgrade-description"
+        >
+          <section class="reset-dialog first-upgrade-dialog">
+            <p class="eyebrow">First upgrade ready</p>
+            <h2 id="first-upgrade-title">Time to tune the bike</h2>
+            <p id="first-upgrade-description">
+              You can now afford <strong>{{ firstAffordableUpgrade.name }}</strong>.
+              Open the workshop to buy your first upgrade and ride faster.
+            </p>
+            <div class="reset-actions first-upgrade-actions">
+              <button
+                type="button"
+                class="reset-cancel"
+                @click="dismissFirstUpgradeInvitation"
+              >
+                Keep riding
+              </button>
+              <button
+                ref="firstUpgradeInvitationButton"
+                type="button"
+                class="first-upgrade-open"
+                @click="openWorkshopFromInvitation"
+              >
+                Open workshop <kbd>W</kbd>
+              </button>
+            </div>
+          </section>
+        </div>
+      </Transition>
+
       <Transition name="workshop">
         <div
           v-if="workshopOpen"

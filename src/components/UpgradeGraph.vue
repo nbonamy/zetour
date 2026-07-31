@@ -107,7 +107,7 @@ const nodePositions: Record<string, Point> = {
   "chain-lube": branchPoint("bike", 2, -1.5),
   endurance: branchPoint("rider", 1, -1.5),
   power: branchPoint("rider", 1, -0.5),
-  hyperbike: branchPoint("rider", 1, 0.5),
+  hyperbike: branchPoint("bike", 4),
   technique: branchPoint("rider", 1, 1.5),
   "body-composition": branchPoint("rider", 2, -1.5),
   hydration: branchPoint("nutrition", 1),
@@ -161,6 +161,14 @@ const nodePurchaseState = (upgrade: UpgradeDefinition) =>
 const isNodeUnaffordable = (upgrade: UpgradeDefinition): boolean =>
   nodePurchaseState(upgrade) === "unaffordable";
 
+const isNodeLocked = (upgrade: UpgradeDefinition): boolean =>
+  nodePurchaseState(upgrade) === "branch-locked" ||
+  nodePurchaseState(upgrade) === "dependency-locked";
+
+const showsPurchaseBlocker = (upgrade: UpgradeDefinition): boolean =>
+  isNodeUnaffordable(upgrade) ||
+  nodePurchaseState(upgrade) === "dependency-locked";
+
 const connectionPath = (from: Point, to: Point): string => {
   return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 };
@@ -187,6 +195,7 @@ const graphConnections = computed<GraphConnection[]>(() => {
 
   const nodeConnections = visibleNodes.value.map((upgrade) => {
     const nodeVisibility = visibility(upgrade);
+    const purchaseState = nodePurchaseState(upgrade);
     const parentPosition = upgrade.requires
       ? nodePositions[upgrade.requires]
       : branchPositions[upgrade.branch];
@@ -195,7 +204,9 @@ const graphConnections = computed<GraphConnection[]>(() => {
       branch: upgrade.branch,
       from: parentPosition ?? branchPositions[upgrade.branch],
       to: nodePositions[upgrade.id] ?? center,
-      state: !gameStore.isBranchUnlocked(upgrade.branch)
+      state:
+        purchaseState === "branch-locked" ||
+        purchaseState === "dependency-locked"
         ? "locked"
         : nodeVisibility === "mystery"
           ? "mystery"
@@ -587,7 +598,7 @@ onBeforeUnmount(stopWheelZoom);
                   'tooltip-visible': hoveredId === node.id,
                   acquired: level(node) > 0,
                   complete: level(node) >= node.maxLevel,
-                  locked: !gameStore.isBranchUnlocked(node.branch),
+                  locked: isNodeLocked(node),
                   purchasable: nodePurchaseState(node) === 'purchasable',
                   unaffordable: isNodeUnaffordable(node),
                 },
@@ -597,6 +608,7 @@ onBeforeUnmount(stopWheelZoom);
                 top: `${nodePositions[node.id]?.y ?? center.y}px`,
               }"
               :disabled="!gameStore.isBranchUnlocked(node.branch)"
+              :aria-disabled="isNodeLocked(node)"
               :aria-label="
                 visibility(node) === 'mystery' ? 'Unknown upgrade' : node.name
               "
@@ -623,7 +635,7 @@ onBeforeUnmount(stopWheelZoom);
                   <span>
                     {{ visibility(node) === "mystery" ? "Unknown" : node.name }}
                   </span>
-                  <small v-if="isNodeUnaffordable(node)">
+                  <small v-if="showsPurchaseBlocker(node)">
                     {{ nodePurchaseStatus(node).reason }}
                   </small>
                 </span>

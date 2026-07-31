@@ -131,7 +131,7 @@ the first two tiers intentionally add no performance. Abstract training paths
 start cheaply, then use explicitly authored ratios that accelerate up to the
 10× adjacent-tier limit. Final endurance and power steps cost hundreds of
 millions of Sweat, creating the late-game wall without pretending a normal
-helmet costs $68M. The always-visible **Hyperbike moonshot** is a Rider capstone:
+helmet costs $68M. The always-visible **Hyperbike moonshot** is a Bike capstone:
 complete Sustained Power tier 10, pay $100M, gain 2.5 km/h, and multiply all
 output by ×10.
 

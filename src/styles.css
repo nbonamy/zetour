@@ -4411,3 +4411,60 @@ kbd {
     font-size: 24px;
   }
 }
+
+.first-upgrade-overlay {
+  z-index: 120;
+}
+
+.first-upgrade-dialog {
+  width: min(520px, 100%);
+  padding: clamp(24px, 4vw, 34px);
+}
+
+.first-upgrade-dialog .eyebrow {
+  color: #9a641b;
+}
+
+.first-upgrade-dialog h2 {
+  margin-bottom: 12px;
+  font-size: clamp(28px, 5vw, 38px);
+  line-height: 1;
+  text-transform: none;
+}
+
+.first-upgrade-dialog > p:not(.eyebrow) {
+  color: #5c3b29;
+  font: 16px/1.5 Georgia, "Times New Roman", serif;
+}
+
+.first-upgrade-dialog > p strong {
+  color: #9a641b;
+}
+
+.first-upgrade-actions button {
+  min-height: 48px;
+  border-color: #59351f;
+  border-radius: 10px 8px 11px 7px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+}
+
+.first-upgrade-open {
+  background: linear-gradient(#f5d55a, #d99b20);
+  color: #422718;
+}
+
+.first-upgrade-open kbd {
+  margin-left: 5px;
+  border: 1px solid rgba(66, 39, 24, 0.45);
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: rgba(255, 244, 195, 0.65);
+  font-size: 9px;
+}
+
+@media (max-width: 440px) {
+  .first-upgrade-actions {
+    grid-template-columns: 1fr;
+  }
+}
