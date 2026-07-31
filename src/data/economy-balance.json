@@ -47,8 +47,8 @@
     "firstPurchaseSeconds": [15, 30],
     "firstTourMinutes": [20, 30],
     "matureTourMinutes": [15, 18],
-    "earliestNormalTreeCompletionMinutes": 45,
-    "skilledHyperbikeMinutes": [60, 90],
+    "earliestNormalTreeCompletionMinutes": 40,
+    "skilledHyperbikeMinutes": [38, 60],
     "activeToPassiveIncomeRatio": [2, 3]
   }
 }

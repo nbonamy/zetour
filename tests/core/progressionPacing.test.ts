@@ -32,7 +32,7 @@ describe("incremental progression pacing", () => {
   });
 
   it(
-    "moves a skilled run from hundreds through millions to the $2B moonshot",
+    "moves a skilled run from hundreds through millions to the $100M capstone",
     () => {
       const result = simulateEconomy({
         durationSeconds: 100 * 60,
@@ -55,11 +55,11 @@ describe("incremental progression pacing", () => {
       expect(result.balanceTimes.cash[100_000_000]).toBeLessThanOrEqual(
         35 * 60,
       );
-      expect(result.hyperbikeSeconds).toBeGreaterThanOrEqual(60 * 60);
-      expect(result.hyperbikeSeconds).toBeLessThanOrEqual(90 * 60);
+      expect(result.hyperbikeSeconds).toBeGreaterThanOrEqual(38 * 60);
+      expect(result.hyperbikeSeconds).toBeLessThanOrEqual(60 * 60);
       expect(result.firstTourSeconds).toBeGreaterThanOrEqual(20 * 60);
       expect(result.firstTourSeconds).toBeLessThanOrEqual(30 * 60);
-      expect(result.normalTreeSeconds).toBeGreaterThanOrEqual(45 * 60);
+      expect(result.normalTreeSeconds).toBeGreaterThanOrEqual(40 * 60);
       expect(result.totalEarned.sweat).toBeGreaterThan(1_000_000_000);
       expect(result.totalEarned.sweat).toBeLessThan(1_000_000_000_000_000);
       expect(result.incomeBySource.riding.sweat).toBeGreaterThan(0);

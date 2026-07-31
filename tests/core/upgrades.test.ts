@@ -61,6 +61,7 @@ describe("incremental upgrade tree", () => {
     expect(upgradeCost(power, 0)).toBe(175);
     expect(upgradeCost(power, 1)).toBe(438);
     expect(upgradeCost(power, 9)).toBe(875_000_000);
+    expect(upgradeCost(upgrade("hyperbike"), 0)).toBe(100_000_000);
     expect(helmet.costs).toEqual([100, 300, 1_000]);
     for (const definition of upgrades) {
       for (let level = 1; level < definition.maxLevel; level += 1) {
@@ -137,7 +138,7 @@ describe("incremental upgrade tree", () => {
       "Need 100 more Sweat",
     );
     expect(store.purchaseStatus(upgrade("hyperbike")).reason).toBe(
-      "Need $2B more",
+      "Requires Sustained power tier 10",
     );
   });
 

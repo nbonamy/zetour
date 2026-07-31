@@ -274,14 +274,14 @@ describe("UpgradeGraph", () => {
     host.remove();
   });
 
-  it("shows the $2B moonshot and its full payoff from the opening", async () => {
+  it("shows the $100M capstone and its full payoff from the opening", async () => {
     mountGraph();
     const hyperbike = host.querySelector<HTMLButtonElement>(
       'button[aria-label="Hyperbike moonshot"]',
     );
     if (!hyperbike) throw new Error("Missing Hyperbike node");
 
-    expect(hyperbike.textContent).not.toContain("$2B DREAM");
+    expect(hyperbike.textContent).not.toContain("$100M DREAM");
     hyperbike.click();
     await nextTick();
 
@@ -292,7 +292,7 @@ describe("UpgradeGraph", () => {
       host.querySelector<HTMLButtonElement>(
         '.purchase-option[data-quantity="1"]',
       )?.textContent,
-    ).toContain("Need $2B more");
+    ).toContain("Requires Sustained power tier 10");
     expect(gameStore.getSnapshot().upgrades.hyperbike).toBeUndefined();
     app?.unmount();
     host.remove();

@@ -131,8 +131,9 @@ the first two tiers intentionally add no performance. Abstract training paths
 start cheaply, then use explicitly authored ratios that accelerate up to the
 10× adjacent-tier limit. Final endurance and power steps cost hundreds of
 millions of Sweat, creating the late-game wall without pretending a normal
-helmet costs $68M. The always-visible **Hyperbike moonshot** costs exactly $2B,
-adds 2.5 km/h, and multiplies all output by ×10.
+helmet costs $68M. The always-visible **Hyperbike moonshot** is a Rider capstone:
+complete Sustained Power tier 10, pay $100M, gain 2.5 km/h, and multiply all
+output by ×10.
 
 This cost-versus-production seesaw follows the geometric model in
 [The Math of Idle Games](https://blog.kongregate.com/the-math-of-idle-games-part-i/):
@@ -400,8 +401,8 @@ confirmation dialog.
 - A standard run exits Stages 1–4 at Rider Levels 3, 5, 8, and 10.
 - A skilled run reaches a 1M Sweat balance in 10–20 minutes.
 - A skilled run reaches a 100M Cash balance in 15–35 minutes.
-- No strategy completes the ordinary upgrade tree before 45 minutes.
-- A skilled run buys the $2B Hyperbike in 60–90 minutes.
+- No strategy completes the ordinary upgrade tree before 40 minutes.
+- A skilled run buys the $100M Hyperbike capstone in 38–60 minutes.
 - Passive play advances Rider Level and resources but should not outperform
   active pickups and clean challenges.
 - A 120-minute skilled run must remain below 1 quadrillion total Sweat; rapid

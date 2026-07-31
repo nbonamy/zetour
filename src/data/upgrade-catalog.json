@@ -1167,11 +1167,16 @@
       "id": "hyperbike",
       "branch": "rider",
       "name": "Hyperbike moonshot",
-      "description": "The impossible two-billion-dollar machine. Build the economy that can afford it, then break the Tour wide open.",
+      "description": "The ultimate hundred-million-dollar machine. Master sustained power, build the economy that can afford it, then break the Tour wide open.",
       "icon": "✦",
       "parent": null,
       "children": [],
-      "dependencies": [],
+      "dependencies": [
+        {
+          "id": "power",
+          "requiredTier": 10
+        }
+      ],
       "tree": {
         "x": 50,
         "y": 8
@@ -1180,7 +1185,7 @@
         {
           "name": "Hyperbike moonshot 1",
           "price": {
-            "amount": 2000000000,
+            "amount": 100000000,
             "unit": "cash"
           },
           "gains": [

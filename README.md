@@ -92,7 +92,7 @@ npm run simulate:economy -- --minutes=120 --runs=3 --seed=42 --strategies=casual
 
 The app uses Vue for the interface and workshop, Phaser for the road simulation, and a framework-independent TypeScript core for the economy and progression rules.
 
-The economy simulator runs the real game store and encounter rules with deterministic seeds. It checks first-purchase timing, Tour duration, Rider Level stage checkpoints, the ordinary-tree runway, the permanent 25–80 km/h invariant, and the $2B Hyperbike arrival. Use `--strategies=casual,skilled` for focused runs, `--progression=none` to isolate Rider Level, `--trace=skilled` for a purchase trace, `--check` for a failing calibration gate, or `--json` for machine-readable results.
+The economy simulator runs the real game store and encounter rules with deterministic seeds. It checks first-purchase timing, Tour duration, Rider Level stage checkpoints, the ordinary-tree runway, the permanent 25–80 km/h invariant, and the $100M Hyperbike capstone arrival. Use `--strategies=casual,skilled` for focused runs, `--progression=none` to isolate Rider Level, `--trace=skilled` for a purchase trace, `--check` for a failing calibration gate, or `--json` for machine-readable results.
 
 ```text
 src/
