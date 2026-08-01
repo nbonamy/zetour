@@ -359,7 +359,7 @@ Finishing Sector 5 freezes the ride and shows:
 Victory lap returns to Paris while preserving:
 
 - Sweat and Cash;
-- every in-Season upgrade;
+- every workshop upgrade;
 - branch unlocks;
 - personal records.
 
@@ -375,10 +375,16 @@ pending Palmarès = floor(10 × sqrt(Season Tour equivalents))
 Starting the next Season:
 
 - awards pending Palmarès;
-- resets Sweat, Cash, route progress, and in-Season upgrades;
+- resets Sweat, Cash, and route progress;
+- preserves every workshop upgrade;
 - preserves Palmarès upgrades, records, lifetime distance, and completed Tours;
 - applies pre-season starting resources;
 - returns to Sector 1.
+
+Rider Level has no maximum. Levels 1–12 use hand-authored XP thresholds for
+the first Tour; every later level requires 1.5× more incremental XP than the
+previous one while production grows 20% per level. Seasons carry Rider XP
+forward.
 
 Every banked Palmarès point also contributes +10% permanent pace. This makes the
 first 10-point prestige immediately double pace before the player buys a

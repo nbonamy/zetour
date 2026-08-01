@@ -1000,6 +1000,7 @@ export class GameStore {
     if (reward <= 0) return false;
 
     const records = { ...this.state.sectorRecords };
+    const upgrades = { ...this.state.upgrades };
     const palmaresUpgrades = { ...this.state.palmaresUpgrades };
     const nextSeason = this.state.season + 1;
     const nextPalmares = this.state.palmares + reward;
@@ -1017,6 +1018,7 @@ export class GameStore {
       sweat: startingResources,
       cash: startingResources,
       riderXp,
+      upgrades,
       season: nextSeason,
       palmares: nextPalmares,
       totalPalmares: nextTotalPalmares,

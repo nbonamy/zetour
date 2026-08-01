@@ -697,11 +697,7 @@ onBeforeUnmount(() => {
           >
             <div
               class="hud-tray-slot hud-level-slot"
-              :aria-label="
-                snapshot.riderProgress.nextLevelXp === null
-                  ? `Rider Level ${snapshot.riderProgress.level}, maximum level`
-                  : `Rider Level ${snapshot.riderProgress.level}, ${format(snapshot.riderProgress.xp)} of ${format(snapshot.riderProgress.nextLevelXp)} XP`
-              "
+              :aria-label="`Rider Level ${snapshot.riderProgress.level}, ${format(snapshot.riderProgress.xp)} of ${format(snapshot.riderProgress.nextLevelXp)} XP`"
             >
               <span class="hud-level-display" aria-hidden="true">
                 <b>{{ snapshot.riderProgress.level }}</b>
@@ -957,8 +953,9 @@ onBeforeUnmount(() => {
                             Math.max(1, 10 + snapshot.totalPalmares)),
                     )
                   }}.
-                  Or keep this build and complete another Tour for a larger
-                  reward.
+                  Your workshop stays installed; only Sweat, Cash, and route
+                  progress reset.
+                  Or complete another Tour before banking for a larger reward.
                 </p>
               </div>
             </div>
@@ -994,7 +991,7 @@ onBeforeUnmount(() => {
                 class="race-restart race-victory-lap"
                 @click="continueTour"
               >
-                Victory lap · keep everything
+                Victory lap · keep Sweat &amp; Cash
               </button>
               <button
                 type="button"

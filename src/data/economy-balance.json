@@ -27,7 +27,12 @@
       { "level": 10, "requiredXp": 3200, "productionMultiplier": 3.6 },
       { "level": 11, "requiredXp": 4500, "productionMultiplier": 7.5 },
       { "level": 12, "requiredXp": 6500, "productionMultiplier": 20 }
-    ]
+    ],
+    "uncappedCurve": {
+      "firstAdditionalLevelXp": 3000,
+      "xpRequirementGrowth": 1.5,
+      "productionMultiplierGrowth": 1.2
+    }
   },
   "production": {
     "baseSweatPerSecond": 2.5,

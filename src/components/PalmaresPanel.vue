@@ -38,8 +38,8 @@ const toggleAutomation = (): void => {
         <p class="eyebrow">Permanent career</p>
         <h3>Palmarès</h3>
         <p>
-          Every completed Season compresses the roads you have mastered. These
-          upgrades survive every reset.
+          Every completed Season compresses the roads you have mastered.
+          Palmarès upgrades add permanent advantages to every future Tour.
         </p>
       </div>
       <div class="palmares-balance">

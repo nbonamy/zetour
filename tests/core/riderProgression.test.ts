@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanChallengeXp,
+  riderLevelTier,
   riderProgressForXp,
 } from "../../src/core/riderProgression";
 import { stages } from "../../src/core/gameStore";
@@ -29,10 +30,44 @@ describe("Rider Level progression", () => {
     });
     expect(riderProgressForXp(6_500)).toMatchObject({
       level: 12,
-      nextLevelXp: null,
-      progress: 1,
+      nextLevelXp: 9_500,
+      progress: 0,
       productionMultiplier: 20,
     });
+  });
+
+  it("extends Rider Level forever with increasingly expensive XP steps", () => {
+    expect(riderLevelTier(13)).toMatchObject({
+      level: 13,
+      requiredXp: 9_500,
+      productionMultiplier: 24,
+    });
+    expect(riderLevelTier(14)).toMatchObject({
+      level: 14,
+      requiredXp: 14_000,
+    });
+    expect(riderLevelTier(14).productionMultiplier).toBeCloseTo(28.8);
+    expect(riderLevelTier(15)).toMatchObject({
+      level: 15,
+      requiredXp: 20_750,
+    });
+    expect(riderLevelTier(15).productionMultiplier).toBeCloseTo(34.56);
+
+    expect(riderProgressForXp(9_499)).toMatchObject({
+      level: 12,
+      nextLevelXp: 9_500,
+    });
+    expect(riderProgressForXp(9_500)).toMatchObject({
+      level: 13,
+      nextLevelXp: 14_000,
+      progress: 0,
+    });
+
+    const farFuture = riderProgressForXp(1_000_000_000);
+    expect(farFuture.level).toBeGreaterThan(20);
+    expect(farFuture.nextLevelXp).toBeGreaterThan(farFuture.xp);
+    expect(farFuture.progress).toBeGreaterThanOrEqual(0);
+    expect(farFuture.progress).toBeLessThan(1);
   });
 
   it("rewards harder clean encounters with more XP", () => {

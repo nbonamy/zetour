@@ -420,6 +420,7 @@ describe("stage and offline progression", () => {
       sweat: 5_000,
       cash: 4_000,
       upgrades: { power: 10, "aero-socks": 10 },
+      reservedPowerUp: "jump",
       sectorRecords: {
         "1": {
           totalSeconds: 100,
@@ -445,7 +446,10 @@ describe("stage and offline progression", () => {
     expect(state.toursThisSeason).toBe(0);
     expect(state.seasonDistanceKm).toBe(0);
     expect(state.lifetimeDistanceKm).toBe(TOTAL_TOUR_DISTANCE_KM);
-    expect(state.upgrades).toEqual({});
+    expect(state.sweat).toBe(0);
+    expect(state.cash).toBe(0);
+    expect(state.upgrades).toEqual({ power: 10, "aero-socks": 2 });
+    expect(state.reservedPowerUp).toBeNull();
     expect(state.sectorRecords["1"]).toBeDefined();
     expect(state.stats.palmaresMultiplier).toBe(2);
 
@@ -454,6 +458,25 @@ describe("stage and offline progression", () => {
     expect(state.palmares).toBe(7);
     expect(state.palmaresUpgrades["tour-legend"]).toBe(1);
     expect(state.stats.palmaresMultiplier).toBe(4);
+  });
+
+  it("carries the complete ultimate machine into every new Season", () => {
+    const ultimateMachine = Object.fromEntries(
+      upgradeDefinitions.map((upgrade) => [upgrade.id, upgrade.maxLevel]),
+    );
+    const { store } = createTestStore({
+      stage: 5,
+      highestStage: 5,
+      stageDistanceM: stages[4].distanceM,
+      raceFinished: true,
+      seasonDistanceKm: TOTAL_TOUR_DISTANCE_KM,
+      toursCompleted: 1,
+      toursThisSeason: 1,
+      upgrades: ultimateMachine,
+    });
+
+    expect(store.startNextSeason()).toBe(true);
+    expect(store.getSnapshot().upgrades).toEqual(ultimateMachine);
   });
 
   it("uses Palmarès preparation and race radio on later Seasons", () => {

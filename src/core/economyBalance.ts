@@ -21,6 +21,11 @@ export interface EconomyBalance {
       requiredXp: number;
       productionMultiplier: number;
     }>;
+    uncappedCurve: {
+      firstAdditionalLevelXp: number;
+      xpRequirementGrowth: number;
+      productionMultiplierGrowth: number;
+    };
   };
   production: {
     baseSweatPerSecond: number;
@@ -77,6 +82,18 @@ const validateEconomyBalance = (balance: EconomyBalance): void => {
       throw new Error(`Rider Level ${tier.level} has invalid production`);
     }
   });
+
+  const uncappedCurve = balance.riderProgression.uncappedCurve;
+  if (
+    !Number.isFinite(uncappedCurve.firstAdditionalLevelXp) ||
+    uncappedCurve.firstAdditionalLevelXp <= 0 ||
+    !Number.isFinite(uncappedCurve.xpRequirementGrowth) ||
+    uncappedCurve.xpRequirementGrowth <= 1 ||
+    !Number.isFinite(uncappedCurve.productionMultiplierGrowth) ||
+    uncappedCurve.productionMultiplierGrowth <= 1
+  ) {
+    throw new Error("Invalid uncapped Rider Level curve");
+  }
 
   const stageTargets = balance.riderProgression.stageEntryLevelTargets;
   if (

@@ -35,7 +35,7 @@ The workshop presents Rider, Nutrition, Equipment, Bike, and Team progression as
 - Acceleration, Super Draft, and Invincibility power-ups with genuinely different uses.
 - A Career Workshop spanning Rider, Nutrition, Equipment, Bike, and Team upgrades.
 - Short, named equipment paths based on plausible cycling gear—not 100 anonymous helmet levels.
-- A continuous Rider Level fed by riding, clean challenges, pickups, and power-up use.
+- An uncapped Rider Level fed by riding, clean challenges, pickups, and power-up use.
 - A believable 25–80 km/h permanent pace curve alongside exponential production, offline progress, and increasingly absurd costs.
 - A Season prestige loop with permanent Palmarès upgrades and persistent course records.
 - A hand-drawn storybook presentation with a slightly ridiculous cycling soul.
@@ -49,7 +49,7 @@ The workshop presents Rider, Nutrition, Equipment, Bike, and Team progression as
 5. Reach Alpe d'Huez and take a victory lap, or bank the run as **Palmarès**.
 6. Start a stronger Season, buy permanent bonuses, and chase the next impossible number.
 
-Sweat and Cash belong to the current Season. Palmarès is earned by finishing Tours and survives the reset.
+Sweat and Cash belong to the current Season. Palmarès, Rider Level, and every workshop purchase survive the reset.
 
 ## Controls
 
