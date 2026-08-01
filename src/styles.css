@@ -1598,6 +1598,7 @@ h1 {
 
 .reset-trigger,
 .pause-trigger,
+.audio-toggle,
 .workshop-trigger,
 .workshop-close,
 .race-restart {
@@ -1625,6 +1626,37 @@ h1 {
   background:
     linear-gradient(#b8ca71, #7f9847),
     url("/assets/art/paper-texture.jpg");
+}
+
+.audio-toggle {
+  cursor: pointer;
+}
+
+.audio-toggle::before {
+  content: "♪";
+  font-size: 15px;
+  line-height: 1;
+}
+
+.audio-toggle.muted {
+  background:
+    linear-gradient(#c8b38b, #9c805f),
+    url("/assets/art/paper-texture.jpg");
+  color: #513b2d;
+}
+
+.audio-toggle.muted::before {
+  content: "×";
+}
+
+.audio-toggle.effects-only {
+  background:
+    linear-gradient(#b8ca71, #7f9847),
+    url("/assets/art/paper-texture.jpg");
+}
+
+.audio-toggle.effects-only::before {
+  content: "✦";
 }
 
 .ride-column {
@@ -1803,6 +1835,12 @@ h1 {
 .active-power-up[data-power-up="jump"] {
   border-color: #8b641d;
   background: rgba(91, 58, 22, 0.96);
+}
+
+.active-power-up.suppressed {
+  border-style: dashed;
+  filter: grayscale(0.65);
+  opacity: 0.82;
 }
 
 .active-power-up > img {
@@ -3147,6 +3185,10 @@ kbd {
     padding: 5px 6px;
     border-width: 2px;
     font-size: 8px;
+  }
+
+  .audio-toggle > span {
+    display: none;
   }
 
   .hud-bottom-left {

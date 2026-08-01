@@ -27,11 +27,13 @@ vi.mock("../src/components/UpgradeGraph.vue", () => ({
 }));
 
 import App from "../src/App.vue";
+import { gameAudio } from "../src/audio/gameAudio";
 import { gameStore } from "../src/core/gameStore";
 
 describe("App", () => {
   beforeEach(() => {
     gameStore.resetCareer();
+    gameAudio.setMode("full");
     window.localStorage.setItem(WORKSHOP_INVITATION_STORAGE_KEY, "1");
     document.body.innerHTML = '<div id="test-app"></div>';
     componentState.paused = false;
@@ -87,6 +89,30 @@ describe("App", () => {
     expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
     expect(componentState.paused).toBe(false);
     secondApp.unmount();
+  });
+
+  it("sounds workshop entry and exit exactly once", async () => {
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
+    const app = createApp(App);
+    const host = document.querySelector("#test-app");
+    if (!host) throw new Error("Missing test host");
+    app.mount(host);
+
+    document
+      .querySelector<HTMLButtonElement>(".workshop-trigger")
+      ?.click();
+    await nextTick();
+    document.querySelector<HTMLButtonElement>(".workshop-close")?.click();
+    await nextTick();
+
+    expect(playEffect.mock.calls.map(([effect]) => effect)).toEqual([
+      "workshop-open",
+      "workshop-close",
+    ]);
+    playEffect.mockRestore();
+    app.unmount();
   });
 
   it("shows the clean race HUD and pauses the ride with the W workshop shortcut", async () => {
@@ -152,8 +178,14 @@ describe("App", () => {
     expect(document.body.textContent).not.toContain("580.00");
     expect(document.body.textContent).not.toContain("km ridden");
     expect(document.body.textContent).toContain("Workshop W");
+    expect(document.querySelector(".audio-toggle")?.textContent).toContain(
+      "Music",
+    );
+    expect(document.querySelector(".audio-toggle kbd")?.textContent).toBe(
+      "M",
+    );
     expect(document.body.textContent).toContain("Pause P");
-    expect(document.querySelectorAll(".hud-control")).toHaveLength(4);
+    expect(document.querySelectorAll(".hud-control")).toHaveLength(5);
     expect(
       Array.from(
         document.querySelectorAll(".hud-bottom .hud-control"),
@@ -162,7 +194,7 @@ describe("App", () => {
             key.textContent?.trim(),
           ),
       ),
-    ).toEqual([["↑", "↓"], ["W"], ["P"], ["R"]]);
+    ).toEqual([["↑", "↓"], ["W"], ["M"], ["P"], ["R"]]);
     expect(document.body.textContent).not.toContain("Workshop U");
     expect(
       document.querySelector('[aria-label^="Sweat balance"] strong')?.textContent,
@@ -181,6 +213,40 @@ describe("App", () => {
       "All collected resources are available immediately",
     );
     expect(componentState.paused).toBe(false);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+    await nextTick();
+    expect(
+      document.querySelector<HTMLButtonElement>(".audio-toggle")?.dataset
+        .audioMode,
+    ).toBe("muted");
+    expect(document.querySelector(".audio-toggle")?.textContent).toContain(
+      "Mute",
+    );
+    expect(window.localStorage.getItem("ze-tour-audio-v1")).toBe(
+      '{"mode":"muted"}',
+    );
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+    await nextTick();
+    expect(
+      document.querySelector<HTMLButtonElement>(".audio-toggle")?.dataset
+        .audioMode,
+    ).toBe("effects");
+    expect(document.querySelector(".audio-toggle")?.textContent).toContain(
+      "FX",
+    );
+    expect(window.localStorage.getItem("ze-tour-audio-v1")).toBe(
+      '{"mode":"effects"}',
+    );
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+    await nextTick();
+    expect(
+      document.querySelector<HTMLButtonElement>(".audio-toggle")?.dataset
+        .audioMode,
+    ).toBe("full");
+    expect(document.querySelector(".audio-toggle")?.textContent).toContain(
+      "Music",
+    );
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "p" }));
     await nextTick();
@@ -309,6 +375,9 @@ describe("App", () => {
   });
 
   it("shows and activates the single power-up reserve", async () => {
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
     gameStore.collectPowerUp("lucky-bidon");
     const app = createApp(App);
     const host = document.querySelector("#test-app");
@@ -322,7 +391,7 @@ describe("App", () => {
     expect(useButton?.disabled).toBe(false);
     expect(useButton?.title).toContain("2.5× speed + income");
     expect(useButton?.getAttribute("aria-label")).toContain(
-      "Use Acceleration: 2.5× speed + income",
+      "Use Acceleration: 2.5× speed + income · 5s · solo only",
     );
     useButton?.click();
     await nextTick();
@@ -333,11 +402,27 @@ describe("App", () => {
       "Acceleration",
     );
     expect(document.querySelector(".active-power-up small")?.textContent).toBe(
-      "2.5× speed + income",
+      "2.5× speed + income · 5s · solo only",
     );
     expect(
       document.querySelector<HTMLImageElement>(".active-power-up img")?.src,
     ).toContain("/assets/art/power-acceleration.png");
+    expect(playEffect).toHaveBeenCalledWith("power-up-activate");
+
+    gameStore.setTemporaryDraftBonus(0.5);
+    gameStore.tick(0.25);
+    await nextTick();
+    expect(gameStore.getSnapshot().activePowerUp?.suppressed).toBe(true);
+    expect(document.querySelector(".active-power-up")?.classList).toContain(
+      "suppressed",
+    );
+    expect(document.querySelector(".active-power-up")?.textContent).toContain(
+      "Acceleration blocked",
+    );
+    expect(document.querySelector(".active-power-up small")?.textContent).toBe(
+      "Stranger draft takes priority",
+    );
+    playEffect.mockRestore();
     app.unmount();
   });
 

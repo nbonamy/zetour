@@ -1,5 +1,6 @@
 import { createApp, h, nextTick, type App as VueApp } from "vue";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { gameAudio } from "../../src/audio/gameAudio";
 import UpgradeGraph from "../../src/components/UpgradeGraph.vue";
 import { gameStore } from "../../src/core/gameStore";
 import { upgradeById } from "../../src/core/upgrades";
@@ -177,6 +178,9 @@ describe("UpgradeGraph", () => {
   });
 
   it("buys an available upgrade by clicking its tile", async () => {
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
     gameStore.activateKonamiCheat();
     mountGraph();
     const hydration = host.querySelector<HTMLButtonElement>(
@@ -211,12 +215,18 @@ describe("UpgradeGraph", () => {
     hydration.click();
     await nextTick();
     expect(gameStore.getSnapshot().upgrades.hydration).toBe(1);
+    expect(playEffect).toHaveBeenLastCalledWith("upgrade-purchase");
 
     host
       .querySelector<HTMLButtonElement>('.purchase-option[data-quantity="1"]')
       ?.click();
     await nextTick();
     expect(gameStore.getSnapshot().upgrades.hydration).toBe(2);
+    expect(playEffect.mock.calls.map(([effect]) => effect)).toEqual([
+      "upgrade-purchase",
+      "upgrade-purchase",
+    ]);
+    playEffect.mockRestore();
     app?.unmount();
     host.remove();
   });

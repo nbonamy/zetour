@@ -12,6 +12,10 @@ import GameCanvas from "./components/GameCanvas.vue";
 import PalmaresPanel from "./components/PalmaresPanel.vue";
 import UpgradeGraph from "./components/UpgradeGraph.vue";
 import {
+  gameAudio,
+  gameEffectsForTransition,
+} from "./audio/gameAudio";
+import {
   courseRecordForStage,
   displayStageDistanceKm,
   gameStore,
@@ -83,6 +87,29 @@ const firstUpgradeInvitationOpen = ref(false);
 const firstUpgradeInvitationButton = ref<HTMLButtonElement | null>(null);
 const resetConfirmationOpen = ref(false);
 const manuallyPaused = ref(visualQa.paused);
+const audioState = shallowRef(gameAudio.getState());
+const audioModeCopy = computed(() => {
+  switch (audioState.value.mode) {
+    case "muted":
+      return {
+        label: "Mute",
+        next: "effects only",
+        title: "All game audio is muted",
+      };
+    case "effects":
+      return {
+        label: "FX",
+        next: "music and effects",
+        title: "Game effects are on; music is off",
+      };
+    case "full":
+      return {
+        label: "Music",
+        next: "mute",
+        title: `${audioState.value.soundtrackTitle} and game effects are on`,
+      };
+  }
+});
 const ridePaused = computed(
   () =>
     manuallyPaused.value ||
@@ -106,12 +133,14 @@ const activePowerUp = computed(() =>
         ...powerUpDefinitions[visualQa.powerUp],
         remainingSeconds:
           powerUpDefinitions[visualQa.powerUp].durationSeconds * 0.6,
+        suppressed: false,
       }
     : snapshot.value.activePowerUp
     ? {
         type: snapshot.value.activePowerUp.type,
         ...powerUpDefinitions[snapshot.value.activePowerUp.type],
         remainingSeconds: snapshot.value.activePowerUp.remainingSeconds,
+        suppressed: snapshot.value.activePowerUp.suppressed,
       }
     : null,
 );
@@ -232,6 +261,31 @@ const unsubscribeNotices = gameStore.subscribeToNotices((message, tone) => {
     notice.value = null;
   }, 2_200);
 });
+const unsubscribeAudio = gameAudio.subscribe((state) => {
+  audioState.value = state;
+});
+
+watch(
+  () => displayedStage.value.number,
+  (stage) => gameAudio.setStage(stage),
+  { immediate: true },
+);
+watch(ridePaused, (paused) => gameAudio.setPaused(paused), { immediate: true });
+watch(
+  () => ({
+    activePowerUp: snapshot.value.activePowerUp?.type ?? null,
+    level: snapshot.value.riderProgress.level,
+    raceFinished: snapshot.value.raceFinished,
+    raceRevision: snapshot.value.raceRevision,
+    stage: snapshot.value.stage,
+  }),
+  (next, previous) => {
+    gameEffectsForTransition(previous, next).forEach((effect) =>
+      gameAudio.playEffect(effect),
+    );
+  },
+  { flush: "sync" },
+);
 
 watch(
   [
@@ -265,14 +319,16 @@ watch(
 onBeforeUnmount(() => {
   unsubscribe();
   unsubscribeNotices();
+  unsubscribeAudio();
   window.clearTimeout(noticeTimer);
 });
 
 const format = (value: number): string => formatCompactNumber(value);
 
 const openWorkshop = (): void => {
-  if (displayedRaceFinished.value) return;
+  if (displayedRaceFinished.value || workshopOpen.value) return;
   workshopOpen.value = true;
+  gameAudio.playEffect("workshop-open");
 };
 
 const dismissFirstUpgradeInvitation = (): void => {
@@ -286,6 +342,7 @@ const openWorkshopFromInvitation = (): void => {
 };
 
 const closeWorkshop = (): void => {
+  if (workshopOpen.value) gameAudio.playEffect("workshop-close");
   workshopOpen.value = false;
   manuallyPaused.value = false;
 };
@@ -318,7 +375,13 @@ const toggleManualPause = (): void => {
 };
 
 const activatePowerUp = (): void => {
-  if (!ridePaused.value) gameStore.activateReservedPowerUp();
+  if (!ridePaused.value && gameStore.activateReservedPowerUp()) {
+    gameAudio.playEffect("power-up-activate");
+  }
+};
+
+const toggleAudio = (): void => {
+  gameAudio.cycleMode();
 };
 
 const continueTour = (): void => {
@@ -350,6 +413,9 @@ const trackKonamiCode = (event: KeyboardEvent): boolean => {
 const onKeydown = (event: KeyboardEvent): void => {
   if (trackKonamiCode(event)) {
     event.preventDefault();
+  } else if (event.key.toLowerCase() === "m") {
+    event.preventDefault();
+    toggleAudio();
   } else if (
     event.key === "Escape" &&
     firstUpgradeInvitationOpen.value
@@ -390,8 +456,15 @@ const onKeydown = (event: KeyboardEvent): void => {
   }
 };
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
-onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
+let removeAudioUnlockListeners: (() => void) | undefined;
+onMounted(() => {
+  window.addEventListener("keydown", onKeydown);
+  removeAudioUnlockListeners = gameAudio.installUserGestureUnlock(window);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onKeydown);
+  removeAudioUnlockListeners?.();
+});
 </script>
 
 <template>
@@ -563,8 +636,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
         <div
           v-if="activePowerUp"
           class="active-power-up"
+          :class="{ suppressed: activePowerUp.suppressed }"
           :data-power-up="activePowerUp.type"
-          :title="activePowerUp.description"
+          :title="
+            activePowerUp.suppressed
+              ? 'Acceleration has no effect while drafting a stranger'
+              : activePowerUp.description
+          "
           aria-live="polite"
         >
           <img
@@ -573,8 +651,20 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             aria-hidden="true"
           />
           <span class="active-power-up-copy">
-            <strong>{{ activePowerUp.label }}</strong>
-            <small>{{ activePowerUp.description }}</small>
+            <strong>
+              {{
+                activePowerUp.suppressed
+                  ? `${activePowerUp.label} blocked`
+                  : activePowerUp.label
+              }}
+            </strong>
+            <small>
+              {{
+                activePowerUp.suppressed
+                  ? "Stranger draft takes priority"
+                  : activePowerUp.description
+              }}
+            </small>
           </span>
           <b>{{ activePowerUp.remainingSeconds.toFixed(1) }}s</b>
         </div>
@@ -669,6 +759,21 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           </div>
 
           <div class="hud-bottom-side hud-bottom-right">
+            <button
+              type="button"
+              class="audio-toggle hud-control"
+              :class="{
+                muted: audioState.mode === 'muted',
+                'effects-only': audioState.mode === 'effects',
+              }"
+              :data-audio-mode="audioState.mode"
+              :aria-label="`${audioModeCopy.title}. Press M for ${audioModeCopy.next}.`"
+              :title="`${audioModeCopy.title} · press M for ${audioModeCopy.next}`"
+              @click="toggleAudio"
+            >
+              <span>{{ audioModeCopy.label }}</span>
+              <kbd>M</kbd>
+            </button>
             <button
               type="button"
               class="pause-trigger hud-control"

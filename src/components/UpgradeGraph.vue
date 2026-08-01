@@ -21,6 +21,7 @@ import {
 } from "../core/upgrades";
 import { formatCompactNumber, formatMultiplier } from "../core/format";
 import { gameStore, type GameSnapshot } from "../core/gameStore";
+import { gameAudio } from "../audio/gameAudio";
 
 const props = defineProps<{
   snapshot: GameSnapshot;
@@ -346,13 +347,15 @@ const activateAndBuyNode = (upgrade: UpgradeDefinition): void => {
     visibility(upgrade) === "revealed" &&
     gameStore.isBranchUnlocked(upgrade.branch)
   ) {
-    gameStore.purchase(upgrade, 1);
+    if (gameStore.purchase(upgrade, 1)) {
+      gameAudio.playEffect("upgrade-purchase");
+    }
   }
 };
 
 const buySelected = (quantity: PurchaseQuantity): void => {
-  if (selected.value) {
-    gameStore.purchase(selected.value, quantity);
+  if (selected.value && gameStore.purchase(selected.value, quantity)) {
+    gameAudio.playEffect("upgrade-purchase");
   }
 };
 

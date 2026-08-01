@@ -168,6 +168,27 @@ Mechanical paths are first-class progression, not flavor text:
 
 ## Active ride
 
+### Sound and music
+
+Each Sector has an original looping arrangement tied to its landscape: sunny
+road-movie brass for the Atlantic run, earthy percussion for Périgord gravel,
+motorik momentum for the Provence descent, airy syncopation through the
+Mistral, and a climbing ostinato for Alpe d'Huez. Sector changes crossfade
+rather than cutting between tracks.
+
+The event score distinguishes resource and power-up pickups, activation and
+expiry, shielded impacts, collisions, clean and missed challenges, drafting,
+Rider Levels, workshop purchases, Sector and Tour finishes, race starts, and
+workshop transitions. High-frequency actions such as steering, passing cars,
+fan groups, and generic encounter announcements stay silent so the important
+cues remain legible. Larger milestones take priority when multiple state
+changes land together. Music fades while the ride is paused, all audio waits
+for the browser's first user gesture, and `M` cycles through muted, effects
+only, and music plus effects. The selected mode persists locally.
+
+The complete score is generated from the authored composition in
+`scripts/generate-audio.mjs`, keeping it original and reproducible.
+
 ### Steering and encounters
 
 `↑` and `↓` select one of three lanes. The rider eases toward the lane at a
@@ -246,7 +267,8 @@ speed depending on visible formation size.
 
 ### Power-ups
 
-- **Acceleration:** reliable ×2.5 speed and income for ten seconds.
+- **Acceleration:** reliable ×2.5 speed and income for five seconds when
+  riding solo. It cannot activate or apply while drafting a stranger.
 - **Super Draft:** stronger ×4 speed and income for eight seconds, but it only
   activates while attached to another rider's wheel.
 - **Invincibility:** ignores pothole and traffic damage for eight seconds.

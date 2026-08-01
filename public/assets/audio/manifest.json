@@ -1,0 +1,192 @@
+{
+  "generatedBy": "scripts/generate-audio.mjs",
+  "sampleRate": 32000,
+  "license": "Original Ze Tour game assets; distributed under the repository Apache-2.0 license.",
+  "soundtrack": [
+    {
+      "stage": 1,
+      "bpm": 108,
+      "key": "D major",
+      "name": "stage-1",
+      "title": "Atlantic Sun",
+      "durationSeconds": 53.333,
+      "sourceRms": 0.0826,
+      "sourcePeak": 0.5451
+    },
+    {
+      "stage": 2,
+      "bpm": 102,
+      "key": "A dorian",
+      "name": "stage-2",
+      "title": "Dust of Perigord",
+      "durationSeconds": 56.471,
+      "sourceRms": 0.0756,
+      "sourcePeak": 0.5747
+    },
+    {
+      "stage": 3,
+      "bpm": 126,
+      "key": "E minor",
+      "name": "stage-3",
+      "title": "Rhone Velocity",
+      "durationSeconds": 45.714,
+      "sourceRms": 0.1012,
+      "sourcePeak": 0.8129
+    },
+    {
+      "stage": 4,
+      "bpm": 112,
+      "key": "D minor",
+      "name": "stage-4",
+      "title": "Mistral Lines",
+      "durationSeconds": 51.429,
+      "sourceRms": 0.0829,
+      "sourcePeak": 0.5126
+    },
+    {
+      "stage": 5,
+      "bpm": 98,
+      "key": "C minor",
+      "name": "stage-5",
+      "title": "Twenty-One Bends",
+      "durationSeconds": 58.776,
+      "sourceRms": 0.0877,
+      "sourcePeak": 0.62
+    }
+  ],
+  "effects": [
+    {
+      "name": "sweat-pickup",
+      "title": "Sweat pickup",
+      "durationSeconds": 0.72,
+      "sourceRms": 0.0935,
+      "sourcePeak": 0.3756
+    },
+    {
+      "name": "cash-pickup",
+      "title": "Cash pickup",
+      "durationSeconds": 0.68,
+      "sourceRms": 0.0852,
+      "sourcePeak": 0.381
+    },
+    {
+      "name": "pothole-crash",
+      "title": "Pothole crash",
+      "durationSeconds": 0.78,
+      "sourceRms": 0.1526,
+      "sourcePeak": 1.0806
+    },
+    {
+      "name": "car-crash",
+      "title": "Car crash",
+      "durationSeconds": 1.18,
+      "sourceRms": 0.1972,
+      "sourcePeak": 1.7656
+    },
+    {
+      "name": "draft-start",
+      "title": "Draft start",
+      "durationSeconds": 1.05,
+      "sourceRms": 0.0868,
+      "sourcePeak": 0.4396
+    },
+    {
+      "name": "draft-end",
+      "title": "Draft end",
+      "durationSeconds": 0.92,
+      "sourceRms": 0.0619,
+      "sourcePeak": 0.3387
+    },
+    {
+      "name": "power-up-pickup",
+      "title": "Power-up pickup",
+      "durationSeconds": 0.92,
+      "sourceRms": 0.0643,
+      "sourcePeak": 0.3338
+    },
+    {
+      "name": "power-up-activate",
+      "title": "Power-up activation",
+      "durationSeconds": 1.12,
+      "sourceRms": 0.1155,
+      "sourcePeak": 0.5888
+    },
+    {
+      "name": "power-up-end",
+      "title": "Power-up end",
+      "durationSeconds": 0.82,
+      "sourceRms": 0.0486,
+      "sourcePeak": 0.2484
+    },
+    {
+      "name": "shield-hit",
+      "title": "Invincibility impact",
+      "durationSeconds": 0.74,
+      "sourceRms": 0.0929,
+      "sourcePeak": 0.42
+    },
+    {
+      "name": "challenge-clean",
+      "title": "Clean challenge",
+      "durationSeconds": 1.28,
+      "sourceRms": 0.0711,
+      "sourcePeak": 0.4246
+    },
+    {
+      "name": "challenge-missed",
+      "title": "Missed challenge",
+      "durationSeconds": 0.88,
+      "sourceRms": 0.06,
+      "sourcePeak": 0.2668
+    },
+    {
+      "name": "level-up",
+      "title": "Rider level up",
+      "durationSeconds": 1.72,
+      "sourceRms": 0.0835,
+      "sourcePeak": 0.527
+    },
+    {
+      "name": "upgrade-purchase",
+      "title": "Upgrade purchase",
+      "durationSeconds": 0.82,
+      "sourceRms": 0.0656,
+      "sourcePeak": 0.3176
+    },
+    {
+      "name": "sector-complete",
+      "title": "Sector complete",
+      "durationSeconds": 1.64,
+      "sourceRms": 0.0837,
+      "sourcePeak": 0.4896
+    },
+    {
+      "name": "tour-complete",
+      "title": "Tour complete",
+      "durationSeconds": 2.82,
+      "sourceRms": 0.1082,
+      "sourcePeak": 0.6176
+    },
+    {
+      "name": "race-start",
+      "title": "Race start",
+      "durationSeconds": 1.18,
+      "sourceRms": 0.149,
+      "sourcePeak": 0.4492
+    },
+    {
+      "name": "workshop-open",
+      "title": "Workshop open",
+      "durationSeconds": 0.86,
+      "sourceRms": 0.0482,
+      "sourcePeak": 0.2398
+    },
+    {
+      "name": "workshop-close",
+      "title": "Workshop close",
+      "durationSeconds": 0.68,
+      "sourceRms": 0.0519,
+      "sourcePeak": 0.2245
+    }
+  ]
+}

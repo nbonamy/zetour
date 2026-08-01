@@ -980,7 +980,7 @@ describe("power-up reserve", () => {
     expect(store.getSnapshot().activePowerUp).toBeNull();
   });
 
-  it("runs reliable Acceleration at 2.5× speed and income for ten seconds", () => {
+  it("runs reliable solo Acceleration at 2.5× speed and income for five seconds", () => {
     const { store, advance } = createTestStore();
     const base = store.getSnapshot().stats;
 
@@ -990,7 +990,8 @@ describe("power-up reserve", () => {
 
     expect(accelerated.activePowerUp).toMatchObject({
       type: "lucky-bidon",
-      remainingSeconds: 10,
+      remainingSeconds: 5,
+      suppressed: false,
     });
     expect(accelerated.stats.speedKmh).toBeCloseTo(base.speedKmh * 2.5);
     expect(accelerated.stats.sweatPerSecond).toBeGreaterThan(
@@ -1000,10 +1001,52 @@ describe("power-up reserve", () => {
       base.cashPerSecond * 2.5,
     );
 
-    advance(9.75);
+    advance(4.75);
     expect(store.getSnapshot().activePowerUp?.type).toBe("lucky-bidon");
     advance(0.25);
     expect(store.getSnapshot().activePowerUp).toBeNull();
+  });
+
+  it("keeps Acceleration out of a stranger draft in both timing orders", () => {
+    const blocked = createTestStore().store;
+    blocked.setTemporaryDraftBonus(0.5);
+    blocked.collectPowerUp("lucky-bidon");
+
+    expect(blocked.activateReservedPowerUp()).toBe(false);
+    expect(blocked.getSnapshot().reservedPowerUp).toBe("lucky-bidon");
+    expect(blocked.getSnapshot().activePowerUp).toBeNull();
+
+    const draftOnly = createTestStore().store;
+    draftOnly.setTemporaryDraftBonus(0.5);
+    const draftOnlyStats = draftOnly.getSnapshot().stats;
+
+    const active = createTestStore().store;
+    active.collectPowerUp("lucky-bidon");
+    expect(active.activateReservedPowerUp()).toBe(true);
+    active.setTemporaryDraftBonus(0.5);
+    const suppressed = active.getSnapshot();
+
+    expect(suppressed.activePowerUp).toMatchObject({
+      type: "lucky-bidon",
+      remainingSeconds: 5,
+      suppressed: true,
+    });
+    expect(suppressed.stats.speedKmh).toBeCloseTo(
+      draftOnlyStats.speedKmh,
+    );
+    expect(suppressed.stats.sweatPerSecond).toBeCloseTo(
+      draftOnlyStats.sweatPerSecond,
+    );
+    expect(suppressed.stats.cashPerSecond).toBeCloseTo(
+      draftOnlyStats.cashPerSecond,
+    );
+
+    active.setTemporaryDraftBonus(0);
+    const resumed = active.getSnapshot();
+    expect(resumed.activePowerUp?.suppressed).toBe(false);
+    expect(resumed.stats.speedKmh).toBeGreaterThan(
+      suppressed.stats.speedKmh,
+    );
   });
 
   it("activates eight seconds of hazard immunity without changing rider speed", () => {

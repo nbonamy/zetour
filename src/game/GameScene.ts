@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { gameAudio } from "../audio/gameAudio";
 import {
   gameStore,
   powerUpDefinitions,
@@ -347,9 +348,12 @@ export class GameScene extends Phaser.Scene {
             type: VISUAL_QA.powerUp,
             remainingSeconds:
               powerUpDefinitions[VISUAL_QA.powerUp].durationSeconds * 0.6,
+            suppressed: false,
           }
         : snapshot.activePowerUp;
-    this.updatePowerUpFeedback(visualActivePowerUp);
+    this.updatePowerUpFeedback(
+      visualActivePowerUp?.suppressed ? null : visualActivePowerUp,
+    );
     syncRoadBodyPosition(this.rider.body);
     this.syncDomestiques(
       VISUAL_QA.domestiques ?? snapshot.upgrades.domestique ?? 0,
@@ -1057,6 +1061,7 @@ export class GameScene extends Phaser.Scene {
     if (isPowerUpType(object.eventType)) {
       const definition = powerUpDefinitions[object.eventType];
       gameStore.collectPowerUp(object.eventType);
+      gameAudio.playEffect("power-up-pickup");
       this.rewardFlow(15, "POWER-UP");
       this.floatText(
         object.x,
@@ -1070,6 +1075,9 @@ export class GameScene extends Phaser.Scene {
     const bagType = object.eventType === "sweat" ? "sweat" : "cash";
     const sequenceId = object.sequenceId;
     const amount = gameStore.collectBag(bagType);
+    gameAudio.playEffect(
+      bagType === "sweat" ? "sweat-pickup" : "cash-pickup",
+    );
     this.rewardFlow(10, `COMBO ${this.combo + 1}`);
     this.floatText(
       object.x,
@@ -1104,6 +1112,7 @@ export class GameScene extends Phaser.Scene {
       rules.cleanRewardMultiplier,
       rules.difficulty,
     );
+    gameAudio.playEffect("challenge-clean");
     this.rewardFlow(
       rules.flowReward,
       `CLEAN ×${rules.cleanRewardMultiplier}`,
@@ -1168,6 +1177,7 @@ export class GameScene extends Phaser.Scene {
       ? encounterChallengeRules[challenge.encounter]
       : undefined;
     this.challengeRuns.delete(sequenceId);
+    gameAudio.playEffect("challenge-missed");
     this.showEncounter(
       challenge && rules
         ? `${encounterLabel[challenge.encounter]} MISSED · CLEAN ×${rules.cleanRewardMultiplier} LOST`
@@ -1191,6 +1201,7 @@ export class GameScene extends Phaser.Scene {
         trafficCollision ? "TRAFFIC SHIELD" : "POTHOLE SHIELD",
       );
       this.floatText(object.x, object.y - 18, "INVINCIBLE!", "#ffe26f");
+      gameAudio.playEffect("shield-hit");
       this.destroyRoadObject(object);
       return;
     }
@@ -1213,6 +1224,9 @@ export class GameScene extends Phaser.Scene {
     const lost = trafficCollision
       ? gameStore.hitTraffic()
       : gameStore.hitPothole();
+    gameAudio.playEffect(
+      trafficCollision ? "car-crash" : "pothole-crash",
+    );
     this.flow = 0;
     gameStore.setActiveFlowMultiplier(1);
     this.combo = 0;
@@ -1489,6 +1503,7 @@ export class GameScene extends Phaser.Scene {
           `IN THE DRAFT · +${RANDOM_RIDER_DRAFT_PERCENT}% SPEED · ${rules.durationSeconds}s`,
           1_600,
         );
+        gameAudio.playEffect("draft-start");
         this.rewardFlow(12, "DRAFT");
       } else if (this.draftAcquisitionRemaining <= 0) {
         this.dropDraft();
@@ -1533,17 +1548,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   private dropDraft(): void {
+    const wasDrafting = this.drafting;
     this.drafting = false;
     this.droppedFromDraft = true;
     gameStore.setTemporaryDraftBonus(0);
     this.draftTimerText?.setText("DROPPED");
     this.showEncounter("DROPPED!", 1_300);
+    if (wasDrafting) gameAudio.playEffect("draft-end");
   }
 
   private finishDraft(): void {
     this.drafting = false;
     this.droppedFromDraft = true;
     gameStore.setTemporaryDraftBonus(0);
+    gameAudio.playEffect("draft-end");
+    gameAudio.playEffect("challenge-clean");
     const challengeRules = encounterChallengeRules.draft;
     const reward = gameStore.completeChallenge(
       challengeRules?.cleanRewardMultiplier ?? 6,
@@ -1623,9 +1642,6 @@ export class GameScene extends Phaser.Scene {
       );
       particle.setAngle(roadAngleDegrees(gradient));
     });
-    if (speedKmh > 32 && Math.random() < delta / 2_000) {
-      this.cameras.main.shake(65, 0.0015);
-    }
   }
 
   private updateDraftWindFeedback(active: boolean, color: number): void {

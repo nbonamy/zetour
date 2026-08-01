@@ -84,7 +84,9 @@ describe("incremental progression pacing", () => {
     "proves Rider Level materially accelerates the same seeded run",
     () => {
       const shared = {
-        durationSeconds: 30 * 60,
+        // Five-second Acceleration leaves the no-level control reaching 1M
+        // Sweat at 32:00; keep enough runway to compare both arrival times.
+        durationSeconds: 35 * 60,
         seed: 42,
         strategy: skilled,
       } as const;

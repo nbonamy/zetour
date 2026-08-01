@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { gameAudio } from "../audio/gameAudio";
 import { formatCompactNumber, formatMultiplier } from "../core/format";
 import {
   gameStore,
@@ -19,7 +20,9 @@ const unlocked = computed(
 );
 
 const buy = (id: (typeof palmaresUpgrades)[number]["id"]): void => {
-  gameStore.purchasePalmares(id);
+  if (gameStore.purchasePalmares(id)) {
+    gameAudio.playEffect("upgrade-purchase");
+  }
 };
 
 const toggleAutomation = (): void => {

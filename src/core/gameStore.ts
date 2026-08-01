@@ -112,6 +112,7 @@ export interface PowerUpDefinition {
   productionMultiplier: number;
   windShelter: number;
   requiresDraft: boolean;
+  disabledByStrangerDraft: boolean;
   hazardImmunity: boolean;
 }
 
@@ -126,18 +127,20 @@ export const powerUpDefinitions: Record<PowerUpType, PowerUpDefinition> = {
     productionMultiplier: 4,
     windShelter: 0.9,
     requiresDraft: true,
+    disabledByStrangerDraft: false,
     hazardImmunity: false,
   },
   "lucky-bidon": {
     label: "Acceleration",
     icon: "»",
     assetKey: "power-acceleration",
-    description: "2.5× speed + income",
-    durationSeconds: 10,
+    description: "2.5× speed + income · 5s · solo only",
+    durationSeconds: 5,
     speedMultiplier: 2.5,
     productionMultiplier: 2.5,
     windShelter: 0,
     requiresDraft: false,
+    disabledByStrangerDraft: true,
     hazardImmunity: false,
   },
   jump: {
@@ -150,6 +153,7 @@ export const powerUpDefinitions: Record<PowerUpType, PowerUpDefinition> = {
     productionMultiplier: 1,
     windShelter: 0,
     requiresDraft: false,
+    disabledByStrangerDraft: false,
     hazardImmunity: true,
   },
 };
@@ -499,6 +503,7 @@ export interface GameSnapshot extends SaveState {
   activePowerUp: {
     type: PowerUpType;
     remainingSeconds: number;
+    suppressed: boolean;
   } | null;
   leaderboard: {
     elapsedSeconds: number;
@@ -759,6 +764,10 @@ export class GameStore {
         ? {
             type: this.activePowerUp,
             remainingSeconds: this.activePowerUpRemaining,
+            suppressed:
+              powerUpDefinitions[this.activePowerUp]
+                .disabledByStrangerDraft &&
+              this.temporaryDraftBonus > 0,
           }
         : null,
       leaderboard: {
@@ -1057,6 +1066,16 @@ export class GameStore {
       );
       return false;
     }
+    if (
+      definition.disabledByStrangerDraft &&
+      this.temporaryDraftBonus > 0
+    ) {
+      this.notice(
+        "Acceleration is solo only — leave the stranger's draft first",
+        "neutral",
+      );
+      return false;
+    }
     this.state.reservedPowerUp = null;
     this.activePowerUp = type;
     this.activePowerUpRemaining = definition.durationSeconds;
@@ -1246,6 +1265,7 @@ export class GameStore {
       0,
       Math.min(RANDOM_RIDER_DRAFT_BONUS, bonus),
     );
+    if (previousBonus === this.temporaryDraftBonus) return;
     if (
       previousBonus > 0 &&
       this.temporaryDraftBonus === 0 &&
@@ -1254,8 +1274,8 @@ export class GameStore {
       this.activePowerUp = null;
       this.activePowerUpRemaining = 0;
       this.notice("Super Draft ended — the wheel got away", "neutral");
-      this.emit();
     }
+    this.emit();
   }
 
   private advanceRideDistance(
@@ -1498,7 +1518,9 @@ export class GameStore {
       : null;
     const activePowerUpApplies = Boolean(
       activeDefinition &&
-        (!activeDefinition.requiresDraft || this.temporaryDraftBonus > 0),
+        (!activeDefinition.requiresDraft || this.temporaryDraftBonus > 0) &&
+        (!activeDefinition.disabledByStrangerDraft ||
+          this.temporaryDraftBonus <= 0),
     );
     const temporaryDraftBonus = Math.max(
       this.temporaryDraftBonus,

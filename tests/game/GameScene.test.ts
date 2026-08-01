@@ -14,10 +14,15 @@ vi.mock("phaser", () => ({
     },
     Math: {
       Between: mocks.between,
+      Clamp: (value: number, minimum: number, maximum: number) =>
+        Math.min(maximum, Math.max(minimum, value)),
+      Linear: (start: number, end: number, amount: number) =>
+        start + (end - start) * amount,
     },
   },
 }));
 
+import { gameAudio } from "../../src/audio/gameAudio";
 import { GameScene } from "../../src/game/GameScene";
 import { gameStore } from "../../src/core/gameStore";
 
@@ -433,6 +438,29 @@ describe("GameScene", () => {
     expect(scene.isEncounterRoadClear()).toBe(true);
   });
 
+  it("does not shake the whole camera as ambient high-speed feedback", () => {
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const shake = vi.fn();
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    Object.assign(scene, {
+      cameras: { main: { shake } },
+      roadParticles: [],
+    });
+
+    try {
+      (scene.updateSpeedFeedback as (
+        delta: number,
+        scrollSpeed: number,
+        speedKmh: number,
+        gradient: number,
+      ) => void)(16, 220, 80, 0);
+
+      expect(shake).not.toHaveBeenCalled();
+    } finally {
+      random.mockRestore();
+    }
+  });
+
   it("lets Invincibility absorb potholes and traffic without breaking challenges", () => {
     gameStore.resetCareer();
     gameStore.collectPowerUp("jump");
@@ -465,6 +493,9 @@ describe("GameScene", () => {
     });
     const hitTraffic = vi.spyOn(gameStore, "hitTraffic");
     const hitPothole = vi.spyOn(gameStore, "hitPothole");
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
     const traffic = {
       active: true,
       eventType: "oncoming-car",
@@ -499,9 +530,213 @@ describe("GameScene", () => {
       expect(destroyRoadObject).toHaveBeenCalledWith(pothole);
       expect(trafficRun.failed).toBe(false);
       expect(potholeRun.failed).toBe(false);
+      expect(playEffect.mock.calls.map(([effect]) => effect)).toEqual([
+        "shield-hit",
+        "shield-hit",
+      ]);
     } finally {
       hitTraffic.mockRestore();
       hitPothole.mockRestore();
+      playEffect.mockRestore();
+      gameStore.resetCareer();
+    }
+  });
+
+  it("plays distinct sounds for both resources and both crash types", () => {
+    gameStore.resetCareer();
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const rider: Record<string, any> = {};
+    rider.setTint = vi.fn(() => rider);
+    rider.clearTint = vi.fn(() => rider);
+    Object.assign(scene, {
+      rewardFlow: vi.fn(),
+      floatText: vi.fn(),
+      destroyRoadObject: vi.fn(),
+      challengeRuns: new Map(),
+      combo: 0,
+      flow: 0,
+      time: { now: 100, delayedCall: vi.fn() },
+      cameras: { main: { shake: vi.fn() } },
+      rider,
+    });
+
+    try {
+      (scene.collect as (object: unknown) => void)({
+        active: true,
+        eventType: "sweat",
+        x: 180,
+        y: 220,
+      });
+      (scene.collect as (object: unknown) => void)({
+        active: true,
+        eventType: "cash",
+        x: 180,
+        y: 260,
+      });
+      (scene.hitHazard as (object: unknown) => void)({
+        active: true,
+        eventType: "pothole",
+        x: 180,
+        y: 220,
+      });
+      (scene.hitHazard as (object: unknown) => void)({
+        active: true,
+        eventType: "oncoming-car",
+        x: 180,
+        y: 260,
+      });
+
+      expect(playEffect.mock.calls.map(([effect]) => effect)).toEqual([
+        "sweat-pickup",
+        "cash-pickup",
+        "pothole-crash",
+        "car-crash",
+      ]);
+    } finally {
+      playEffect.mockRestore();
+      gameStore.resetCareer();
+    }
+  });
+
+  it("sounds a power-up reservation without treating it like a resource bag", () => {
+    gameStore.resetCareer();
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const powerUp = {
+      active: true,
+      eventType: "jump",
+      powerUpChoiceId: 9,
+      x: 180,
+      y: 220,
+    };
+    Object.assign(scene, {
+      pickups: { getChildren: () => [powerUp] },
+      rewardFlow: vi.fn(),
+      floatText: vi.fn(),
+      destroyRoadObject: vi.fn(),
+    });
+
+    try {
+      (scene.collect as (object: unknown) => void)(powerUp);
+
+      expect(gameStore.getSnapshot().reservedPowerUp).toBe("jump");
+      expect(playEffect.mock.calls.map(([effect]) => effect)).toEqual([
+        "power-up-pickup",
+      ]);
+      expect(scene.rewardFlow).toHaveBeenCalledWith(15, "POWER-UP");
+    } finally {
+      playEffect.mockRestore();
+      gameStore.resetCareer();
+    }
+  });
+
+  it("distinguishes a clean challenge from a missed sequence", () => {
+    gameStore.resetCareer();
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
+    const scene = new GameScene() as unknown as Record<string, any>;
+    Object.assign(scene, {
+      challengeRuns: new Map([
+        [
+          4,
+          {
+            encounter: "feed-zone",
+            totalPickups: 1,
+            collectedPickups: 0,
+            failed: false,
+          },
+        ],
+      ]),
+      pickups: { getChildren: () => [] },
+      rewardFlow: vi.fn(),
+      showEncounter: vi.fn(),
+      destroyRoadObject: vi.fn(),
+      tweens: { add: vi.fn() },
+    });
+
+    try {
+      (scene.recordChallengePickup as (sequenceId: number) => void)(4);
+      expect(playEffect).toHaveBeenLastCalledWith("challenge-clean");
+
+      scene.challengeRuns.set(5, {
+        encounter: "sprint",
+        totalPickups: 4,
+        collectedPickups: 1,
+        failed: false,
+      });
+      (scene.failPickupSequence as (pickup: unknown) => void)({
+        sequenceId: 5,
+        sequenceIndex: 1,
+      });
+
+      expect(playEffect.mock.calls.map(([effect]) => effect)).toEqual([
+        "challenge-clean",
+        "challenge-missed",
+      ]);
+      expect(scene.challengeRuns.has(4)).toBe(false);
+      expect(scene.challengeRuns.has(5)).toBe(false);
+    } finally {
+      playEffect.mockRestore();
+      gameStore.resetCareer();
+    }
+  });
+
+  it("marks draft acquisition and release with start and end sounds", () => {
+    gameStore.resetCareer();
+    const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
+      () => undefined,
+    );
+    const scene = new GameScene() as unknown as Record<string, any>;
+    const cyclist: Record<string, any> = { x: 190, y: 220 };
+    cyclist.setAngle = vi.fn(() => cyclist);
+    cyclist.setDepth = vi.fn(() => cyclist);
+    const draftTimerText = {
+      setPosition: vi.fn(),
+      setText: vi.fn(),
+    };
+    Object.assign(scene, {
+      draftCyclist: cyclist,
+      draftTimerText,
+      domestiques: [],
+      draftLane: 1,
+      draftLaneCountdown: 2_000,
+      draftAcquisitionRemaining: 3_200,
+      draftGraceRemaining: 0.9,
+      draftTimeRemaining: 0,
+      drafting: false,
+      droppedFromDraft: false,
+      riderRoadY: 220,
+      roadGradient: 0,
+      showEncounter: vi.fn(),
+      rewardFlow: vi.fn(),
+      lastFlowActionAt: 0,
+      time: { now: 100 },
+    });
+
+    try {
+      (scene.updateDraft as (delta: number, stage: number) => void)(16, 1);
+      expect(scene.drafting).toBe(true);
+      expect(playEffect).toHaveBeenLastCalledWith("draft-start");
+
+      (scene.dropDraft as () => void)();
+      expect(scene.drafting).toBe(false);
+      expect(playEffect.mock.calls.map(([effect]) => effect)).toEqual([
+        "draft-start",
+        "draft-end",
+      ]);
+
+      playEffect.mockClear();
+      scene.drafting = false;
+      (scene.dropDraft as () => void)();
+      expect(playEffect).not.toHaveBeenCalled();
+    } finally {
+      playEffect.mockRestore();
       gameStore.resetCareer();
     }
   });
