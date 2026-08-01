@@ -9,6 +9,7 @@ import {
   watch,
 } from "vue";
 import GameCanvas from "./components/GameCanvas.vue";
+import MobileLandscapeGate from "./components/MobileLandscapeGate.vue";
 import PalmaresPanel from "./components/PalmaresPanel.vue";
 import UpgradeGraph from "./components/UpgradeGraph.vue";
 import {
@@ -87,6 +88,7 @@ const firstUpgradeInvitationOpen = ref(false);
 const firstUpgradeInvitationButton = ref<HTMLButtonElement | null>(null);
 const resetConfirmationOpen = ref(false);
 const manuallyPaused = ref(visualQa.paused);
+const mobileLandscapeBlocked = ref(false);
 const audioState = shallowRef(gameAudio.getState());
 const audioModeCopy = computed(() => {
   switch (audioState.value.mode) {
@@ -116,6 +118,7 @@ const ridePaused = computed(
     workshopOpen.value ||
     firstUpgradeInvitationOpen.value ||
     resetConfirmationOpen.value ||
+    mobileLandscapeBlocked.value ||
     displayedRaceFinished.value,
 );
 const reservedPowerUp = computed(() =>
@@ -469,6 +472,9 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="app-shell">
+    <MobileLandscapeGate
+      @blocked-change="mobileLandscapeBlocked = $event"
+    />
     <section class="ride-column">
       <div class="game-frame" :class="{ 'is-paused': ridePaused }">
         <GameCanvas :paused="ridePaused" />

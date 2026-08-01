@@ -699,6 +699,10 @@ export class GameScene extends Phaser.Scene {
   ): void {
     if (event.repeat) return;
     event.preventDefault();
+    this.changeLane(direction);
+  }
+
+  public changeLane(direction: -1 | 1): void {
     this.targetLane = moveLane(this.targetLane, direction, LANE_Y.length);
     this.lastSteerAt = this.time.now;
   }

@@ -1,0 +1,19 @@
+{
+  "name": "Ze Tour",
+  "short_name": "Ze Tour",
+  "description": "An incremental cycling adventure across France.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#140c09",
+  "theme_color": "#2d1b14",
+  "icons": [
+    {
+      "src": "/ze-tour-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

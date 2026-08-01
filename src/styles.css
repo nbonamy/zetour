@@ -328,6 +328,9 @@ h1 {
 .game-canvas {
   position: absolute;
   inset: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .game-canvas canvas {
@@ -4508,5 +4511,232 @@ kbd {
 @media (max-width: 440px) {
   .first-upgrade-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile play surface and the browser-safe landscape entry flow. */
+
+.mobile-landscape-gate {
+  position: fixed;
+  z-index: 300;
+  inset: 0;
+  display: grid;
+  padding:
+    max(22px, env(safe-area-inset-top))
+    max(22px, env(safe-area-inset-right))
+    max(22px, env(safe-area-inset-bottom))
+    max(22px, env(safe-area-inset-left));
+  place-items: center;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(239, 194, 81, 0.22), transparent 38%),
+    linear-gradient(rgba(42, 25, 18, 0.94), rgba(21, 13, 10, 0.98)),
+    url("/assets/art/paper-texture.jpg");
+}
+
+.mobile-landscape-card {
+  display: grid;
+  width: min(430px, 100%);
+  justify-items: center;
+  padding: 28px 26px 24px;
+  border: 4px solid #2d1b14;
+  border-radius: 24px 20px 26px 18px;
+  outline: 2px solid #9c6a3f;
+  outline-offset: -8px;
+  background:
+    linear-gradient(rgba(255, 239, 192, 0.94), rgba(222, 178, 95, 0.94)),
+    url("/assets/art/paper-texture.jpg");
+  box-shadow:
+    0 8px 0 #140c09,
+    0 24px 55px rgba(0, 0, 0, 0.5);
+  color: #44291d;
+  text-align: center;
+}
+
+.mobile-landscape-card .eyebrow {
+  margin-top: 14px;
+  color: #8c572d;
+}
+
+.mobile-landscape-card h2 {
+  margin: 2px 0 8px;
+  font-family: "Ze Tour Display", Georgia, serif;
+  font-size: clamp(29px, 9vw, 42px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+}
+
+.mobile-landscape-card p:not(.eyebrow) {
+  max-width: 330px;
+  margin: 0 0 18px;
+  font: 700 15px/1.4 Georgia, "Times New Roman", serif;
+}
+
+.mobile-landscape-card button {
+  min-width: 210px;
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 3px solid #3d2519;
+  border-radius: 13px 10px 14px 9px;
+  background: linear-gradient(#f6d653, #d89b20);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 243, 168, 0.8),
+    0 4px 0 #6b3a22;
+  color: #3d2519;
+  font: 900 14px/1 Georgia, "Times New Roman", serif;
+  cursor: pointer;
+}
+
+.mobile-landscape-card button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.mobile-rotate-instruction {
+  min-width: 210px;
+  padding: 13px 18px;
+  border: 3px solid #3d2519;
+  border-radius: 13px 10px 14px 9px;
+  background: linear-gradient(#f6d653, #d89b20);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 243, 168, 0.8),
+    0 4px 0 #6b3a22;
+  color: #3d2519;
+  font: 900 14px/1.1 Georgia, "Times New Roman", serif;
+}
+
+.mobile-landscape-card small {
+  max-width: 320px;
+  margin-top: 14px;
+  color: #68452f;
+  font: 700 12px/1.35 Georgia, "Times New Roman", serif;
+}
+
+.rotate-phone {
+  position: relative;
+  width: 112px;
+  height: 76px;
+}
+
+.rotate-phone span {
+  position: absolute;
+  top: 8px;
+  left: 35px;
+  width: 42px;
+  height: 68px;
+  border: 5px solid #4b2e20;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 2px rgba(255, 244, 200, 0.5);
+  transform-origin: 50% 50%;
+  animation: turn-phone-landscape 1.9s ease-in-out infinite alternate;
+}
+
+.rotate-phone span::after {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4b2e20;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.rotate-phone i {
+  position: absolute;
+  top: 17px;
+  right: 0;
+  color: #a85a2e;
+  font: 900 36px/1 Georgia, serif;
+  font-style: normal;
+}
+
+.mobile-landscape-enter-active,
+.mobile-landscape-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.mobile-landscape-enter-active .mobile-landscape-card,
+.mobile-landscape-leave-active .mobile-landscape-card {
+  transition: transform 180ms ease;
+}
+
+.mobile-landscape-enter-from,
+.mobile-landscape-leave-to {
+  opacity: 0;
+}
+
+.mobile-landscape-enter-from .mobile-landscape-card,
+.mobile-landscape-leave-to .mobile-landscape-card {
+  transform: scale(0.96);
+}
+
+@keyframes turn-phone-landscape {
+  0%,
+  30% {
+    transform: rotate(0deg) scale(0.88);
+  }
+
+  75%,
+  100% {
+    transform: rotate(90deg) scale(0.88);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rotate-phone span {
+    animation: none;
+    transform: rotate(90deg) scale(0.88);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1100px) {
+  html,
+  body,
+  #app {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    background: #140c09;
+  }
+
+  .app-shell {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--mobile-viewport-width, 100dvw);
+    height: var(--mobile-viewport-height, 100dvh);
+    min-height: 0;
+    margin: 0;
+    padding:
+      env(safe-area-inset-top)
+      env(safe-area-inset-right)
+      env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+    overflow: hidden;
+    place-items: center;
+  }
+
+  .ride-column {
+    width: var(
+      --mobile-game-width,
+      min(100dvw, calc(100dvh * 16 / 9))
+    );
+  }
+
+  .game-frame {
+    border-width: 4px;
+    border-radius: 14px;
+    box-shadow:
+      inset 0 0 0 2px #70462d,
+      0 6px 0 #140c09;
   }
 }
