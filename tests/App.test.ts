@@ -313,7 +313,7 @@ describe("App", () => {
     if (!host) throw new Error("Missing test host");
     app.mount(host);
 
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "r" }));
+    document.querySelector<HTMLButtonElement>(".reset-trigger")?.click();
     await nextTick();
     expect(document.body.textContent).toContain("Back to Paris?");
     expect(document.body.textContent).toContain("Your current Tour ends here.");
