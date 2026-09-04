@@ -23,8 +23,11 @@ defineEmits<{
         @click="$emit('select', '2d')"
       >
         <span class="mode-card-art" aria-hidden="true">
-          <i class="mode-road mode-road-2d"></i>
-          <img src="/assets/art/rider-a.png" alt="" />
+          <img
+            class="mode-preview-image"
+            src="/assets/art/mode-preview-2d.webp"
+            alt=""
+          />
         </span>
         <span class="mode-card-copy">
           <small>Original</small>
@@ -41,9 +44,11 @@ defineEmits<{
       >
         <span class="mode-card-badge">New</span>
         <span class="mode-card-art" aria-hidden="true">
-          <i class="mode-sun"></i>
-          <i class="mode-road mode-road-3d"></i>
-          <img src="/assets/art/rider-a.png" alt="" />
+          <img
+            class="mode-preview-image"
+            src="/assets/art/mode-preview-3d.webp"
+            alt=""
+          />
         </span>
         <span class="mode-card-copy">
           <small>Immersive</small>

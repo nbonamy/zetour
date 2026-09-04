@@ -1,4 +1,4 @@
-# 3D Tour model-detail visual QA
+# Ze Tour visual QA
 
 ## Evidence
 
@@ -16,8 +16,16 @@
 - Final spectator scene: `.design-qa/implementation-spectators-final.png`.
 - Focused spectator comparison: `.design-qa/comparison-spectators-final.png`.
 - Updated 25 km/h cadence comparison: `.design-qa/cadence-25kmh-comparison.png`.
+- Mode-selector source capture: `.design-qa/mode-select-before.png`.
+- Mode-selector implementation capture: `.design-qa/mode-select-after.png`.
+- Selected 2D gameplay crop: `.design-qa/mode-preview-2d.png`.
+- Selected 3D gameplay crop: `.design-qa/mode-preview-3d.png`.
+- Mode-selector full comparison: `.design-qa/comparison-mode-select-full.png`.
+- Mode-preview focused comparison: `.design-qa/comparison-mode-previews-focus.png`.
+- Gameplay-source-to-rendered-card comparison: `.design-qa/comparison-mode-previews-source-to-card.png`.
 - Local state: 1600 × 900 viewport, 3D Tour, Chase camera, Sector 1. The rider comparison uses a repeatable zero-speed capture; traffic uses the forced traffic encounter. Audio was set to and programmatically verified as `muted` before every interactive capture.
 - Spectator follow-up state: 1600 × 1000 CSS-pixel viewport at device scale 1, 3D Tour, Roadside camera, 25 km/h, paused for the static model comparison. The implementation capture is 1600 × 1000 pixels. The 178 × 240 source and implementation crop were both nearest-neighbor normalized to 480 pixels tall and placed together in a 1040 × 520 focused comparison. Primary interactions tested were choosing 3D, switching twice to Roadside, and loading the ride with the audio preference forced and programmatically verified as `muted`. Browser-rendered WebGL canvas was present and the captured page reported no console errors.
+- Mode-selector state: source and implementation were both captured at a 1600 × 1000 CSS-pixel viewport at device scale 1 with a fresh profile and the selector idle. No density normalization was required. The 2D and 3D source renders were captured from the real game at the same viewport with HUD chrome hidden, cropped to 1000 × 437, and encoded as 1200 × 525 WebP previews. Primary interactions tested were selecting 2D, returning to the selector, and selecting 3D. Audio was forced and programmatically verified as `muted` in both modes; no browser console errors were captured.
 
 ## Findings
 
@@ -31,6 +39,7 @@ No actionable P0, P1, or P2 difference remains for the requested low-poly model-
 - Spectator follow-up: close inspection now shows faceted heads with ears, noses, eyes, and mouths; sculpted shoulder-to-waist shirts and collars; separate shorts or trousers, knees, shins, and grounded shoes; and oversized readable elbow and hand joints. Four asymmetric cheer rigs include raised, waving, and clapping silhouettes. Each fan faces the road with slight angle and scale variation, and subtle arm animation preserves the bent pose.
 - Pedaling cadence: moving riders now stay between 70 and 100 RPM, with 0 RPM at a stop, 81.25 RPM at 25 km/h, and a 100 RPM cap from 40 km/h upward. The 185 ms two-frame capture shows a clear opposing-leg phase change at tour pace.
 - Runtime and accessibility: all additions remain native Three.js geometry with shadows and the existing low-poly materials. The four camera modes, semantic canvas label, keyboard controls, 2D mode, shared progression, and HUD are unchanged.
+- Mode-selector fidelity: the generic landscape-plus-CSS-road illustrations have been replaced with authentic, clean gameplay captures. The 2D preview now shows the illustrated side-scrolling rider, vineyard scenery, route lettering, and horizontal road; the 3D preview shows the detailed rider from behind, converging road, village, flags, trees, and crowd. The existing card typography, parchment palette, spacing, copy, focus treatment, and `New` badge remain intact.
 
 ## Comparison history
 
@@ -53,6 +62,12 @@ The close spectator reference and final implementation crop were reviewed togeth
 
 The full Roadside capture confirms that nearby and mid-distance fans remain legible without blocking the rider or controls. Fonts, HUD typography, color tokens, copy, and overall layout are unchanged by this model-only pass. The 3D geometry remains sharp at gameplay scale and does not substitute raster or placeholder assets. No actionable P0/P1/P2 issue remains.
 
+### Mode-preview fidelity pass
+
+The original and revised selector are shown at identical viewport and density in `.design-qa/comparison-mode-select-full.png`; the two preview rows are enlarged together in `.design-qa/comparison-mode-previews-focus.png`. `.design-qa/comparison-mode-previews-source-to-card.png` places both selected gameplay crops directly above their browser-rendered cards, confirming the crop, subject, palette, and sharpness survive the responsive render. The prior 3D vignette reused the flat 2D rider over a CSS-drawn perspective road and an unrelated mountain photograph, which materially misrepresented the low-poly game. The 2D vignette likewise omitted the game's real road markings and foreground composition.
+
+The implementation uses raster captures from each actual renderer, so character style, perspective, scenery density, palette, and road treatment now match what each button launches. The image crops remain sharp at the rendered card size, the two card heights and borders still align, and all labels retain their original wrapping and hierarchy. No actionable P0/P1/P2 issue remains.
+
 ## Implementation checklist
 
 - [x] Refine the rider silhouette and articulated pedal pose.
@@ -68,6 +83,9 @@ The full Roadside capture confirms that nearby and mid-distance fans remain legi
 - [x] Constrain moving rider cadence to 70–100 RPM and verify the phase change at 25 km/h.
 - [x] Improve broadleaf trees, cypresses, and roadside marker models.
 - [x] Verify reference comparisons, browser console, muted audio, tests, and production build.
+- [x] Replace both landing-page vignettes with authentic captures from their respective renderers.
+- [x] Preserve the selector's typography, layout, hover/focus behavior, copy, and responsive card geometry.
+- [x] Verify the 2D → selector → 3D interaction path with muted audio and no console errors.
 
 ## Follow-up polish
 

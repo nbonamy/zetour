@@ -4784,78 +4784,26 @@ kbd {
   aspect-ratio: 16 / 7;
   overflow: hidden;
   border-bottom: 4px solid #38241c;
-  background:
-    linear-gradient(to bottom, rgba(102, 190, 219, 0.2), rgba(255, 218, 135, 0.1)),
-    url("/assets/art/stage-1.jpg") center 42% / cover;
-}
-
-.mode-card-3d .mode-card-art {
-  background:
-    linear-gradient(to bottom, rgba(91, 179, 219, 0.08), rgba(255, 212, 117, 0.1)),
-    url("/assets/art/stage-5.jpg") center 42% / cover;
+  background: #8fb7a8;
 }
 
 .mode-card-art::after {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(45, 27, 20, 0.38), transparent 52%);
-  content: "";
-}
-
-.mode-card-art img {
-  position: absolute;
-  z-index: 3;
-  bottom: -13%;
-  left: 10%;
-  width: 35%;
-  object-fit: contain;
-  filter: drop-shadow(0 5px 2px rgba(32, 17, 11, 0.45));
-}
-
-.mode-card-3d .mode-card-art img {
-  right: 50%;
-  bottom: -7%;
-  left: auto;
-  width: 27%;
-  transform: translateX(50%) scaleX(-1);
-}
-
-.mode-road {
-  position: absolute;
   z-index: 1;
-  display: block;
-  background: #5d5751;
+  inset: 0;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 242, 203, 0.24),
+    inset 0 -18px 30px rgba(45, 27, 20, 0.18);
+  content: "";
+  pointer-events: none;
 }
 
-.mode-road-2d {
-  right: -5%;
-  bottom: 10%;
-  left: -5%;
-  height: 30%;
-  border-block: 3px solid #dec28a;
-}
-
-.mode-road-3d {
-  bottom: -34%;
-  left: 50%;
-  width: 84%;
-  height: 105%;
-  transform: translateX(-50%);
-  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
-  background:
-    linear-gradient(90deg, transparent 49%, #e3cb94 49% 51%, transparent 51%),
-    #5d5751;
-}
-
-.mode-sun {
+.mode-preview-image {
   position: absolute;
-  top: 12%;
-  right: 13%;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #f4cf50;
-  box-shadow: 0 0 32px rgba(255, 220, 90, 0.72);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .mode-card-copy {
