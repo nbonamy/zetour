@@ -12,10 +12,14 @@ vi.mock("../../src/game/ThreeRide", () => ({
   ThreeRide: class {
     constructor(
       host: HTMLElement,
-      callbacks: { onCameraChange: (camera: string) => void },
+      callbacks: {
+        onCameraChange: (camera: string) => void;
+        onFlowChange: (flow: number, combo: number) => void;
+      },
     ) {
       mocks.constructor(host, callbacks);
       callbacks.onCameraChange("Chase");
+      callbacks.onFlowChange(40, 3);
     }
 
     setPaused = mocks.setPaused;
@@ -39,10 +43,12 @@ describe("GameCanvas3D", () => {
       setup: () => () => h(GameCanvas3D, { paused: paused.value }),
     });
     app.mount(host);
+    await nextTick();
 
     expect(mocks.constructor).toHaveBeenCalledOnce();
     expect(mocks.setPaused).toHaveBeenLastCalledWith(true);
     expect(document.body.textContent).toContain("Chase camera C");
+    expect(document.body.textContent).toContain("Flow ×1.8 · 3 combo");
 
     paused.value = false;
     await nextTick();

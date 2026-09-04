@@ -18,8 +18,8 @@ describe("ThreeRide helpers", () => {
   });
 
   it("spawns encounter pieces farther down the road", () => {
-    expect(threeEncounterZ()).toBe(-72);
-    expect(threeEncounterZ(75)).toBe(-82);
+    expect(threeEncounterZ()).toBe(-58);
+    expect(threeEncounterZ(75)).toBe(-68);
   });
 
   it("collides only when road depth and lane alignment both overlap", () => {

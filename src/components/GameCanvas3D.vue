@@ -15,6 +15,8 @@ const announcement = ref<{
   tone: "neutral" | "good" | "bad";
 } | null>(null);
 const cameraMode = ref<ThreeCameraMode>("Chase");
+const flow = ref(0);
+const combo = ref(0);
 let ride: ThreeRide | null = null;
 
 onMounted(() => {
@@ -25,6 +27,10 @@ onMounted(() => {
     },
     onCameraChange: (next) => {
       cameraMode.value = next;
+    },
+    onFlowChange: (nextFlow, nextCombo) => {
+      flow.value = nextFlow;
+      combo.value = nextCombo;
     },
   });
   ride.setPaused(props.paused);
@@ -47,10 +53,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="host" class="game-canvas game-canvas-3d">
-    <div class="three-mode-chip" aria-hidden="true">
-      <span>3D</span>
-      Chase view
-    </div>
     <button
       type="button"
       class="three-camera-control"
@@ -59,6 +61,13 @@ onBeforeUnmount(() => {
     >
       {{ cameraMode }} camera <kbd>C</kbd>
     </button>
+    <div class="three-flow-meter" aria-live="polite">
+      <strong v-if="flow > 0">
+        Flow ×{{ (1 + Math.floor(flow / 20) * 0.4).toFixed(1) }}<template v-if="combo > 0"> · {{ combo }} combo</template>
+      </strong>
+      <strong v-else>Find your flow</strong>
+      <span><i :style="{ width: `${flow}%` }"></i></span>
+    </div>
     <Transition name="three-callout">
       <div
         v-if="announcement"

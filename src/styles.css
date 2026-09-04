@@ -4940,37 +4940,17 @@ kbd {
   object-fit: cover;
 }
 
-.three-mode-chip {
-  position: absolute;
-  z-index: 5;
-  top: 126px;
-  left: 18px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 9px 5px 5px;
-  border: 2px solid rgba(40, 24, 17, 0.9);
-  border-radius: 9px 7px 10px 6px;
-  background: rgba(42, 28, 21, 0.82);
-  box-shadow: 0 3px 0 rgba(25, 14, 10, 0.5);
-  color: #f4dfb0;
-  font: 900 11px/1 Georgia, "Times New Roman", serif;
-  letter-spacing: 0.07em;
-  pointer-events: none;
-  text-transform: uppercase;
-}
-
 .three-camera-control {
   position: absolute;
   z-index: 7;
-  right: 18px;
-  bottom: 128px;
+  right: 14px;
+  bottom: 124px;
   display: inline-flex;
-  min-height: 34px;
+  min-height: 29px;
   align-items: center;
-  gap: 7px;
-  padding: 5px 9px;
-  border: 3px solid #2d1b14;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 2px solid #2d1b14;
   border-radius: 11px 8px 12px 8px;
   background:
     linear-gradient(rgba(55, 36, 27, 0.92), rgba(31, 20, 16, 0.94)),
@@ -4979,7 +4959,7 @@ kbd {
     inset 0 0 0 1px #795039,
     0 3px 0 rgba(24, 13, 9, 0.7);
   color: #f4dfb0;
-  font: 900 11px/1 Georgia, "Times New Roman", serif;
+  font: 900 9px/1 Georgia, "Times New Roman", serif;
   letter-spacing: 0.035em;
   cursor: pointer;
 }
@@ -4994,26 +4974,14 @@ kbd {
 
 .three-camera-control kbd {
   display: inline-grid;
-  min-width: 20px;
-  height: 20px;
+  min-width: 17px;
+  height: 17px;
   place-items: center;
   border: 1px solid currentColor;
   border-bottom-width: 2px;
   border-radius: 5px;
   background: rgba(255, 244, 211, 0.14);
-  font-size: 9px;
-}
-
-.three-mode-chip span {
-  display: grid;
-  min-width: 30px;
-  height: 25px;
-  place-items: center;
-  border: 2px solid #2c1a12;
-  border-radius: 6px 5px 7px 4px;
-  background: linear-gradient(#efcf4d, #c8881d);
-  color: #38241c;
-  font-size: 13px;
+  font-size: 8px;
 }
 
 .three-announcement {
@@ -5062,6 +5030,42 @@ kbd {
 .three-callout-leave-to {
   transform: translate(-50%, -10px) scale(0.94);
   opacity: 0;
+}
+
+.three-flow-meter {
+  position: absolute;
+  z-index: 6;
+  bottom: 134px;
+  left: 22px;
+  width: clamp(110px, 14vw, 190px);
+  color: #fff2cc;
+  font: 900 clamp(9px, 1vw, 12px)/1 Georgia, "Times New Roman", serif;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  text-shadow:
+    0 2px 0 rgba(41, 27, 20, 0.92),
+    0 0 5px rgba(41, 27, 20, 0.9);
+  text-transform: uppercase;
+}
+
+.three-flow-meter > span {
+  display: block;
+  height: 7px;
+  margin-top: 7px;
+  overflow: hidden;
+  border: 2px solid rgba(45, 28, 20, 0.72);
+  border-radius: 6px;
+  background: rgba(40, 55, 48, 0.58);
+  box-shadow: 0 2px 0 rgba(33, 20, 15, 0.42);
+}
+
+.three-flow-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f5d66a, #f2af36);
+  box-shadow: 0 0 7px rgba(255, 210, 75, 0.7);
+  transition: width 180ms ease;
 }
 
 .three-speed-lines {
