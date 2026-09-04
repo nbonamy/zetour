@@ -9,6 +9,10 @@ import {
   watch,
 } from "vue";
 import GameCanvas from "./components/GameCanvas.vue";
+import GameCanvas3D from "./components/GameCanvas3D.vue";
+import GameModeSelect, {
+  type GameMode,
+} from "./components/GameModeSelect.vue";
 import MobileUnsupportedGate from "./components/MobileUnsupportedGate.vue";
 import PalmaresPanel from "./components/PalmaresPanel.vue";
 import UpgradeGraph from "./components/UpgradeGraph.vue";
@@ -88,6 +92,7 @@ const firstUpgradeInvitationOpen = ref(false);
 const firstUpgradeInvitationButton = ref<HTMLButtonElement | null>(null);
 const resetConfirmationOpen = ref(false);
 const manuallyPaused = ref(visualQa.paused);
+const gameMode = ref<GameMode | null>(null);
 const mobileDeviceBlocked = ref(false);
 const audioState = shallowRef(gameAudio.getState());
 const audioModeCopy = computed(() => {
@@ -114,6 +119,7 @@ const audioModeCopy = computed(() => {
 });
 const ridePaused = computed(
   () =>
+    gameMode.value === null ||
     manuallyPaused.value ||
     workshopOpen.value ||
     firstUpgradeInvitationOpen.value ||
@@ -383,6 +389,17 @@ const activatePowerUp = (): void => {
   }
 };
 
+const selectGameMode = (mode: GameMode): void => {
+  gameMode.value = mode;
+  manuallyPaused.value = false;
+};
+
+const returnToModeSelect = (): void => {
+  if (workshopOpen.value || displayedRaceFinished.value) return;
+  manuallyPaused.value = false;
+  gameMode.value = null;
+};
+
 const toggleAudio = (): void => {
   gameAudio.cycleMode();
 };
@@ -414,6 +431,7 @@ const trackKonamiCode = (event: KeyboardEvent): boolean => {
 };
 
 const onKeydown = (event: KeyboardEvent): void => {
+  if (gameMode.value === null) return;
   if (trackKonamiCode(event)) {
     event.preventDefault();
   } else if (event.key.toLowerCase() === "m") {
@@ -475,9 +493,18 @@ onBeforeUnmount(() => {
     <MobileUnsupportedGate
       @blocked-change="mobileDeviceBlocked = $event"
     />
-    <section class="ride-column">
-      <div class="game-frame" :class="{ 'is-paused': ridePaused }">
-        <GameCanvas :paused="ridePaused" />
+    <GameModeSelect
+      v-if="gameMode === null"
+      @select="selectGameMode"
+    />
+    <section v-else class="ride-column">
+      <div
+        class="game-frame"
+        :class="[`game-mode-${gameMode}`, { 'is-paused': ridePaused }]"
+        :data-game-mode="gameMode"
+      >
+        <GameCanvas v-if="gameMode === '2d'" :paused="ridePaused" />
+        <GameCanvas3D v-else :paused="ridePaused" />
         <header class="tour-hud">
           <section class="hud-panel hud-speed" aria-label="Tour pace">
             <div class="speed-dial" aria-hidden="true">
@@ -686,7 +713,13 @@ onBeforeUnmount(() => {
         <footer class="hud-bottom">
           <div class="hud-bottom-side hud-bottom-left">
             <span class="steering-hint hud-control">
-              Steer <kbd>↑</kbd> <kbd>↓</kbd>
+              Steer
+              <template v-if="gameMode === '3d'">
+                <kbd>←</kbd> <kbd>→</kbd>
+              </template>
+              <template v-else>
+                <kbd>↑</kbd> <kbd>↓</kbd>
+              </template>
             </span>
             <button
               type="button"
@@ -694,6 +727,13 @@ onBeforeUnmount(() => {
               @click="openWorkshop"
             >
               Workshop <kbd>W</kbd>
+            </button>
+            <button
+              type="button"
+              class="mode-trigger hud-control"
+              @click="returnToModeSelect"
+            >
+              {{ gameMode.toUpperCase() }} view
             </button>
           </div>
 

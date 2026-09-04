@@ -7,7 +7,7 @@
 [![Phaser](https://img.shields.io/badge/Phaser-4-7b5cff.svg)](https://phaser.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org/)
 
-Ze Tour combines a three-lane arcade ride with an incremental economy. Draft riders, collect resources, avoid potholes and oncoming traffic, raise your Rider Level, buy real-world cycling upgrades, and watch the numbers explode.
+Ze Tour combines a three-lane arcade ride with an incremental economy. Choose the original illustrated 2D ride or a low-poly 3D chase view; both share the same career. Draft riders, collect resources, avoid potholes and oncoming traffic, raise your Rider Level, buy real-world cycling upgrades, and watch the numbers explode.
 
 ![Ze Tour road gameplay with the rider and domestiques crossing France](docs/screenshots/ride.jpg)
 
@@ -27,7 +27,7 @@ The workshop presents Rider, Nutrition, Equipment, Bike, and Team progression as
 
 ## What is in the game
 
-- A readable three-lane road with automatic forward motion and optional steering.
+- Two complete road views: the original 2D side-scroller and a low-poly 3D road with chase, roadside, and helicopter cameras.
 - Five sectors from Paris to Alpe d'Huez, each with its own landscape and challenge.
 - Five original stage soundtracks, with distinct arrangements for the Atlantic plains, gravel, descent, Mistral, and Alpe d'Huez.
 - Nineteen original event sounds for road action, power-ups, progression, workshop purchases, and Tour milestones.
@@ -64,7 +64,9 @@ Ze Tour is a small browser game with a frankly unreasonable amount of bespoke ma
 
 | Action | Keyboard | On-screen control |
 | --- | --- | --- |
-| Change lane | `↑` / `↓` | Steer |
+| Change lane in 2D | `↑` / `↓` | Steer |
+| Change lane in 3D | `←` / `→` | Steer |
+| Cycle 3D camera | `C` | Camera |
 | Use power-up | `Space` | Power-up |
 | Open or close workshop | `W` | Workshop |
 | Cycle muted, effects only, and music + effects | `M` | Audio mode |
@@ -91,6 +93,19 @@ npm run dev
 
 Open the local URL printed by Vite.
 
+## Deploy to Joshua
+
+`zetour.bonamy.fr` is served as a static site by nginx on `joshua`. The deploy
+helper builds the app, uploads an atomic release, provisions the initial
+Let's Encrypt certificate when needed, and reloads nginx:
+
+```sh
+./deploy/joshua/deploy.sh
+```
+
+The `joshua` SSH alias must be configured locally, and the domain's A record
+must point to the server before the first deployment.
+
 ## Development
 
 ```sh
@@ -103,14 +118,14 @@ npm run calibrate:economy
 npm run simulate:economy -- --minutes=120 --runs=3 --seed=42 --strategies=casual,skilled --check
 ```
 
-The app uses Vue for the interface and workshop, Phaser for the road simulation, and a framework-independent TypeScript core for the economy and progression rules. The unusual parts are documented in [Phaser and the road](docs/phaser-road.md), [the economy simulator](docs/economy-simulator.md), [procedural audio](docs/procedural-audio.md), and [project oddities](docs/project-oddities.md).
+The app uses Vue for the interface and workshop, Phaser for the 2D road, Three.js for the 3D road, and a framework-independent TypeScript core for the shared economy and progression rules. The unusual parts are documented in [Phaser and the road](docs/phaser-road.md), [the economy simulator](docs/economy-simulator.md), [procedural audio](docs/procedural-audio.md), and [project oddities](docs/project-oddities.md).
 
 ```text
 src/
 ├── audio/            stage soundtrack playback, crossfades, and game sounds
 ├── components/       Vue game and workshop UI
 ├── core/             economy, upgrades, saves, progression, and records
-├── game/             Phaser scene, rendering, encounters, and ride systems
+├── game/             Phaser and Three.js scenes, encounters, and ride systems
 ├── App.vue            application shell and HUD
 └── styles.css         visual system and responsive layout
 public/assets/         runtime art and fonts

@@ -1,1 +1,8 @@
-{"project_id":"appgprj_6a6cff43eb588191adb98c0ad19fa15e","d1":null,"r2":null}
+{
+  "project_id": "appgprj_6a6cff43eb588191adb98c0ad19fa15e",
+  "static": {
+    "directory": "dist/client"
+  },
+  "d1": null,
+  "r2": null
+}

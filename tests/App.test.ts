@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const componentState = vi.hoisted(() => ({
   paused: false,
+  threeDimensionalPaused: false,
 }));
 const WORKSHOP_INVITATION_STORAGE_KEY =
   "ze-tour-workshop-invitation-seen-v1";
@@ -19,6 +20,18 @@ vi.mock("../src/components/GameCanvas.vue", () => ({
     },
   },
 }));
+vi.mock("../src/components/GameCanvas3D.vue", () => ({
+  default: {
+    name: "GameCanvas3D",
+    props: ["paused"],
+    setup(props: { paused: boolean }) {
+      return () => {
+        componentState.threeDimensionalPaused = props.paused;
+        return null;
+      };
+    },
+  },
+}));
 vi.mock("../src/components/UpgradeGraph.vue", () => ({
   default: {
     name: "UpgradeGraph",
@@ -30,6 +43,20 @@ import App from "../src/App.vue";
 import { gameAudio } from "../src/audio/gameAudio";
 import { gameStore } from "../src/core/gameStore";
 
+const mountAppInMode = async (
+  mode: "2d" | "3d" = "2d",
+  selector = "#test-app",
+) => {
+  const app = createApp(App);
+  const host = document.querySelector(selector);
+  if (!host) throw new Error(`Missing test host: ${selector}`);
+  app.mount(host);
+  await nextTick();
+  document.querySelector<HTMLButtonElement>(`.mode-card-${mode}`)?.click();
+  await nextTick();
+  return app;
+};
+
 describe("App", () => {
   beforeEach(() => {
     gameStore.resetCareer();
@@ -37,14 +64,41 @@ describe("App", () => {
     window.localStorage.setItem(WORKSHOP_INVITATION_STORAGE_KEY, "1");
     document.body.innerHTML = '<div id="test-app"></div>';
     componentState.paused = false;
+    componentState.threeDimensionalPaused = false;
   });
 
-  it("invites the rider into the workshop once when the first upgrade becomes affordable", async () => {
-    window.localStorage.removeItem(WORKSHOP_INVITATION_STORAGE_KEY);
+  it("starts with a choice between the shared 2D and 3D career", async () => {
     const app = createApp(App);
     const host = document.querySelector("#test-app");
     if (!host) throw new Error("Missing test host");
     app.mount(host);
+
+    expect(document.body.textContent).toContain("Choose your ride");
+    expect(document.body.textContent).toContain("2D Tour");
+    expect(document.body.textContent).toContain("3D Tour");
+    expect(document.body.textContent).toContain(
+      "Your progress, workshop, power-ups, and palmarès are shared.",
+    );
+    expect(document.querySelector(".ride-column")).toBeNull();
+
+    document.querySelector<HTMLButtonElement>(".mode-card-3d")?.click();
+    await nextTick();
+    expect(
+      document.querySelector(".game-frame")?.getAttribute("data-game-mode"),
+    ).toBe("3d");
+    expect(componentState.threeDimensionalPaused).toBe(false);
+    expect(document.body.textContent).toContain("Steer ← →");
+
+    document.querySelector<HTMLButtonElement>(".mode-trigger")?.click();
+    await nextTick();
+    expect(document.body.textContent).toContain("Choose your ride");
+    expect(document.querySelector(".ride-column")).toBeNull();
+    app.unmount();
+  });
+
+  it("invites the rider into the workshop once when the first upgrade becomes affordable", async () => {
+    window.localStorage.removeItem(WORKSHOP_INVITATION_STORAGE_KEY);
+    const app = await mountAppInMode();
 
     expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
     while (gameStore.getSnapshot().sweat < 100) {
@@ -80,11 +134,7 @@ describe("App", () => {
     app.unmount();
 
     document.body.innerHTML = '<div id="test-app-again"></div>';
-    const secondApp = createApp(App);
-    const secondHost = document.querySelector("#test-app-again");
-    if (!secondHost) throw new Error("Missing second test host");
-    secondApp.mount(secondHost);
-    await nextTick();
+    const secondApp = await mountAppInMode("2d", "#test-app-again");
 
     expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
     expect(componentState.paused).toBe(false);
@@ -95,10 +145,7 @@ describe("App", () => {
     const playEffect = vi.spyOn(gameAudio, "playEffect").mockImplementation(
       () => undefined,
     );
-    const app = createApp(App);
-    const host = document.querySelector("#test-app");
-    if (!host) throw new Error("Missing test host");
-    app.mount(host);
+    const app = await mountAppInMode();
 
     document
       .querySelector<HTMLButtonElement>(".workshop-trigger")
@@ -116,10 +163,7 @@ describe("App", () => {
   });
 
   it("shows the clean race HUD and pauses the ride with the W workshop shortcut", async () => {
-    const app = createApp(App);
-    const host = document.querySelector("#test-app");
-    if (!host) throw new Error("Missing test host");
-    app.mount(host);
+    const app = await mountAppInMode();
 
     expect(document.body.textContent).toContain("Ze Tour");
     expect(document.body.textContent).toContain("Restart race");
@@ -185,7 +229,7 @@ describe("App", () => {
       "M",
     );
     expect(document.body.textContent).toContain("Pause P");
-    expect(document.querySelectorAll(".hud-control")).toHaveLength(5);
+    expect(document.querySelectorAll(".hud-control")).toHaveLength(6);
     expect(
       Array.from(
         document.querySelectorAll(".hud-bottom .hud-control"),
@@ -194,7 +238,8 @@ describe("App", () => {
             key.textContent?.trim(),
           ),
       ),
-    ).toEqual([["↑", "↓"], ["W"], ["M"], ["P"], ["R"]]);
+    ).toEqual([["↑", "↓"], ["W"], [], ["M"], ["P"], ["R"]]);
+    expect(document.body.textContent).toContain("2D view");
     expect(document.body.textContent).not.toContain("Workshop U");
     expect(
       document.querySelector('[aria-label^="Sweat balance"] strong')?.textContent,
@@ -308,10 +353,7 @@ describe("App", () => {
     gameStore.collectPowerUp("jump");
     expect(gameStore.getSnapshot().distanceM).toBeGreaterThan(0);
 
-    const app = createApp(App);
-    const host = document.querySelector("#test-app");
-    if (!host) throw new Error("Missing test host");
-    app.mount(host);
+    const app = await mountAppInMode();
 
     document.querySelector<HTMLButtonElement>(".reset-trigger")?.click();
     await nextTick();
@@ -342,10 +384,7 @@ describe("App", () => {
   });
 
   it("restores QA resources with the Konami Code", async () => {
-    const app = createApp(App);
-    const host = document.querySelector("#test-app");
-    if (!host) throw new Error("Missing test host");
-    app.mount(host);
+    const app = await mountAppInMode();
 
     const code = [
       "ArrowUp",
@@ -379,10 +418,7 @@ describe("App", () => {
       () => undefined,
     );
     gameStore.collectPowerUp("lucky-bidon");
-    const app = createApp(App);
-    const host = document.querySelector("#test-app");
-    if (!host) throw new Error("Missing test host");
-    app.mount(host);
+    const app = await mountAppInMode();
 
     expect(document.body.textContent).toContain("Acceleration");
     const useButton = document.querySelector<HTMLButtonElement>(
@@ -426,12 +462,9 @@ describe("App", () => {
     app.unmount();
   });
 
-  it("keeps Flow out of the road view and explains it inside the speed HUD", () => {
+  it("keeps Flow out of the road view and explains it inside the speed HUD", async () => {
     gameStore.setActiveFlowMultiplier(1.8);
-    const app = createApp(App);
-    const host = document.querySelector("#test-app");
-    if (!host) throw new Error("Missing test host");
-    app.mount(host);
+    const app = await mountAppInMode();
 
     const flowBonus = document.querySelector<HTMLElement>(".flow-bonus");
     const pacePanel = document.querySelector<HTMLElement>(
@@ -466,10 +499,7 @@ describe("App", () => {
     expect(Object.keys(gameStore.getSnapshot().sectorRecords)).toHaveLength(5);
     gameStore.collectPowerUp("jump");
 
-    const app = createApp(App);
-    const host = document.querySelector("#test-app");
-    if (!host) throw new Error("Missing test host");
-    app.mount(host);
+    const app = await mountAppInMode();
 
     expect(document.body.textContent).toContain("Season 1");
     expect(document.body.textContent).toContain("Alpe d'Huez");
