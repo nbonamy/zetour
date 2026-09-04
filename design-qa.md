@@ -23,9 +23,13 @@
 - Mode-selector full comparison: `.design-qa/comparison-mode-select-full.png`.
 - Mode-preview focused comparison: `.design-qa/comparison-mode-previews-focus.png`.
 - Gameplay-source-to-rendered-card comparison: `.design-qa/comparison-mode-previews-source-to-card.png`.
+- Unified rider-scale Chase view: `.design-qa/implementation-rider-scale-chase.png`.
+- Corrected static Roadside view: `.design-qa/implementation-rider-scale-roadside-static.png`.
+- Corrected Roadside riders-and-traffic view: `.design-qa/implementation-rider-scale-roadside.png`.
 - Local state: 1600 × 900 viewport, 3D Tour, Chase camera, Sector 1. The rider comparison uses a repeatable zero-speed capture; traffic uses the forced traffic encounter. Audio was set to and programmatically verified as `muted` before every interactive capture.
 - Spectator follow-up state: 1600 × 1000 CSS-pixel viewport at device scale 1, 3D Tour, Roadside camera, 25 km/h, paused for the static model comparison. The implementation capture is 1600 × 1000 pixels. The 178 × 240 source and implementation crop were both nearest-neighbor normalized to 480 pixels tall and placed together in a 1040 × 520 focused comparison. Primary interactions tested were choosing 3D, switching twice to Roadside, and loading the ride with the audio preference forced and programmatically verified as `muted`. Browser-rendered WebGL canvas was present and the captured page reported no console errors.
 - Mode-selector state: source and implementation were both captured at a 1600 × 1000 CSS-pixel viewport at device scale 1 with a fresh profile and the selector idle. No density normalization was required. The 2D and 3D source renders were captured from the real game at the same viewport with HUD chrome hidden, cropped to 1000 × 437, and encoded as 1200 × 525 WebP previews. Primary interactions tested were selecting 2D, returning to the selector, and selecting 3D. Audio was forced and programmatically verified as `muted` in both modes; no browser console errors were captured.
+- Rider-scale follow-up state: 1600 × 1000 CSS-pixel viewport at device scale 1 with a fresh career. The Chase capture forces the main rider, three teammates, and a draft rider into one scene; the Roadside captures exercise the exact camera named in the report plus a forced traffic encounter. All three captures programmatically verified `muted` audio, a WebGL canvas, and zero console errors.
 
 ## Findings
 
@@ -40,6 +44,7 @@ No actionable P0, P1, or P2 difference remains for the requested low-poly model-
 - Pedaling cadence: moving riders now stay between 70 and 100 RPM, with 0 RPM at a stop, 81.25 RPM at 25 km/h, and a 100 RPM cap from 40 km/h upward. The 185 ms two-frame capture shows a clear opposing-leg phase change at tour pace.
 - Runtime and accessibility: all additions remain native Three.js geometry with shadows and the existing low-poly materials. The four camera modes, semantic canvas label, keyboard controls, 2D mode, shared progression, and HUD are unchanged.
 - Mode-selector fidelity: the generic landscape-plus-CSS-road illustrations have been replaced with authentic, clean gameplay captures. The 2D preview now shows the illustrated side-scrolling rider, vineyard scenery, route lettering, and horizontal road; the 3D preview shows the detailed rider from behind, converging road, village, flags, trees, and crowd. The existing card typography, parchment palette, spacing, copy, focus treatment, and `New` badge remain intact.
+- Rider scale: the main rider, random draft rider, and all three teammates now share one 0.80 model scale. The cyclist mesh is approximately 1.62 world units tall at that scale, versus approximately 1.61 for a car and 2.06 for a van. Previously the main rider used 1.34, making it roughly 2.72 units tall before Roadside perspective enlarged it further. The corrected Roadside render reads as a cyclist-sized subject rather than a vehicle-sized giant.
 
 ## Comparison history
 
@@ -68,6 +73,10 @@ The original and revised selector are shown at identical viewport and density in
 
 The implementation uses raster captures from each actual renderer, so character style, perspective, scenery density, palette, and road treatment now match what each button launches. The image crops remain sharp at the rendered card size, the two card heights and borders still align, and all labels retain their original wrapping and hierarchy. No actionable P0/P1/P2 issue remains.
 
+### Rider-scale correction
+
+The scale audit found a direct model inconsistency rather than a camera-only illusion: main, draft, and teammate riders were instantiated at 1.34, 0.96, and 0.88 respectively. A regression test now requires every rider role to resolve to the same 0.80 scale. Roadside perspective still behaves naturally—the nearer subject appears larger—but it no longer compounds a 52% main-versus-teammate geometry mismatch. The Chase evidence shows all five rider instances using one physical model size at different road depths; the static Roadside evidence confirms the foreground rider is proportionate to spectators and roadside objects.
+
 ## Implementation checklist
 
 - [x] Refine the rider silhouette and articulated pedal pose.
@@ -86,6 +95,8 @@ The implementation uses raster captures from each actual renderer, so character 
 - [x] Replace both landing-page vignettes with authentic captures from their respective renderers.
 - [x] Preserve the selector's typography, layout, hover/focus behavior, copy, and responsive card geometry.
 - [x] Verify the 2D → selector → 3D interaction path with muted audio and no console errors.
+- [x] Give the main, draft, and teammate riders one shared physical scale.
+- [x] Verify the corrected scale in Chase and Roadside with teammates, drafting, traffic, muted audio, and no console errors.
 
 ## Follow-up polish
 

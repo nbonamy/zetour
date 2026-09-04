@@ -29,6 +29,8 @@ import {
 import { readVisualQaOverrides } from "./visualQa";
 
 export const THREE_LANE_X = [-2.75, 0, 2.75] as const;
+export type ThreeRiderRole = "main" | "draft" | "teammate";
+export const threeRiderModelScale = (_role: ThreeRiderRole): number => 0.8;
 export const threeWorldSpeed = (speedKmh: number): number =>
   Math.max(0, speedKmh) * 0.54;
 export const threePedalCadenceRpm = (speedKmh: number): number =>
@@ -1074,7 +1076,11 @@ export class ThreeRide {
     this.camera.lookAt(0, 0.78, -14);
     this.scene.add(this.roadWorld);
     this.createEnvironment();
-    this.rider = createCyclist(0xe3bc43, 0xd2a72d, 1.34);
+    this.rider = createCyclist(
+      0xe3bc43,
+      0xd2a72d,
+      threeRiderModelScale("main"),
+    );
     this.rider.position.set(THREE_LANE_X[1], 0, RIDER_Z);
     this.scene.add(this.rider);
     this.aura = new THREE.Mesh(
@@ -1190,7 +1196,9 @@ export class ThreeRide {
     this.updateObjects(speed, delta, snapshot.stats.pickupMagnet);
     this.updateFans(speed, delta);
     this.updateFlow(delta, snapshot.stats.flowDecayPerSecond);
-    this.syncDomestiques(snapshot.upgrades.domestique ?? 0);
+    this.syncDomestiques(
+      VISUAL_QA.domestiques ?? snapshot.upgrades.domestique ?? 0,
+    );
     this.updateDomestiques(speed, delta);
     this.updateDraft(delta, snapshot.stage, speed);
     this.reportFlow();
@@ -1819,7 +1827,11 @@ export class ThreeRide {
   private spawnDraftCyclist(): void {
     if (this.draftCyclist) return;
     this.draftLane = VISUAL_QA.draftLane ?? randomInt(0, 2);
-    this.draftCyclist = createCyclist(0x5d83b9, 0x23384d, 0.96);
+    this.draftCyclist = createCyclist(
+      0x5d83b9,
+      0x23384d,
+      threeRiderModelScale("draft"),
+    );
     this.draftCyclist.position.set(THREE_LANE_X[this.draftLane], 0, -38);
     this.roadWorld.add(this.draftCyclist);
     this.draftAcquisitionRemaining = 3.2;
@@ -1921,7 +1933,11 @@ export class ThreeRide {
   private syncDomestiques(level: number): void {
     const count = Math.max(0, Math.min(3, Math.floor(level)));
     while (this.domestiques.length < count) {
-      const rider = createCyclist(0xe5d6ad, 0x7d4930, 0.88);
+      const rider = createCyclist(
+        0xe5d6ad,
+        0x7d4930,
+        threeRiderModelScale("teammate"),
+      );
       this.domestiques.push(rider);
       this.roadWorld.add(rider);
     }

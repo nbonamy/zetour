@@ -4,12 +4,22 @@ import {
   isThreeLaneCollision,
   threeEncounterZ,
   threePedalCadenceRpm,
+  threeRiderModelScale,
   threeWorldSpeed,
 } from "../../src/game/ThreeRide";
 
 describe("ThreeRide helpers", () => {
   it("uses three evenly spaced perspective lanes", () => {
     expect(THREE_LANE_X).toEqual([-2.75, 0, 2.75]);
+  });
+
+  it("uses one physically consistent scale for every rider role", () => {
+    const scales = [
+      threeRiderModelScale("main"),
+      threeRiderModelScale("draft"),
+      threeRiderModelScale("teammate"),
+    ];
+    expect(new Set(scales)).toEqual(new Set([0.8]));
   });
 
   it("maps race pace to forward 3D world motion", () => {
