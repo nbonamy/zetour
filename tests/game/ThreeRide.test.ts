@@ -3,6 +3,7 @@ import {
   THREE_LANE_X,
   isThreeLaneCollision,
   threeEncounterZ,
+  threePedalCadenceRpm,
   threeWorldSpeed,
 } from "../../src/game/ThreeRide";
 
@@ -15,6 +16,14 @@ describe("ThreeRide helpers", () => {
     expect(threeWorldSpeed(0)).toBe(0);
     expect(threeWorldSpeed(25)).toBeCloseTo(13.5);
     expect(threeWorldSpeed(80)).toBeCloseTo(43.2);
+  });
+
+  it("uses a believable pedaling cadence that rises with speed", () => {
+    expect(threePedalCadenceRpm(0)).toBe(0);
+    expect(threePedalCadenceRpm(5)).toBe(70);
+    expect(threePedalCadenceRpm(25)).toBeCloseTo(81.25);
+    expect(threePedalCadenceRpm(40)).toBe(100);
+    expect(threePedalCadenceRpm(80)).toBe(100);
   });
 
   it("spawns encounter pieces farther down the road", () => {

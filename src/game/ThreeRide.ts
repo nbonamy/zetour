@@ -31,6 +31,10 @@ import { readVisualQaOverrides } from "./visualQa";
 export const THREE_LANE_X = [-2.75, 0, 2.75] as const;
 export const threeWorldSpeed = (speedKmh: number): number =>
   Math.max(0, speedKmh) * 0.54;
+export const threePedalCadenceRpm = (speedKmh: number): number =>
+  speedKmh <= 0
+    ? 0
+    : THREE.MathUtils.clamp(speedKmh * 3.25, 70, 100);
 export const threeEncounterZ = (offset = 0): number => -58 - offset / 7.5;
 export const isThreeLaneCollision = (
   riderX: number,
@@ -79,6 +83,13 @@ interface CyclistLegRig {
   shoe: THREE.Mesh;
   crankArm: THREE.Mesh;
   pedal: THREE.Mesh;
+}
+
+interface FanArmRig {
+  pivot: THREE.Group;
+  baseRotation: number;
+  amplitude: number;
+  phaseOffset: number;
 }
 
 export interface ThreeRideCallbacks {
@@ -184,6 +195,54 @@ const createJerseyGeometry = (): THREE.BufferGeometry => {
     { y: 0.28, radiusX: 0.145, radiusZ: 0.14 },
   ];
   const segments = 10;
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  rings.forEach((ring) => {
+    for (let segment = 0; segment < segments; segment += 1) {
+      const angle = (segment / segments) * Math.PI * 2;
+      vertices.push(
+        Math.cos(angle) * ring.radiusX,
+        ring.y,
+        Math.sin(angle) * ring.radiusZ,
+      );
+    }
+  });
+  for (let ring = 0; ring < rings.length - 1; ring += 1) {
+    for (let segment = 0; segment < segments; segment += 1) {
+      const next = (segment + 1) % segments;
+      const lower = ring * segments + segment;
+      const lowerNext = ring * segments + next;
+      const upper = (ring + 1) * segments + segment;
+      const upperNext = (ring + 1) * segments + next;
+      indices.push(lower, upper, lowerNext, lowerNext, upper, upperNext);
+    }
+  }
+  const bottomCenter = vertices.length / 3;
+  vertices.push(0, rings[0].y, 0);
+  const topCenter = vertices.length / 3;
+  vertices.push(0, rings[rings.length - 1].y, 0);
+  for (let segment = 0; segment < segments; segment += 1) {
+    const next = (segment + 1) % segments;
+    indices.push(bottomCenter, next, segment);
+    const topOffset = (rings.length - 1) * segments;
+    indices.push(topCenter, topOffset + segment, topOffset + next);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+};
+
+const createFanShirtGeometry = (): THREE.BufferGeometry => {
+  const rings = [
+    { y: -0.38, radiusX: 0.22, radiusZ: 0.17 },
+    { y: -0.27, radiusX: 0.245, radiusZ: 0.18 },
+    { y: 0.19, radiusX: 0.31, radiusZ: 0.205 },
+    { y: 0.29, radiusX: 0.265, radiusZ: 0.19 },
+    { y: 0.36, radiusX: 0.13, radiusZ: 0.135 },
+  ];
+  const segments = 8;
   const vertices: number[] = [];
   const indices: number[] = [];
   rings.forEach((ring) => {
@@ -805,66 +864,121 @@ const createFan = (seed: number): THREE.Group => {
   const shirtColors = [0xc85f4d, 0xd4b658, 0x4f889b, 0xe5d3a0, 0x658b5d];
   const shirt = meshMaterial(shirtColors[seed % shirtColors.length], 0.9);
   const skin = meshMaterial([0xc98e66, 0xd5aa82, 0xb97955][seed % 3], 0.9);
+  const hairMaterial = meshMaterial([0x6c4b34, 0xb49a70, 0x3b3129][seed % 3], 0.9);
   const trousersMaterial = meshMaterial(seed % 2 ? 0x343a3a : 0x2d4050, 0.95);
   const shoeMaterial = meshMaterial(0x292725, 0.92);
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.19, 0.68, 6), shirt);
-  torso.position.y = 1.05;
-  const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.18, 0), skin);
-  head.position.y = 1.57;
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.14, 7), skin);
-  neck.position.y = 1.42;
-  const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(0.185, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2),
-    meshMaterial([0x6c4b34, 0xb49a70, 0x3b3129][seed % 3], 0.9),
+  const torso = new THREE.Mesh(createFanShirtGeometry(), shirt);
+  torso.position.y = 1.08;
+  const collar = new THREE.Mesh(
+    new THREE.TorusGeometry(0.12, 0.026, 5, 10, Math.PI),
+    meshMaterial(seed % 3 === 0 ? 0xeee3c4 : shirtColors[(seed + 1) % shirtColors.length], 0.88),
   );
-  hair.position.y = 1.67;
-  hair.scale.set(1, 0.55, 1);
-  const legs: THREE.Mesh[] = [];
+  collar.position.set(0, 1.39, 0.115);
+  collar.rotation.x = Math.PI / 2;
+  const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.205, 1), skin);
+  head.position.y = 1.63;
+  head.scale.set(0.94, 1.08, 0.92);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.095, 0.18, 7), skin);
+  neck.position.y = 1.43;
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.208, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+    hairMaterial,
+  );
+  hair.position.set(0, 1.745, -0.008);
+  hair.scale.set(0.98, 0.62, 0.98);
+
+  const earGeometry = new THREE.DodecahedronGeometry(0.052, 0);
   [-1, 1].forEach((side) => {
-    const leg = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.065, 0.075, 0.64, 6),
-      trousersMaterial,
-    );
-    leg.position.set(side * 0.11, 0.38, 0);
-    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.27), shoeMaterial);
-    shoe.position.set(side * 0.11, 0.065, 0.045);
-    legs.push(leg);
-    group.add(leg, shoe);
+    const ear = new THREE.Mesh(earGeometry, skin);
+    ear.position.set(side * 0.19, 1.63, 0.008);
+    group.add(ear);
   });
-  const arms: THREE.Group[] = [];
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.047, 0.09, 5), skin);
+  nose.position.set(0, 1.62, 0.198);
+  nose.rotation.x = Math.PI / 2;
+  const eyeMaterial = meshMaterial(0x302b28, 0.96);
+  [-1, 1].forEach((side) => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.018, 5, 4), eyeMaterial);
+    eye.position.set(side * 0.068, 1.67, 0.187);
+    group.add(eye);
+  });
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.018, 0.016), eyeMaterial);
+  mouth.position.set(0, 1.54, 0.192);
+
+  const shorts = new THREE.Mesh(new THREE.BoxGeometry(0.47, 0.25, 0.34), trousersMaterial);
+  shorts.position.set(0, 0.7, 0);
+  shorts.rotation.y = (seed % 3 - 1) * 0.035;
+  [-1, 1].forEach((side) => {
+    const hip = new THREE.Vector3(side * 0.135, 0.7, 0);
+    const knee = new THREE.Vector3(
+      side * (0.15 + (seed % 2) * 0.018),
+      0.39,
+      side === (seed % 2 === 0 ? 1 : -1) ? 0.035 : -0.025,
+    );
+    const ankle = new THREE.Vector3(side * 0.16, 0.12, knee.z + 0.012);
+    const thigh = tubeBetween(hip, knee, 0.09, trousersMaterial);
+    const kneeJoint = new THREE.Mesh(new THREE.DodecahedronGeometry(0.092, 0), trousersMaterial);
+    kneeJoint.position.copy(knee);
+    const shin = tubeBetween(knee, ankle, 0.078, trousersMaterial);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.27), shoeMaterial);
+    shoe.position.set(ankle.x, 0.065, 0.065 + ankle.z);
+    shoe.rotation.y = side * 0.04;
+    group.add(thigh, kneeJoint, shin, shoe);
+  });
+
+  const pose = seed % 4;
+  const arms: FanArmRig[] = [];
   [-1, 1].forEach((side) => {
     const arm = new THREE.Group();
-    arm.position.set(side * 0.19, 1.3, 0);
-    const sleeveEnd = new THREE.Vector3(side * 0.1, 0.14, 0);
-    const elbow = new THREE.Vector3(side * 0.2, 0.34, 0);
-    const hand = new THREE.Vector3(side * 0.25, 0.58 + (seed % 2) * 0.08, 0);
-    const sleeve = tubeBetween(new THREE.Vector3(), sleeveEnd, 0.075, shirt);
-    const upperArm = tubeBetween(sleeveEnd, elbow, 0.052, skin);
-    const forearm = tubeBetween(elbow, hand, 0.045, skin);
+    arm.position.set(side * 0.255, 1.29, 0);
+    const sleeveEnd = new THREE.Vector3(side * 0.11, 0.07, 0.006);
+    let elbow = new THREE.Vector3(side * 0.27, 0.3, 0.015);
+    let hand = new THREE.Vector3(side * 0.15, 0.62, 0.025);
+    if (pose === 1 && side < 0) {
+      elbow = new THREE.Vector3(side * 0.33, 0.25, -0.01);
+      hand = new THREE.Vector3(side * 0.42, 0.5, 0.02);
+    } else if (pose === 2) {
+      elbow = new THREE.Vector3(side * 0.29, 0.28, 0.02);
+      hand = new THREE.Vector3(side * 0.045, 0.57, 0.09);
+    } else if (pose === 3 && side > 0) {
+      elbow = new THREE.Vector3(side * 0.3, 0.15, 0.015);
+      hand = new THREE.Vector3(side * 0.39, 0.34, 0.06);
+    }
+    const shoulder = new THREE.Mesh(new THREE.DodecahedronGeometry(0.112, 0), shirt);
+    const sleeve = tubeBetween(new THREE.Vector3(), sleeveEnd, 0.105, shirt);
+    const upperArm = tubeBetween(sleeveEnd, elbow, 0.064, skin);
+    const elbowJoint = new THREE.Mesh(new THREE.DodecahedronGeometry(0.072, 0), skin);
+    elbowJoint.position.copy(elbow);
+    const forearm = tubeBetween(elbow, hand, 0.058, skin);
     const handMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.063, 7, 5),
+      new THREE.DodecahedronGeometry(0.078, 0),
       skin,
     );
     handMesh.position.copy(hand);
-    arm.add(sleeve, upperArm, forearm, handMesh);
-    arms.push(arm);
+    arm.add(shoulder, sleeve, upperArm, elbowJoint, forearm, handMesh);
+    arms.push({
+      pivot: arm,
+      baseRotation: side * ((seed % 3) - 1) * 0.018,
+      amplitude: pose === 2 ? 0.055 : 0.085 + (seed % 2) * 0.02,
+      phaseOffset: side > 0 ? 0.64 : 0,
+    });
     group.add(arm);
   });
   if (seed % 4 === 0) {
     const capMaterial = meshMaterial(shirtColors[(seed + 2) % shirtColors.length], 0.84);
     const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.SphereGeometry(0.215, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2),
       capMaterial,
     );
-    cap.position.set(0, 1.69, 0);
-    cap.scale.set(1, 0.48, 1);
-    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.035, 0.13), capMaterial);
-    brim.position.set(0, 1.68, 0.16);
+    cap.position.set(0, 1.755, -0.008);
+    cap.scale.set(1, 0.52, 1);
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.035, 0.15), capMaterial);
+    brim.position.set(0, 1.745, 0.16);
     group.add(cap, brim);
   } else {
     group.add(hair);
   }
-  group.add(torso, neck, head);
+  group.add(shorts, torso, collar, neck, head, nose, mouth);
   group.userData.wavingArms = arms;
   group.userData.wavePhase = seed * 0.73;
   applyShadow(group);
@@ -1298,9 +1412,11 @@ export class ThreeRide {
       fan.position.set(
         side * (7.15 + (withinCluster % 2) * 0.62 + (cluster % 2) * 0.24),
         0,
-        3 - cluster * 20.5 - (withinCluster % 2) * 1.15,
+        -1.5 - cluster * 20.5 - (withinCluster % 2) * 1.15,
       );
-      fan.scale.setScalar(0.82 + (index % 4) * 0.07);
+      fan.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+      fan.rotation.y += ((index % 3) - 1) * 0.12;
+      fan.scale.setScalar(0.9 + (index % 4) * 0.06);
       this.movingScenery.push(fan);
       this.roadWorld.add(fan);
     }
@@ -1829,9 +1945,11 @@ export class ThreeRide {
     wheels?.forEach((wheelMesh) => {
       wheelMesh.rotation.z -= speed * delta * 1.55;
     });
+    const speedKmh = speed / 0.54;
+    const pedalAngularSpeed = threePedalCadenceRpm(speedKmh) * Math.PI / 30;
     const pedalPhase =
       ((cyclist.userData.pedalPhase as number | undefined) ?? 0) +
-      speed * delta * 0.27;
+      pedalAngularSpeed * delta;
     cyclist.userData.pedalPhase = pedalPhase;
     positionCyclistLegs(cyclist, pedalPhase);
     cyclist.position.y = Math.sin(this.elapsedMs / 90) * 0.018;
@@ -1849,11 +1967,13 @@ export class ThreeRide {
 
   private updateFans(_speed: number, _delta: number): void {
     this.movingScenery.forEach((object) => {
-      const arms = object.userData.wavingArms as THREE.Object3D[] | undefined;
+      const arms = object.userData.wavingArms as FanArmRig[] | undefined;
       if (!arms) return;
       const phase = (object.userData.wavePhase as number | undefined) ?? 0;
-      arms.forEach((arm, index) => {
-        arm.rotation.z = Math.sin(this.elapsedMs / 180 + phase + index * 0.7) * 0.13;
+      arms.forEach((arm) => {
+        arm.pivot.rotation.z =
+          arm.baseRotation +
+          Math.sin(this.elapsedMs / 210 + phase + arm.phaseOffset) * arm.amplitude;
       });
     });
   }
