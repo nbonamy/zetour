@@ -4972,6 +4972,11 @@ kbd {
   outline-offset: 2px;
 }
 
+.three-camera-control.is-roadside {
+  right: auto;
+  left: 14px;
+}
+
 .three-camera-control kbd {
   display: inline-grid;
   min-width: 17px;

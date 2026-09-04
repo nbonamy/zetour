@@ -1,62 +1,60 @@
-# 3D Tour visual QA
+# 3D Tour model-detail visual QA
 
 ## Evidence
 
-- Source visual truth: `/var/folders/y8/xf4zz5x505179mg2vb6xr17w0000gn/T/codex-app-sdk-attachments-fz2x3i/1-81015879796__FDCE24C8-9F14-4110-B34D-C1DB5A70E14F.jpeg` (primary), plus sibling reference images `0-81015875651__1204A940-41F0-4474-9157-23F0CA1EBE25.jpeg` and `2-81015908589__BC9D0127-DFFA-4179-A0C4-411B2A7DD780.jpeg`.
-- Browser-rendered implementation: `.design-qa/implementation-pass-4.png`.
-- Normalized implementation crop: `.design-qa/implementation-game-pass-4.png`.
-- Full-view comparison: `.design-qa/comparison-final.png`.
-- Focused road/rider/scenery comparison: `.design-qa/comparison-focus-final.png`.
-- Local preview: `http://127.0.0.1:5173/?qaSpeed=0&qaFlow=65`.
-- State: 3D Tour, Chase camera, Sector 1, stable zero-speed composition for repeatable capture, flow preview at 65%, audio muted.
-
-## Normalization
-
-- Source pixels: 4032 × 3024, EXIF orientation 3. The visible game region was cropped to `(0, 220, 4032, 2488)` and normalized to 1506 × 847.
-- Implementation screenshot pixels: 1602 × 1738. The game frame was captured at 753 × 423.56 CSS px with device density 2, then cropped to 1506 × 847 physical pixels.
-- Both sides of the comparison therefore use the same 1506 × 847 pixel content region and 16:9 composition. Browser canvas outside the game frame is excluded.
+- Rider reference: `/var/folders/y8/xf4zz5x505179mg2vb6xr17w0000gn/T/codex-app-sdk-attachments-HGBEyB/0-image.png`.
+- House reference: `/var/folders/y8/xf4zz5x505179mg2vb6xr17w0000gn/T/codex-app-sdk-attachments-LmQPHj/0-image.png`.
+- Vehicle reference: `/var/folders/y8/xf4zz5x505179mg2vb6xr17w0000gn/T/codex-app-sdk-attachments-v5bSVa/0-image.png`.
+- Spectator reference: `/var/folders/y8/xf4zz5x505179mg2vb6xr17w0000gn/T/codex-app-sdk-attachments-ajR5Vo/0-image.png`.
+- Final rear view: `.design-qa/implementation-rider-chase-final.png`.
+- Final side view: `.design-qa/implementation-rider-roadside-final.png` and `.design-qa/implementation-rider-roadside-crop-final.png`.
+- Forced-traffic scene: `.design-qa/implementation-model-traffic-pass-1.png`.
+- Four-way rider comparison: `.design-qa/comparison-rider-final.png`.
+- Two-frame pedal cycle comparison: `.design-qa/pedal-cycle-comparison.png`.
+- House, car, and spectator comparison: `.design-qa/comparison-models-pass-1.png`.
+- Local state: 1600 × 900 viewport, 3D Tour, Chase camera, Sector 1. The rider comparison uses a repeatable zero-speed capture; traffic uses the forced traffic encounter. Audio was set to and programmatically verified as `muted` before every interactive capture.
 
 ## Findings
 
-No actionable P0, P1, or P2 differences remain for the requested low-poly 3D direction.
+No actionable P0, P1, or P2 difference remains for the requested low-poly model-detail pass.
 
-- Fonts and typography: the existing Ze Tour display face and serif HUD hierarchy remain intact. Camera and flow labels now match the compact scale and placement of the reference overlays.
-- Spacing and layout rhythm: the chase view now uses the same high rear composition, road width, lower-center rider placement, top HUD clearance, side verges, and bottom HUD overlap as the reference. Wide, Roadside, and Helicopter cameras were also exercised.
-- Colors and visual tokens: the scene now uses the reference's pale blue sky, desaturated green fields, cream village surfaces, terracotta roofs, dark gray road, white shoulders, and warm low-poly lighting.
-- Image quality and asset fidelity: the previous rectangular stage-image backdrop is gone. Mountains, trees, cypresses, houses, hay bales, flags, crowds, gantries, vehicles, cyclist, bicycle, and shadows are true Three.js scene geometry. Existing supplied raster assets remain reserved for gameplay pickups and power-ups.
-- Copy and content: `Chase/Wide/Roadside/Helicopter camera`, `Find your flow`, and multiplier/combo states are concise and consistent with the reference. Existing game copy is unchanged.
-- Interaction and accessibility: the camera button remains a semantic keyboard-accessible button, `C` cycles all four views, the canvas retains its accessible label, and muted mode was verified before every browser run.
-- Dynamic state: a forced oncoming-traffic run at 25 km/h verified vehicle approach, traffic spacing, road movement, and encounter rendering. The final comparison intentionally freezes movement for stable scene geometry; the source's exact traffic positions are temporal rather than a static layout requirement.
+- Rider anatomy and pose: the cyclist now has a custom ring-sculpted jersey with sloping shoulders, short sleeves, a visible neck and ears, proportioned two-part arms with elbow/wrist/hand joints, a shaped waist, separated shorts legs, modeled knees and calves, white socks, and shoes. Two-bone leg kinematics solve each knee from the moving pedal position, keeping every foot, crank, and limb physically connected throughout the cycle.
+- Helmet and bicycle: the face now has low-poly jaw, nose, and eye detail; the helmet adds inset rear vents, straps, and a band. The bicycle adds a double-stay frame and fork, visible chain, metal chainring and crank arms, pedals, bottle, saddle, grips, hubs, rims, and eight spokes per wheel while preserving the yellow Tour palette.
+- Vehicles: cars and vans now have layered bodies, hood/cab separation, front-facing divided windscreens, mirrors, wheels with hubcaps, headlight housings, grille, bumper, and license plate. The brighter red car reads clearly against the road at gameplay scale.
+- Houses and vegetation: houses now include foundations, eaves, framed and divided windows, blue-green shutters, inset doors with handles and steps, plus capped chimneys. Broadleaf trees use clustered faceted crowns and cypresses use a column-and-crown construction.
+- Spectators and roadside props: spectators now have shaped torsos, necks, hair or caps, individual legs and shoes, sleeves, elbows, forearms, and hands. Road markers gained bases, plaques, and yellow caps matching the supplied reference.
+- Runtime and accessibility: all additions remain native Three.js geometry with shadows and the existing low-poly materials. The four camera modes, semantic canvas label, keyboard controls, 2D mode, shared progression, and HUD are unchanged.
 
 ## Comparison history
 
 ### Pass 1
 
-- [P2] Midground scenery was still too distant and evenly distributed compared with the dense village corridor in the reference.
-- [P2] Camera and flow controls occupied too much of the playfield.
-- [P2] The cyclist helmet color and silhouette drifted from the yellow Tour rider.
+- [P2] The rebuilt rider had the right helmet and part count, but the broad torso and single central shorts mass still read as a cape-and-skirt silhouette from the chase camera.
+- [P2] The arms were physically segmented but sat too far forward in depth, so the torso hid most of the elbow bend.
 
-Fixes: pulled trees, houses, and hay bales closer to the road; clustered spectators; varied flags and village spacing; reduced overlay dimensions; raised and tightened the chase camera; enlarged and articulated the bicycle/rider; matched the yellow helmet and jersey.
-
-### Pass 2
-
-The capture contained a transient encounter announcement and was rejected as a comparison state before scoring. No visual pass was claimed from it.
+Fixes: narrowed the jersey, reduced the central shorts body, lengthened and separated both shorts legs, moved the shoulders and elbows toward the visible rear plane, and widened the hand/handlebar contact points.
 
 ### Final pass
 
-Post-fix evidence in `.design-qa/comparison-final.png` and `.design-qa/comparison-focus-final.png` shows the corrected density, camera composition, cyclist scale, low-poly palette, roadside landmarks, and compact controls. No actionable P0/P1/P2 mismatch remains.
+The first refinement was rejected after the Roadside camera exposed a still-boxy torso, overlong straight arms, disconnected-looking pedal pose, and a camera control obscuring the bicycle. The cyclist was rebuilt for all-angle close-up quality, and the Roadside control now moves to the opposite corner in that camera.
+
+The final four-way evidence in `.design-qa/comparison-rider-final.png` shows the supplied rear benchmark, the final rear render, the rejected side render, and the corrected side render together. `.design-qa/pedal-cycle-comparison.png` verifies two distinct phases with both feet remaining on their pedals and both knees solving naturally. No actionable P0/P1/P2 mismatch remains.
 
 ## Implementation checklist
 
-- [x] Replace flat image backdrop with procedural low-poly depth.
-- [x] Add dense French roadside scenery and event landmarks.
-- [x] Improve cyclist, bicycle, traffic, pickups, potholes, shadows, and road surfaces.
-- [x] Add distinct Chase, Wide, Roadside, and Helicopter cameras.
-- [x] Add 3D flow/combo feedback without changing the shared HUD or 2D mode.
-- [x] Verify muted interaction runs and current-browser console state.
+- [x] Refine the rider silhouette and articulated pedal pose.
+- [x] Verify the rider at close range in both Chase and Roadside cameras.
+- [x] Keep knees, feet, crank arms, and pedals connected through the full cycle.
+- [x] Move the Roadside camera control away from the rider and bicycle.
+- [x] Add bicycle and helmet detail that remains legible from the chase camera.
+- [x] Replace block-only traffic with layered car and van models.
+- [x] Add façade depth and architectural trim to houses.
+- [x] Add recognizable anatomy, clothing, hair, and props to spectators.
+- [x] Improve broadleaf trees, cypresses, and roadside marker models.
+- [x] Verify reference comparisons, browser console, muted audio, tests, and production build.
 
 ## Follow-up polish
 
-- [P3] A future asset pass could add more vehicle body variants and spectator poses; the current set already meets the requested density and low-poly art direction.
+- [P3] Future variety could add alternate jersey patterns, vehicle body styles, and handheld spectator signs. The current shared constructors already meet the requested low-poly detail level across the course.
 
 final result: passed

@@ -56,6 +56,7 @@ onBeforeUnmount(() => {
     <button
       type="button"
       class="three-camera-control"
+      :class="{ 'is-roadside': cameraMode === 'Roadside' }"
       :aria-label="`Current camera: ${cameraMode}. Switch camera`"
       @click="cycleCamera"
     >
