@@ -730,9 +730,13 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="workshop-trigger hud-control"
+              :class="{ 'has-upgrade': firstAffordableUpgrade && !displayedRaceFinished }"
+              :aria-label="firstAffordableUpgrade && !displayedRaceFinished ? 'Workshop — upgrade ready (W)' : undefined"
+              :title="firstAffordableUpgrade ? `You can afford ${firstAffordableUpgrade.name}` : undefined"
               @click="openWorkshop"
             >
               Workshop <kbd>W</kbd>
+              <span v-if="firstAffordableUpgrade && !displayedRaceFinished" class="workshop-ready" aria-hidden="true">Upgrade ready</span>
             </button>
             <button
               type="button"

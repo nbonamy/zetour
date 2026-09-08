@@ -612,6 +612,35 @@ kbd {
   backdrop-filter: blur(4px);
 }
 
+.workshop-trigger.has-upgrade {
+  position: relative;
+  box-shadow: 0 0 0 2px #fff0ba, 0 3px 0 #563522;
+}
+
+.workshop-ready {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 2px solid #e7be54;
+  border-radius: 9px;
+  padding: 5px 8px;
+  background: #3b281e;
+  color: #fff0c5;
+  font: 900 12px/1.1 Georgia, "Times New Roman", serif;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.workshop-ready::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 5px);
+  border: 5px solid transparent;
+  border-top-color: #e7be54;
+}
+
 .workshop-window {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

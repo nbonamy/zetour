@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { ThreeLandscape, roadBend, roadHeading } from "./threeLandscape";
 import { createRoadReward, createPothole, disposeRoadObject } from "./threeProps";
 import { ThreeSlipstream } from "./threeSlipstream";
+import { createRoadVehicle, animateRoadVehicle } from "./threeVehicles";
 import { gameAudio } from "../audio/gameAudio";
 import {
   gameStore,
@@ -668,93 +669,6 @@ const createCyclist = (
   group.userData.legs = legs;
   group.userData.pedalPhase = Math.PI * 0.35;
   positionCyclistLegs(group, group.userData.pedalPhase as number);
-  applyShadow(group);
-  return group;
-};
-
-const createCar = (van: boolean): THREE.Group => {
-  const group = new THREE.Group();
-  const color = van ? 0xe9d8b6 : 0xd44736;
-  const bodyMaterial = meshMaterial(color, 0.45);
-  const trimMaterial = meshMaterial(0xd8d6ce, 0.32);
-  const tyreMaterial = meshMaterial(0x24211f, 0.9);
-  const glassMaterial = new THREE.MeshStandardMaterial({ color: 0x8cb6bf, roughness: 0.18, metalness: 0.2 });
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(van ? 1.72 : 1.68, van ? 1.2 : 0.7, van ? 3.35 : 3.08),
-    bodyMaterial,
-  );
-  body.position.y = van ? 0.86 : 0.62;
-  const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(van ? 1.5 : 1.38, van ? 0.72 : 0.64, van ? 1.7 : 1.48),
-    meshMaterial(van ? 0xdfcda9 : 0xbd392e, 0.4),
-  );
-  cabin.position.set(0, van ? 1.55 : 1.17, van ? 0.02 : -0.08);
-  const hood = new THREE.Mesh(
-    new THREE.BoxGeometry(1.5, van ? 0.12 : 0.2, van ? 0.5 : 0.86),
-    bodyMaterial,
-  );
-  hood.position.set(0, van ? 1.18 : 0.95, van ? 1.4 : 1.12);
-  const windshield = new THREE.Mesh(
-    new THREE.PlaneGeometry(van ? 1.3 : 1.17, van ? 0.54 : 0.48),
-    glassMaterial,
-  );
-  windshield.position.set(0, van ? 1.58 : 1.2, van ? 0.881 : 0.671);
-  const windshieldDivider = new THREE.Mesh(
-    new THREE.BoxGeometry(0.035, van ? 0.54 : 0.48, 0.025),
-    meshMaterial(0x504b45, 0.7),
-  );
-  windshieldDivider.position.copy(windshield.position).add(new THREE.Vector3(0, 0, 0.015));
-  const bumper = new THREE.Mesh(
-    new THREE.BoxGeometry(1.62, 0.17, 0.18),
-    trimMaterial,
-  );
-  bumper.position.set(0, 0.43, van ? 1.73 : 1.58);
-  const grille = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 0.2, 0.045),
-    meshMaterial(0x302d2b, 0.68),
-  );
-  grille.position.set(0, van ? 0.83 : 0.67, van ? 1.691 : 1.561);
-  const licensePlate = new THREE.Mesh(
-    new THREE.BoxGeometry(0.38, 0.12, 0.025),
-    meshMaterial(0xf1eee0, 0.7),
-  );
-  licensePlate.position.set(0, 0.48, van ? 1.831 : 1.681);
-  group.add(body, cabin, hood, windshield, windshieldDivider, bumper, grille, licensePlate);
-  [-0.82, 0.82].forEach((x) => {
-    [-0.96, 0.96].forEach((z) => {
-      const tyre = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.24, 0.24, 0.14, 10),
-        tyreMaterial,
-      );
-      tyre.rotation.z = Math.PI / 2;
-      tyre.position.set(x, 0.31, z);
-      const hubcap = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.105, 0.105, 0.145, 8),
-        trimMaterial,
-      );
-      hubcap.rotation.z = Math.PI / 2;
-      hubcap.position.set(x, 0.31, z);
-      group.add(tyre, hubcap);
-    });
-  });
-  [-0.58, 0.58].forEach((x) => {
-    const lightHousing = new THREE.Mesh(
-      new THREE.BoxGeometry(0.34, 0.24, 0.06),
-      trimMaterial,
-    );
-    lightHousing.position.set(x, van ? 0.88 : 0.7, van ? 1.706 : 1.576);
-    const light = new THREE.Mesh(
-      new THREE.BoxGeometry(0.24, 0.14, 0.025),
-      new THREE.MeshBasicMaterial({ color: 0xffe4a0 }),
-    );
-    light.position.set(x, van ? 0.88 : 0.7, van ? 1.742 : 1.612);
-    group.add(lightHousing, light);
-  });
-  [-1, 1].forEach((side) => {
-    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.14), bodyMaterial);
-    mirror.position.set(side * 0.86, van ? 1.45 : 1.18, van ? 0.72 : 0.55);
-    group.add(mirror);
-  });
   applyShadow(group);
   return group;
 };
@@ -1611,7 +1525,7 @@ export class ThreeRide {
 
   private spawnTraffic(lane: number, z: number, sequenceId: number): void {
     const van = Math.random() > 0.62;
-    const car = createCar(van);
+    const car = createRoadVehicle(van, randomInt(0, 2));
     car.scale.setScalar(1.08);
     car.position.set(THREE_LANE_X[lane], 0, z);
     this.roadWorld.add(car);
@@ -1630,7 +1544,9 @@ export class ThreeRide {
       const object = this.objects[index];
       if (!object) continue;
       if (object.sequenceFailed) continue;
-      object.mesh.position.z += speed * object.speedMultiplier * delta;
+      const distance = speed * object.speedMultiplier * delta;
+      object.mesh.position.z += distance;
+      animateRoadVehicle(object.mesh, speed * (object.speedMultiplier - 1) * delta);
       object.mesh.position.x = THREE_LANE_X[object.lane] + roadBend(object.mesh.position.z, this.travelled);
       object.mesh.rotation.y = roadHeading(object.mesh.position.z, this.travelled);
       const rewardModel = object.mesh.userData.rewardModel as THREE.Group | undefined;

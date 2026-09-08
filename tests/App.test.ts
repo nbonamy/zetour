@@ -42,6 +42,7 @@ vi.mock("../src/components/UpgradeGraph.vue", () => ({
 import App from "../src/App.vue";
 import { gameAudio } from "../src/audio/gameAudio";
 import { gameStore } from "../src/core/gameStore";
+import { upgrades } from "../src/core/upgrades";
 
 const mountAppInMode = async (
   mode: "2d" | "3d" = "2d",
@@ -96,9 +97,10 @@ describe("App", () => {
     app.unmount();
   });
 
-  it("invites the rider into the workshop once when the first upgrade becomes affordable", async () => {
+  it.each(["2d", "3d"] as const)("invites the %s rider into the workshop once when the first upgrade becomes affordable", async (mode) => {
     window.localStorage.removeItem(WORKSHOP_INVITATION_STORAGE_KEY);
-    const app = await mountAppInMode();
+    const app = await mountAppInMode(mode);
+    const isPaused = () => mode === "3d" ? componentState.threeDimensionalPaused : componentState.paused;
 
     expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
     while (gameStore.getSnapshot().sweat < 100) {
@@ -119,18 +121,18 @@ describe("App", () => {
     expect(window.localStorage.getItem(WORKSHOP_INVITATION_STORAGE_KEY)).toBe(
       "1",
     );
-    expect(componentState.paused).toBe(true);
+    expect(isPaused()).toBe(true);
     expect(document.activeElement).toBe(openButton);
 
     openButton?.click();
     await nextTick();
     expect(document.body.textContent).toContain("Career workshop");
-    expect(componentState.paused).toBe(true);
+    expect(isPaused()).toBe(true);
 
     document.querySelector<HTMLButtonElement>(".workshop-close")?.click();
     await nextTick();
     await new Promise((resolve) => window.setTimeout(resolve, 180));
-    expect(componentState.paused).toBe(false);
+    expect(isPaused()).toBe(false);
     app.unmount();
 
     document.body.innerHTML = '<div id="test-app-again"></div>';
@@ -139,6 +141,27 @@ describe("App", () => {
     expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
     expect(componentState.paused).toBe(false);
     secondApp.unmount();
+  });
+
+  it("keeps a non-blocking workshop reminder in 3D after the first invitation was seen", async () => {
+    const app = await mountAppInMode("3d");
+    try {
+      expect(document.querySelector(".workshop-ready")).toBeNull();
+      while (gameStore.getSnapshot().sweat < 100) gameStore.collectBag("sweat");
+      await nextTick();
+      expect(document.querySelector(".workshop-ready")?.textContent).toContain("Upgrade ready");
+      expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
+      expect(componentState.threeDimensionalPaused).toBe(false);
+      document.querySelector<HTMLButtonElement>(".workshop-trigger")?.click();
+      await nextTick();
+      expect(document.body.textContent).toContain("Career workshop");
+      expect(componentState.threeDimensionalPaused).toBe(true);
+      gameStore.purchase(upgrades.find((upgrade) => upgrade.id === "endurance")!);
+      await nextTick();
+      expect(document.querySelector(".workshop-ready")).toBeNull();
+    } finally {
+      app.unmount();
+    }
   });
 
   it("sounds workshop entry and exit exactly once", async () => {
