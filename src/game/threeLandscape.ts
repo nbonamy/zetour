@@ -10,6 +10,16 @@ export const roadBend = (z: number, distance: number): number => {
 export const roadHeading = (z: number, distance: number): number =>
   Math.atan2(roadBend(z + 0.5, distance) - roadBend(z - 0.5, distance), 1);
 
+// A modest visual exaggeration makes a road grade readable at game scale.
+// Keep gameplay coordinates on the flat local road; tilt its rendering only.
+export const threeRoadPitch = (gradient: number): number =>
+  Math.atan(THREE.MathUtils.clamp(gradient, -0.12, 0.12) * 1.8);
+
+export const applyRoadPitch = (road: THREE.Object3D, pitch: number, riderZ: number): void => {
+  road.rotation.x = pitch;
+  road.position.set(0, riderZ * Math.sin(pitch), riderZ * (1 - Math.cos(pitch)));
+};
+
 interface Ribbon {
   geometry: THREE.BufferGeometry;
   offsets: Float32Array;
@@ -17,6 +27,7 @@ interface Ribbon {
 
 export class ThreeLandscape {
   readonly root = new THREE.Group();
+  private readonly ground = new THREE.Group();
   private readonly ribbons: Ribbon[] = [];
   private readonly terrainMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly roadMaterial = new THREE.MeshStandardMaterial({ color: 0x343e43, roughness: 1 });
@@ -41,10 +52,11 @@ export class ThreeLandscape {
   private readonly mountains = new THREE.Group();
 
   constructor() {
+    this.root.add(this.ground);
     const sky = new THREE.Mesh(new THREE.SphereGeometry(290, 24, 16), this.skyMaterial);
     sky.frustumCulled = false;
     this.root.add(sky);
-    this.addRibbon(-5.35, 5.35, 0, this.roadMaterial);
+    this.addRibbon(-5.35, 5.35, 0, this.roadMaterial).name = "Road surface";
     const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0xf3edda, roughness: 1 });
     const gravelMaterial = new THREE.MeshStandardMaterial({ color: 0xb7ad8a, roughness: 1 });
     for (const side of [-1, 1]) {
@@ -67,7 +79,8 @@ export class ThreeLandscape {
         const x = positions.getX(i);
         const row = (positions.getY(i) + 42.5) / 85;
         const ridge = 15 + 15 * Math.sin(x * 0.028 + layer * 2) ** 2 + 10 * Math.sin(x * 0.066 + 0.4) ** 2;
-        positions.setY(i, -3 + row * ridge);
+        // Keep the foot of the ridge below the descending road as well.
+        positions.setY(i, row === 0 ? -180 : -3 + row * ridge);
         positions.setZ(i, Math.sin(x * 0.045 + row * 4) * 7);
       }
       geometry.computeVertexNormals();
@@ -77,6 +90,7 @@ export class ThreeLandscape {
       ridge.position.set((layer - 1) * 15, 0, -185 - layer * 27);
       this.mountains.add(ridge);
     }
+    this.mountains.name = "Mountain backdrop";
     this.root.add(this.mountains);
 
     const cloudMaterial = new THREE.MeshBasicMaterial({ color: 0xfff3d9, transparent: true, opacity: 0.7, depthWrite: false, fog: false });
@@ -89,7 +103,7 @@ export class ThreeLandscape {
     this.update(0);
   }
 
-  private addRibbon(left: number, right: number, y: number, material: THREE.Material, terrain = false): void {
+  private addRibbon(left: number, right: number, y: number, material: THREE.Material, terrain = false): THREE.Mesh {
     const segments = 100;
     const columns = terrain ? 4 : 1;
     const vertices: number[] = [];
@@ -117,8 +131,9 @@ export class ThreeLandscape {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;
-    this.root.add(mesh);
+    this.ground.add(mesh);
     this.ribbons.push({ geometry, offsets: new Float32Array(vertices) });
+    return mesh;
   }
 
   update(distance: number): void {
@@ -129,6 +144,10 @@ export class ThreeLandscape {
       }
       positions.needsUpdate = true;
     }
+  }
+
+  setRoadPitch(pitch: number, riderZ: number): void {
+    applyRoadPitch(this.ground, pitch, riderZ);
   }
 
   setStage(stage: number, gravel: boolean): void {

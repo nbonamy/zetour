@@ -27,7 +27,7 @@ The workshop presents Rider, Nutrition, Equipment, Bike, and Team progression as
 
 ## What is in the game
 
-- Two complete road views: the original 2D side-scroller and a 3D ride with winding roads, regional landscapes, modeled pickups and hazards, and chase, first-person, wide, roadside, and helicopter cameras.
+- Two complete road views: the original 2D side-scroller and a 3D ride with winding roads, visible climbs and descents, regional landscapes, modeled pickups and hazards, and chase, first-person, wide, roadside, and helicopter cameras.
 - Five sectors from Paris to Alpe d'Huez, each with its own landscape and challenge.
 - Five original stage soundtracks, with distinct arrangements for the Atlantic plains, gravel, descent, Mistral, and Alpe d'Huez.
 - Nineteen original event sounds for road action, power-ups, progression, workshop purchases, and Tour milestones.

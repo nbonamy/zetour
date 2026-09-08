@@ -65,10 +65,12 @@ export class ThreeSlipstream {
           vPhase = aLane.z;
           vec3 center = airPath(uv.x);
           vec3 tangent = normalize(airPath(uv.x + 0.001) - airPath(uv.x - 0.001));
-          vec3 across = normalize(cross(tangent, cameraPosition - center));
+          vec3 viewCenter = (modelViewMatrix * vec4(center, 1.0)).xyz;
+          vec3 viewTangent = normalize((modelViewMatrix * vec4(tangent, 0.0)).xyz);
+          vec3 across = normalize(cross(viewTangent, -viewCenter));
           float width = 0.023 + sin(uv.x * 3.141593) * 0.012;
-          vec3 point = center + across * (uv.y * 2.0 - 1.0) * width;
-          gl_Position = projectionMatrix * viewMatrix * vec4(point, 1.0);
+          vec3 point = viewCenter + across * (uv.y * 2.0 - 1.0) * width;
+          gl_Position = projectionMatrix * vec4(point, 1.0);
         }
       `,
       fragmentShader: `
@@ -94,7 +96,7 @@ export class ThreeSlipstream {
     });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = "Draft airflow";
-    // The path is positioned in world space by the shader.
+    // The shader places the path along the local road, including its incline.
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;
   }

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ThreeLandscape, roadBend, roadHeading } from "./threeLandscape";
+import { ThreeLandscape, roadBend, roadHeading, threeRoadPitch, applyRoadPitch } from "./threeLandscape";
 import { createRoadReward, createPothole, disposeRoadObject } from "./threeProps";
 import { ThreeSlipstream } from "./threeSlipstream";
 import { createRoadVehicle, animateRoadVehicle } from "./threeVehicles";
@@ -1063,6 +1063,7 @@ export class ThreeRide {
   private readonly slipstream = new ThreeSlipstream();
   private travelled = 0;
   private visualSpeed = 25;
+  private roadPitch = 0;
   private readonly objects: WorldObject[] = [];
   private readonly movingScenery: THREE.Object3D[] = [];
   private readonly laneMarkers: THREE.Mesh[] = [];
@@ -1159,6 +1160,8 @@ export class ThreeRide {
     this.scene.add(this.sunlight);
     this.scene.add(new THREE.HemisphereLight(0xb8d9ef, 0x74714b, 1.35));
 
+    this.roadPitch = threeRoadPitch(VISUAL_QA.gradient ?? gameStore.getSnapshot().currentGradient);
+    this.applyGrade();
     this.updateStage(VISUAL_QA.stage === null ? gameStore.getSnapshot().stageDefinition : stages[VISUAL_QA.stage - 1]);
     this.raceRevision = gameStore.getSnapshot().raceRevision;
     this.callbacks.onCameraChange(CAMERA_MODES[this.cameraModeIndex]);
@@ -1229,6 +1232,12 @@ export class ThreeRide {
     const speedKmh = VISUAL_QA.speedKmh ?? snapshot.stats.speedKmh;
     const speed = threeWorldSpeed(speedKmh);
     this.visualSpeed = speedKmh;
+    this.roadPitch = THREE.MathUtils.lerp(
+      this.roadPitch,
+      threeRoadPitch(VISUAL_QA.gradient ?? snapshot.currentGradient),
+      1 - Math.exp(-delta * 1.8),
+    );
+    this.applyGrade();
     this.travelled += speed * delta;
     this.landscape.update(this.travelled);
     const stage = VISUAL_QA.stage === null ? snapshot.stageDefinition : stages[VISUAL_QA.stage - 1];
@@ -1287,6 +1296,7 @@ export class ThreeRide {
     this.rider.visible = !firstPerson;
     this.cockpit.visible = firstPerson;
     this.cockpit.rotation.z = this.rider.rotation.z * 0.2;
+    this.cockpit.rotation.x = this.roadPitch * 0.45;
     const pace = Math.round(this.visualSpeed);
     if (firstPerson && this.cockpit.userData.displayPace !== pace) {
       const context = (this.cockpit.userData.display as HTMLCanvasElement).getContext("2d");
@@ -1331,6 +1341,17 @@ export class ThreeRide {
         desiredPosition = new THREE.Vector3(0, 17.5, 8.4);
         desiredLook = new THREE.Vector3(0, 0, -10);
         break;
+    }
+    const pivot = new THREE.Vector3(0, 0, RIDER_Z);
+    const slopeAxis = new THREE.Vector3(1, 0, 0);
+    if (firstPerson || mode === "Chase" || mode === "Wide") {
+      const lookDirection = desiredLook.clone().sub(desiredPosition);
+      desiredPosition.sub(pivot).applyAxisAngle(slopeAxis, this.roadPitch).add(pivot);
+      // Following the full angle would make the road look flat again.
+      const follow = firstPerson ? 0.55 : mode === "Chase" ? 0.6 : 0.8;
+      desiredLook.copy(desiredPosition).add(lookDirection.applyAxisAngle(slopeAxis, this.roadPitch * follow));
+    } else {
+      desiredLook.sub(pivot).applyAxisAngle(slopeAxis, this.roadPitch).add(pivot);
     }
     const response = 1 - Math.exp(-delta * (firstPerson ? 14 : 4.6));
     this.cameraPosition.lerp(desiredPosition, response);
@@ -1384,14 +1405,20 @@ export class ThreeRide {
     }
   }
 
+  private applyGrade(): void {
+    applyRoadPitch(this.roadWorld, this.roadPitch, RIDER_Z);
+    this.landscape.setRoadPitch(this.roadPitch, RIDER_Z);
+  }
+
   private populateScenery(stage: number): void {
     this.movingScenery.forEach((object) => { this.roadWorld.remove(object); disposeRoadObject(object); });
     this.movingScenery.length = 0;
-    const place = (object: THREE.Object3D, x: number, z: number, yaw = 0): void => {
+    const place = (object: THREE.Object3D, x: number, z: number, yaw = 0, upright = true): void => {
       object.position.set(x + roadBend(z, this.travelled), 0, z);
       object.userData.baseX = x;
       object.userData.baseYaw = yaw;
-      object.rotation.y = yaw + roadHeading(z, this.travelled);
+      object.userData.upright = upright;
+      object.rotation.set(upright ? -this.roadPitch : 0, yaw + roadHeading(z, this.travelled), 0);
       this.movingScenery.push(object);
       this.roadWorld.add(object);
     };
@@ -1438,7 +1465,7 @@ export class ThreeRide {
           }
           applyShadow(field);
         }
-        place(field, (i % 2 ? 1 : -1) * (9 + i % 3 * 2), -i * 10);
+        place(field, (i % 2 ? 1 : -1) * (9 + i % 3 * 2), -i * 10, 0, false);
       }
     }
     for (let i = 0; i < 44; i += 1) {
@@ -1454,7 +1481,7 @@ export class ThreeRide {
         rail.position.set(0, 0.65, -4);
         post.add(rail);
       }
-      place(post, side * 6.35, 8 - Math.floor(i / 2) * 8.2);
+      place(post, side * 6.35, 8 - Math.floor(i / 2) * 8.2, 0, false);
     }
     for (let i = 0; i < (stage === 5 ? 32 : 16); i += 1) {
       const side = i % 2 ? 1 : -1;
@@ -1491,7 +1518,11 @@ export class ThreeRide {
       object.position.z += speed * delta;
       if (object.position.z > WORLD_END_Z) object.position.z -= WORLD_WRAP_LENGTH;
       object.position.x = (object.userData.baseX as number) + roadBend(object.position.z, this.travelled);
-      object.rotation.y = ((object.userData.baseYaw as number) || 0) + roadHeading(object.position.z, this.travelled);
+      object.rotation.set(
+        object.userData.upright ? -this.roadPitch : 0,
+        ((object.userData.baseYaw as number) || 0) + roadHeading(object.position.z, this.travelled),
+        0,
+      );
     }
   }
 
@@ -1980,6 +2011,8 @@ export class ThreeRide {
 
   private resetWorld(): void {
     this.slipstream.reset();
+    this.roadPitch = threeRoadPitch(VISUAL_QA.gradient ?? gameStore.getSnapshot().currentGradient);
+    this.applyGrade();
     [...this.objects].forEach((object) => this.removeObject(object));
     this.challenges.clear();
     if (this.draftCyclist) this.roadWorld.remove(this.draftCyclist);
