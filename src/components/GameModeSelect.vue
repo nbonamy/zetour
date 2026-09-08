@@ -53,7 +53,7 @@ defineEmits<{
         <span class="mode-card-copy">
           <small>Immersive</small>
           <strong>3D Tour</strong>
-          <span>Chase-camera racing through France</span>
+          <span>Ride through France. Chase or first person.</span>
         </span>
         <b>Ride in 3D <span aria-hidden="true">→</span></b>
       </button>

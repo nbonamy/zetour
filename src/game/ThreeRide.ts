@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { ThreeLandscape, roadBend, roadHeading } from "./threeLandscape";
+import { createRoadReward, createPothole, disposeRoadObject } from "./threeProps";
+import { ThreeSlipstream } from "./threeSlipstream";
 import { gameAudio } from "../audio/gameAudio";
 import {
   gameStore,
@@ -100,10 +103,11 @@ export interface ThreeRideCallbacks {
   onFlowChange: (flow: number, combo: number) => void;
 }
 
-export type ThreeCameraMode = "Chase" | "Wide" | "Roadside" | "Helicopter";
+export type ThreeCameraMode = "Chase" | "First person" | "Wide" | "Roadside" | "Helicopter";
 
 const CAMERA_MODES: readonly ThreeCameraMode[] = [
   "Chase",
+  "First person",
   "Wide",
   "Roadside",
   "Helicopter",
@@ -162,6 +166,62 @@ const tubeBetween = (
     direction.normalize(),
   );
   return tube;
+};
+
+const taperedLimb = (
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  startRadius: number,
+  endRadius: number,
+  material: THREE.Material,
+): THREE.Mesh => {
+  const limb = new THREE.Mesh(new THREE.CylinderGeometry(endRadius, startRadius, start.distanceTo(end), 16), material);
+  limb.position.copy(start).add(end).multiplyScalar(0.5);
+  limb.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
+  return limb;
+};
+
+// Local hand coordinates: wrist toward +Z, fingers reach forward around a hood.
+const createHand = (side: number, skin: THREE.Material): THREE.Group => {
+  const hand = new THREE.Group();
+  const glove = new THREE.MeshStandardMaterial({ color: 0x26333b, roughness: 0.96 });
+  const palm = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), glove);
+  palm.scale.set(0.042, 0.026, 0.058);
+  palm.position.set(0, 0.025, 0);
+  hand.add(palm);
+  const wrist = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), skin);
+  wrist.scale.set(0.029, 0.024, 0.045);
+  wrist.position.set(0, 0.012, 0.05);
+  hand.add(wrist);
+  const cuff = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), glove);
+  cuff.scale.set(0.032, 0.027, 0.018);
+  cuff.position.set(0, 0.014, 0.042);
+  hand.add(cuff);
+  const digit = (points: THREE.Vector3[], radius: number): void => {
+    points.forEach((point, index) => {
+      const joint = new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 8), index === 0 ? glove : skin);
+      joint.position.copy(point);
+      hand.add(joint);
+      if (index) hand.add(taperedLimb(points[index - 1], point, radius, radius * 0.88, index === 1 ? glove : skin));
+    });
+  };
+  for (let finger = 0; finger < 4; finger += 1) {
+    const x = (finger - 1.5) * 0.02;
+    const reach = [0.082, 0.096, 0.089, 0.07][finger];
+    digit([
+      new THREE.Vector3(x, 0.03, -0.037),
+      new THREE.Vector3(x, 0.025, -reach),
+      new THREE.Vector3(x, -0.009, -reach - 0.013),
+      new THREE.Vector3(x, -0.028, -reach + 0.013),
+    ], finger === 3 ? 0.008 : 0.0095);
+  }
+  digit([
+    new THREE.Vector3(-side * 0.032, 0.015, 0.015),
+    new THREE.Vector3(-side * 0.06, 0, -0.008),
+    new THREE.Vector3(-side * 0.054, -0.025, -0.04),
+    new THREE.Vector3(-side * 0.033, -0.028, -0.055),
+  ], 0.012);
+  return hand;
 };
 
 const unitTube = (
@@ -333,12 +393,12 @@ const wheel = (): { root: THREE.Group; spinner: THREE.Group } => {
   const root = new THREE.Group();
   const spinner = new THREE.Group();
   const tire = new THREE.Mesh(
-    new THREE.TorusGeometry(0.43, 0.045, 7, 24),
+    new THREE.TorusGeometry(0.43, 0.028, 10, 40),
     meshMaterial(0x211915, 0.68),
   );
   const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(0.355, 0.015, 5, 24),
-    meshMaterial(0xd8d5ca, 0.36),
+    new THREE.TorusGeometry(0.385, 0.026, 8, 40),
+    meshMaterial(0x222b32, 0.4),
   );
   const spokeMaterial = meshMaterial(0xb9b8b1, 0.4);
   for (let index = 0; index < 8; index += 1) {
@@ -357,7 +417,9 @@ const wheel = (): { root: THREE.Group; spinner: THREE.Group } => {
     meshMaterial(0xc9c5b9, 0.3),
   );
   hub.rotation.x = Math.PI / 2;
-  spinner.add(tire, rim, hub);
+  const sidewall = new THREE.Mesh(new THREE.TorusGeometry(0.426, 0.012, 6, 40), meshMaterial(0xc8a574));
+  sidewall.position.z = 0.024;
+  spinner.add(tire, sidewall, rim, hub);
   root.rotation.y = Math.PI / 2;
   root.add(spinner);
   return { root, spinner };
@@ -383,6 +445,9 @@ const createCyclist = (
   const shortsMaterial = meshMaterial(0x24262a, 0.9);
   const sockMaterial = meshMaterial(0xf3eee0, 0.92);
   const jerseyMaterial = meshMaterial(jersey, 0.76);
+  skinMaterial.flatShading = false;
+  shortsMaterial.flatShading = false;
+  jerseyMaterial.flatShading = false;
   const crank = new THREE.Vector3(0, 0.66, 0.08);
   const seat = new THREE.Vector3(0, 1.02, 0.28);
   const handle = new THREE.Vector3(0, 1.0, -0.48);
@@ -430,20 +495,20 @@ const createCyclist = (
     createJerseyGeometry(),
     jerseyMaterial,
   );
-  torso.position.set(0, 1.4, 0.035);
-  torso.rotation.x = -0.38;
+  torso.position.set(0, 1.34, -0.08);
+  torso.rotation.x = -0.94;
   const jerseySeam = new THREE.Mesh(
     new THREE.BoxGeometry(0.035, 0.34, 0.018),
     meshMaterial(accent, 0.8),
   );
-  jerseySeam.position.set(0, 1.41, 0.253);
-  jerseySeam.rotation.x = -0.38;
+  jerseySeam.position.set(0, 0, 0.196);
+  torso.add(jerseySeam);
   const jerseyHem = new THREE.Mesh(
     new THREE.CylinderGeometry(0.22, 0.22, 0.05, 10),
     meshMaterial(accent, 0.82),
   );
-  jerseyHem.position.set(0, 1.145, 0.14);
-  jerseyHem.rotation.x = -0.38;
+  jerseyHem.position.set(0, 1.175, 0.15);
+  jerseyHem.rotation.x = -0.94;
   const shorts = new THREE.Mesh(
     new THREE.CylinderGeometry(0.235, 0.25, 0.18, 8),
     shortsMaterial,
@@ -502,7 +567,6 @@ const createCyclist = (
   );
   group.add(
     torso,
-    jerseySeam,
     jerseyHem,
     shorts,
     neck,
@@ -518,6 +582,26 @@ const createCyclist = (
     earRight,
   );
 
+  const headParts = [neck, head, nose, leftEye, rightEye, helmet, helmetBand, ...helmetVents, ...helmetStraps, earLeft, earRight];
+  headParts.forEach((part) => { part.position.y -= 0.17; part.position.z -= 0.32; });
+  const glasses = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 8, Math.PI, Math.PI, 0.65, 0.75), new THREE.MeshStandardMaterial({ color: 0x225567, metalness: 0.65, roughness: 0.16, side: THREE.DoubleSide }));
+  glasses.position.set(0, 1.635, -0.46);
+  glasses.scale.set(1.05, 0.72, 1.1);
+  group.add(glasses);
+  for (const side of [-1, 1]) {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(side * 0.27, 1.02, -0.5),
+      new THREE.Vector3(side * 0.27, 1.02, -0.66),
+      new THREE.Vector3(side * 0.27, 0.86, -0.7),
+      new THREE.Vector3(side * 0.27, 0.82, -0.53),
+    ]);
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 14, 0.027, 8, false), rubberMaterial));
+  }
+  const raceNumber = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.16), new THREE.MeshStandardMaterial({ color: 0xf7f6e9, side: THREE.DoubleSide }));
+  raceNumber.position.set(0.1, -0.035, 0.197);
+  raceNumber.rotation.y = 0.3;
+  torso.add(raceNumber);
+
   const legs: CyclistLegRig[] = [];
   [-1, 1].forEach((side) => {
     const shortsLeg = unitTube(0.105, shortsMaterial, 8);
@@ -525,7 +609,7 @@ const createCyclist = (
     const kneeCap = new THREE.Mesh(new THREE.SphereGeometry(0.073, 7, 5), skinMaterial);
     const calf = unitTube(0.058, skinMaterial, 8);
     const sock = unitTube(0.054, sockMaterial, 8);
-    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.085, 0.23), rubberMaterial);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.085, 0.23), sockMaterial);
     const crankArm = unitTube(0.012, metalMaterial, 6);
     const pedal = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.035, 0.08), rubberMaterial);
     legs.push({
@@ -540,25 +624,26 @@ const createCyclist = (
       pedal,
     });
 
-    const shoulder = new THREE.Vector3(side * 0.235, 1.54, 0.075);
-    const sleeveEnd = new THREE.Vector3(side * 0.295, 1.445, 0.03);
-    const elbow = new THREE.Vector3(side * 0.355, 1.255, -0.045);
-    const hand = new THREE.Vector3(side * 0.315, 1.07, -0.48);
+    const shoulder = new THREE.Vector3(side * 0.235, 1.47, -0.22);
+    const sleeveEnd = new THREE.Vector3(side * 0.275, 1.36, -0.29);
+    const elbow = new THREE.Vector3(side * 0.29, 1.2, -0.32);
+    const hand = new THREE.Vector3(side * 0.27, 1.04, -0.61);
     const shoulderJoint = new THREE.Mesh(
       new THREE.DodecahedronGeometry(0.095, 0),
       jerseyMaterial,
     );
     shoulderJoint.position.copy(shoulder);
     const sleeve = tubeBetween(shoulder, sleeveEnd, 0.084, jerseyMaterial);
-    const upperArm = tubeBetween(sleeveEnd, elbow, 0.061, skinMaterial);
-    const forearm = tubeBetween(elbow, hand, 0.055, skinMaterial);
+    const upperArm = taperedLimb(sleeveEnd, elbow, 0.062, 0.046, skinMaterial);
+    const forearm = taperedLimb(elbow, hand, 0.05, 0.028, skinMaterial);
     const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.064, 7, 5), skinMaterial);
     elbowJoint.position.copy(elbow);
     const wrist = hand.clone().lerp(elbow, 0.16);
     const wristJoint = new THREE.Mesh(new THREE.SphereGeometry(0.05, 7, 5), skinMaterial);
     wristJoint.position.copy(wrist);
-    const handMesh = new THREE.Mesh(new THREE.SphereGeometry(0.06, 7, 5), skinMaterial);
+    const handMesh = createHand(side, skinMaterial);
     handMesh.position.copy(hand);
+    handMesh.rotation.x = 0.18;
     group.add(
       shortsLeg,
       thigh,
@@ -1007,14 +1092,63 @@ const createGantry = (seed: number): THREE.Group => {
   return group;
 };
 
+const createCockpit = (): THREE.Group => {
+  const group = new THREE.Group();
+  const carbon = meshMaterial(0x1c2a31, 0.42);
+  const tape = meshMaterial(0x29383d, 0.94);
+  const skin = meshMaterial(0xd6a17b, 0.8);
+  skin.flatShading = false;
+  group.add(tubeBetween(new THREE.Vector3(0, -0.18, 0.22), new THREE.Vector3(0, 0, -0.09), 0.035, carbon));
+  group.add(tubeBetween(new THREE.Vector3(-0.36, 0, -0.09), new THREE.Vector3(0.36, 0, -0.09), 0.028, carbon));
+  for (const side of [-1, 1]) {
+    const bend = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(side * 0.35, 0, -0.09),
+      new THREE.Vector3(side * 0.4, 0.01, -0.2),
+      new THREE.Vector3(side * 0.42, -0.13, -0.23),
+      new THREE.Vector3(side * 0.4, -0.18, -0.02),
+    ]);
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(bend, 20, 0.029, 10, false), tape));
+    const wrist = new THREE.Vector3(side * 0.37, 0.01, -0.095);
+    const hand = createHand(side, skin);
+    hand.position.set(side * 0.37, 0.01, -0.15);
+    const elbow = new THREE.Vector3(side * 0.59, -0.23, 0.4);
+    const forearm = taperedLimb(elbow, wrist, 0.069, 0.028, skin);
+    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.069, 16, 12), skin);
+    elbowJoint.position.copy(elbow);
+    group.add(forearm, elbowJoint, hand);
+    const hood = new THREE.Mesh(new THREE.CapsuleGeometry(0.028, 0.085, 4, 8), tape);
+    hood.position.set(side * 0.38, 0.015, -0.23);
+    hood.rotation.x = -0.3;
+    group.add(hood);
+  }
+  const computer = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.025, 0.17), carbon);
+  computer.position.set(0, 0.035, -0.14);
+  const display = document.createElement("canvas");
+  display.width = 192;
+  display.height = 256;
+  const displayTexture = new THREE.CanvasTexture(display);
+  displayTexture.colorSpace = THREE.SRGBColorSpace;
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.094, 0.123), new THREE.MeshBasicMaterial({ map: displayTexture }));
+  screen.rotation.x = -Math.PI / 2;
+  screen.position.set(0, 0.049, -0.14);
+  group.add(computer, screen);
+  group.userData.display = display;
+  group.userData.displayTexture = displayTexture;
+  group.position.set(0, -0.35, -0.7);
+  group.visible = false;
+  return group;
+};
+
 export class ThreeRide {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 320);
+  private readonly camera = new THREE.PerspectiveCamera(53, 16 / 9, 0.1, 600);
   private readonly renderer: THREE.WebGLRenderer;
   private readonly timer = new THREE.Timer();
   private readonly roadWorld = new THREE.Group();
-  private readonly textureLoader = new THREE.TextureLoader();
-  private readonly textureCache = new Map<string, THREE.Texture>();
+  private readonly landscape = new ThreeLandscape();
+  private readonly slipstream = new ThreeSlipstream();
+  private travelled = 0;
+  private visualSpeed = 25;
   private readonly objects: WorldObject[] = [];
   private readonly movingScenery: THREE.Object3D[] = [];
   private readonly laneMarkers: THREE.Mesh[] = [];
@@ -1022,11 +1156,9 @@ export class ThreeRide {
   private readonly callbacks: ThreeRideCallbacks;
   private readonly resizeObserver: ResizeObserver;
   private readonly rider: THREE.Group;
+  private readonly cockpit = createCockpit();
   private readonly aura: THREE.Mesh;
   private readonly sunlight: THREE.DirectionalLight;
-  private readonly roadMaterial = meshMaterial(0x59615f, 0.93);
-  private readonly vergeMaterial = meshMaterial(0xa4b783, 1);
-  private readonly mountainMaterials: THREE.MeshStandardMaterial[] = [];
   private animationFrame = 0;
   private paused = false;
   private disposed = false;
@@ -1047,8 +1179,8 @@ export class ThreeRide {
   private announcement: Announcement | null = null;
   private cameraShake = 0;
   private cameraModeIndex = 0;
-  private readonly cameraPosition = new THREE.Vector3(0, 5.05, 9.8);
-  private readonly cameraLookTarget = new THREE.Vector3(0, 0.78, -14);
+  private readonly cameraPosition = new THREE.Vector3(0, 3.6, 8.2);
+  private readonly cameraLookTarget = new THREE.Vector3(0, 0.9, -7);
   private domestiques: THREE.Group[] = [];
   private draftCyclist: THREE.Group | null = null;
   private draftLane = 1;
@@ -1067,22 +1199,25 @@ export class ThreeRide {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.06;
+    this.renderer.toneMappingExposure = 1.12;
     this.renderer.domElement.setAttribute("aria-label", "3D cycling road");
     this.renderer.domElement.setAttribute("role", "img");
     host.append(this.renderer.domElement);
 
-    this.camera.position.set(0, 5.05, 9.8);
-    this.camera.lookAt(0, 0.78, -14);
+    this.camera.position.set(0, 3.6, 8.2);
+    this.camera.lookAt(0, 0.9, -7);
+    this.camera.add(this.cockpit);
+    this.scene.add(this.camera);
     this.scene.add(this.roadWorld);
+    this.roadWorld.add(this.slipstream.mesh);
     this.createEnvironment();
     this.rider = createCyclist(
-      0xe3bc43,
-      0xd2a72d,
+      0xf4c52d,
+      0x197d91,
       threeRiderModelScale("main"),
     );
     this.rider.position.set(THREE_LANE_X[1], 0, RIDER_Z);
-    this.scene.add(this.rider);
+    this.roadWorld.add(this.rider);
     this.aura = new THREE.Mesh(
       new THREE.RingGeometry(0.52, 0.72, 32),
       new THREE.MeshBasicMaterial({ color: 0x71f5cc, transparent: true, opacity: 0.72, side: THREE.DoubleSide }),
@@ -1090,21 +1225,27 @@ export class ThreeRide {
     this.aura.rotation.x = -Math.PI / 2;
     this.aura.position.set(0, 0.04, RIDER_Z);
     this.aura.visible = false;
-    this.scene.add(this.aura);
+    this.roadWorld.add(this.aura);
 
-    this.sunlight = new THREE.DirectionalLight(0xffe7bb, 3.1);
-    this.sunlight.position.set(-11, 22, 14);
+    this.sunlight = new THREE.DirectionalLight(0xffe0a8, 3.2);
+    this.sunlight.position.set(-24, 30, -18);
+    this.sunlight.target.position.set(0, 0, -16);
+    this.scene.add(this.sunlight.target);
+    this.sunlight.shadow.bias = -0.00015;
+    this.sunlight.shadow.normalBias = 0.025;
+    this.sunlight.shadow.radius = 3;
     this.sunlight.castShadow = true;
     this.sunlight.shadow.mapSize.set(2048, 2048);
     this.sunlight.shadow.camera.left = -24;
     this.sunlight.shadow.camera.right = 24;
     this.sunlight.shadow.camera.top = 26;
-    this.sunlight.shadow.camera.bottom = -6;
+    this.sunlight.shadow.camera.bottom = -30;
     this.sunlight.shadow.camera.near = 0.5;
     this.sunlight.shadow.camera.far = 90;
     this.scene.add(this.sunlight);
-    this.scene.add(new THREE.HemisphereLight(0xd4efff, 0x8d7958, 2.65));
+    this.scene.add(new THREE.HemisphereLight(0xb8d9ef, 0x74714b, 1.35));
 
+    this.updateStage(VISUAL_QA.stage === null ? gameStore.getSnapshot().stageDefinition : stages[VISUAL_QA.stage - 1]);
     this.raceRevision = gameStore.getSnapshot().raceRevision;
     this.callbacks.onCameraChange(CAMERA_MODES[this.cameraModeIndex]);
     this.callbacks.onFlowChange(this.flow, this.combo);
@@ -1136,6 +1277,8 @@ export class ThreeRide {
     window.removeEventListener("keydown", this.onKeydown);
     this.resizeObserver.disconnect();
     this.timer.dispose();
+    this.slipstream.dispose();
+    (this.cockpit.userData.displayTexture as THREE.Texture).dispose();
     gameStore.setTemporaryDraftBonus(0);
     this.scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Sprite)) return;
@@ -1143,7 +1286,6 @@ export class ThreeRide {
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       materials.forEach((material) => material.dispose());
     });
-    this.textureCache.forEach((texture) => texture.dispose());
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
@@ -1172,14 +1314,11 @@ export class ThreeRide {
     if (snapshot.raceFinished) return;
     const speedKmh = VISUAL_QA.speedKmh ?? snapshot.stats.speedKmh;
     const speed = threeWorldSpeed(speedKmh);
-    const gradient = VISUAL_QA.gradient ?? snapshot.currentGradient;
+    this.visualSpeed = speedKmh;
+    this.travelled += speed * delta;
+    this.landscape.update(this.travelled);
     const stage = VISUAL_QA.stage === null ? snapshot.stageDefinition : stages[VISUAL_QA.stage - 1];
     this.updateStage(stage);
-    this.roadWorld.rotation.x = THREE.MathUtils.lerp(
-      this.roadWorld.rotation.x,
-      THREE.MathUtils.clamp(gradient * 2.2, -0.12, 0.22),
-      1 - Math.exp(-delta * 2.8),
-    );
     this.targetRiderX = THREE_LANE_X[this.targetLane];
     this.rider.position.x = THREE.MathUtils.lerp(
       this.rider.position.x,
@@ -1201,6 +1340,7 @@ export class ThreeRide {
     );
     this.updateDomestiques(speed, delta);
     this.updateDraft(delta, snapshot.stage, speed);
+    this.updateSlipstream(delta, speed);
     this.reportFlow();
     this.updatePowerUpFeedback(snapshot.activePowerUp);
 
@@ -1229,33 +1369,65 @@ export class ThreeRide {
     const offsetX = shake > 0 ? (Math.random() - 0.5) * shake : 0;
     const offsetY = shake > 0 ? (Math.random() - 0.5) * shake * 0.5 : 0;
     const mode = CAMERA_MODES[this.cameraModeIndex];
+    const firstPerson = mode === "First person";
+    this.rider.visible = !firstPerson;
+    this.cockpit.visible = firstPerson;
+    this.cockpit.rotation.z = this.rider.rotation.z * 0.2;
+    const pace = Math.round(this.visualSpeed);
+    if (firstPerson && this.cockpit.userData.displayPace !== pace) {
+      const context = (this.cockpit.userData.display as HTMLCanvasElement).getContext("2d");
+      if (context) {
+        context.fillStyle = "#d1e2cd";
+        context.fillRect(0, 0, 192, 256);
+        context.fillStyle = "#203c3c";
+        context.textAlign = "center";
+        context.font = "bold 28px sans-serif";
+        context.fillText("ZE TOUR", 96, 45);
+        context.font = "bold 90px sans-serif";
+        context.fillText(String(pace), 96, 151);
+        context.font = "24px sans-serif";
+        context.fillText("KM/H", 96, 194);
+        (this.cockpit.userData.displayTexture as THREE.Texture).needsUpdate = true;
+        this.cockpit.userData.displayPace = pace;
+      }
+    }
     let desiredPosition: THREE.Vector3;
     let desiredLook: THREE.Vector3;
     switch (mode) {
+      case "First person": {
+        const pedalPhase = (this.rider.userData.pedalPhase as number) ?? 0;
+        const sway = this.paused ? 0 : Math.sin(pedalPhase) * 0.009;
+        desiredPosition = new THREE.Vector3(this.rider.position.x + sway, 1.29, RIDER_Z + 0.06);
+        desiredLook = new THREE.Vector3(this.rider.position.x + roadBend(-35, this.travelled) * 0.2, 0.48, -18);
+        break;
+      }
       case "Chase":
-        desiredPosition = new THREE.Vector3(this.rider.position.x * 0.08, 5.05, 9.8);
-        desiredLook = new THREE.Vector3(this.rider.position.x * 0.1, 0.78, -14);
+        desiredPosition = new THREE.Vector3(this.rider.position.x * 0.28, 3.6, 8.2);
+        desiredLook = new THREE.Vector3(this.rider.position.x * 0.18 + roadBend(-40, this.travelled) * 0.08, 0.9, -7);
         break;
       case "Wide":
-        desiredPosition = new THREE.Vector3(this.rider.position.x * 0.04, 9.4, 14.6);
-        desiredLook = new THREE.Vector3(0, 0.4, -24);
+        desiredPosition = new THREE.Vector3(this.rider.position.x * 0.1, 7.1, 12.5);
+        desiredLook = new THREE.Vector3(0, 0.6, -12);
         break;
       case "Roadside":
-        desiredPosition = new THREE.Vector3(-11.8, 3.6, 3.4);
-        desiredLook = new THREE.Vector3(this.rider.position.x, 0.85, -8);
+        desiredPosition = new THREE.Vector3(-7.8, 2.8, 4.6);
+        desiredLook = new THREE.Vector3(this.rider.position.x, 0.8, -1.5);
         break;
       case "Helicopter":
         desiredPosition = new THREE.Vector3(0, 17.5, 8.4);
-        desiredLook = new THREE.Vector3(0, 0, -25);
+        desiredLook = new THREE.Vector3(0, 0, -10);
         break;
     }
-    const response = 1 - Math.exp(-delta * 4.6);
+    const response = 1 - Math.exp(-delta * (firstPerson ? 14 : 4.6));
     this.cameraPosition.lerp(desiredPosition, response);
     this.cameraLookTarget.lerp(desiredLook, response);
     this.camera.position.copy(this.cameraPosition);
     this.camera.position.x += offsetX;
     this.camera.position.y += offsetY;
     this.camera.lookAt(this.cameraLookTarget);
+    const fov = firstPerson ? 76 : mode === "Chase" ? 53 + THREE.MathUtils.clamp((this.visualSpeed - 25) * 0.09, 0, 6) : 50;
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, fov, response);
+    this.camera.updateProjectionMatrix();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -1285,195 +1457,112 @@ export class ThreeRide {
   };
 
   private createEnvironment(): void {
-    const road = new THREE.Mesh(new THREE.BoxGeometry(11.5, 0.12, 235), this.roadMaterial);
-    road.position.set(0, -0.08, -105);
-    road.receiveShadow = true;
-    this.roadWorld.add(road);
-
-    [-15.3, 15.3].forEach((x) => {
-      const verge = new THREE.Mesh(new THREE.BoxGeometry(19, 0.09, 235), this.vergeMaterial);
-      verge.position.set(x, -0.13, -105);
-      verge.receiveShadow = true;
-      this.roadWorld.add(verge);
-    });
-
-    const fieldColors = [0xafbd8b, 0xbac49a, 0x9fb27e, 0xc0c69e, 0xaab88b, 0xb4c08e];
-    [-1, 1].forEach((side) => {
-      for (let index = 0; index < 6; index += 1) {
-        const field = new THREE.Mesh(
-          new THREE.BoxGeometry(18, 0.05, 30.4),
-          meshMaterial(fieldColors[(index + (side > 0 ? 2 : 0)) % fieldColors.length], 1),
-        );
-        field.position.set(side * 15.3, -0.065, 5 - index * 30);
-        field.receiveShadow = true;
-        this.movingScenery.push(field);
-        this.roadWorld.add(field);
-      }
-    });
-
-    [-1.38, 1.38].forEach((x) => {
+    this.scene.add(this.landscape.root);
+    const markerMaterial = new THREE.MeshStandardMaterial({ color: 0xe9e4cb, transparent: true, opacity: 0.55 });
+    for (const x of [-1.38, 1.38]) {
       for (let z = 7; z > -WORLD_WRAP_LENGTH; z -= 8.5) {
-        const marker = new THREE.Mesh(
-          new THREE.BoxGeometry(0.11, 0.025, 3.3),
-          new THREE.MeshBasicMaterial({ color: 0xf2eee4 }),
-        );
-        marker.position.set(x, 0.005, z);
+        const marker = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.012, 2.4), markerMaterial);
+        marker.position.set(x, 0.018, z);
+        marker.userData.baseX = x;
         this.laneMarkers.push(marker);
         this.roadWorld.add(marker);
       }
-    });
+    }
+  }
 
-    [-5.38, 5.38].forEach((x) => {
-      const shoulder = new THREE.Mesh(
-        new THREE.BoxGeometry(0.3, 0.08, 235),
-        meshMaterial(0xe4ded0, 0.95),
-      );
-      shoulder.position.set(x, 0, -105);
-      shoulder.receiveShadow = true;
-      this.roadWorld.add(shoulder);
-    });
-
-    [-6.25, 6.25].forEach((x) => {
-      const sidewalk = new THREE.Mesh(
-        new THREE.BoxGeometry(1.45, 0.16, 235),
-        meshMaterial(0xe9e5da, 1),
-      );
-      sidewalk.position.set(x, -0.005, -105);
-      sidewalk.receiveShadow = true;
-      this.roadWorld.add(sidewalk);
-    });
-
-    for (let index = 0; index < 44; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1;
+  private populateScenery(stage: number): void {
+    this.movingScenery.forEach((object) => { this.roadWorld.remove(object); disposeRoadObject(object); });
+    this.movingScenery.length = 0;
+    const place = (object: THREE.Object3D, x: number, z: number, yaw = 0): void => {
+      object.position.set(x + roadBend(z, this.travelled), 0, z);
+      object.userData.baseX = x;
+      object.userData.baseYaw = yaw;
+      object.rotation.y = yaw + roadHeading(z, this.travelled);
+      this.movingScenery.push(object);
+      this.roadWorld.add(object);
+    };
+    const mountain = stage === 3 || stage === 5;
+    const mediterranean = stage === 4;
+    const treeCount = stage === 2 ? 72 : mountain ? 42 : 32;
+    for (let i = 0; i < treeCount; i += 1) {
+      const side = i % 2 ? 1 : -1;
+      const tree = createTree(i, mediterranean || mountain);
+      tree.scale.setScalar(0.75 + i % 5 * 0.14);
+      if (mountain) {
+        // Layered fir crowns replace Mediterranean cypresses in the Alps.
+        disposeRoadObject(tree);
+        tree.clear();
+        const bark = meshMaterial(0x5b4435);
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 1.8, 6), bark);
+        trunk.position.y = 0.9;
+        tree.add(trunk);
+        for (let crown = 0; crown < 3; crown += 1) {
+          const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.4 - crown * 0.3, 2.2, 8), meshMaterial([0x285a49, 0x34715a, 0x478366][crown]));
+          leaves.position.y = 2 + crown * 0.8;
+          tree.add(leaves);
+        }
+        applyShadow(tree);
+      }
+      place(tree, side * (7.6 + i % 6 * 1.6), 7 - i / treeCount * 180, i * 0.41);
+    }
+    for (let i = 0; i < (mountain ? 5 : 10); i += 1) {
+      const house = createHouse(i);
+      house.scale.setScalar(mountain ? 0.8 : 0.85 + i % 3 * 0.13);
+      place(house, (i % 2 ? 1 : -1) * (10 + i % 3 * 2), -12 - i * (mountain ? 34 : 17), i % 2 ? -Math.PI / 2 : Math.PI / 2);
+    }
+    if (stage === 1 || stage === 2 || mediterranean) {
+      for (let i = 0; i < 18; i += 1) {
+        const field = new THREE.Group();
+        if (stage === 1) {
+          field.add(createHayBale());
+        } else {
+          const cropMaterial = meshMaterial(mediterranean ? 0x8266ad : 0x527747);
+          for (let row = 0; row < 4; row += 1) {
+            const crop = new THREE.Mesh(new THREE.BoxGeometry(0.6, mediterranean ? 0.35 : 0.7, 6), cropMaterial);
+            crop.position.set(row * 1.2, mediterranean ? 0.18 : 0.35, 0);
+            field.add(crop);
+          }
+          applyShadow(field);
+        }
+        place(field, (i % 2 ? 1 : -1) * (9 + i % 3 * 2), -i * 10);
+      }
+    }
+    for (let i = 0; i < 44; i += 1) {
+      const side = i % 2 ? 1 : -1;
       const post = new THREE.Group();
-      const base = new THREE.Mesh(
-        new THREE.BoxGeometry(0.22, 0.12, 0.2),
-        meshMaterial(0xb9b3a4, 1),
-      );
-      base.position.y = 0.06;
-      const stem = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.76, 0.15), meshMaterial(0xe9e1c8));
+      const stem = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.8, 0.15), meshMaterial(0xe9e5d9));
       stem.position.y = 0.4;
-      const plaque = new THREE.Mesh(
-        new THREE.BoxGeometry(0.085, 0.16, 0.02),
-        meshMaterial(0x59615f, 0.82),
-      );
-      plaque.position.set(0, 0.43, 0.086);
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 0.19), meshMaterial(0xd7ad3c));
-      cap.position.y = 0.76;
-      post.add(base, stem, plaque, cap);
-      post.position.set(side * 7.05, 0, 5 - Math.floor(index / 2) * 8.2);
-      post.rotation.y = side < 0 ? 0.12 : Math.PI - 0.12;
-      applyShadow(post);
-      this.movingScenery.push(post);
-      this.roadWorld.add(post);
+      const reflector = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.11, 0.17), meshMaterial(0xeab74b));
+      reflector.position.y = 0.69;
+      post.add(stem, reflector);
+      if (mountain) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 8.2), meshMaterial(0xadbabc, 0.55));
+        rail.position.set(0, 0.65, -4);
+        post.add(rail);
+      }
+      place(post, side * 6.35, 8 - Math.floor(i / 2) * 8.2);
     }
-
-    for (let index = 0; index < 60; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1;
-      const tree = createTree(index, index % 5 === 0 || index % 11 === 0);
-      tree.position.set(side * (7.8 + ((index * 4.7) % 6.5)), 0, 6 - index * 3.02);
-      tree.rotation.y = (index * 0.47) % Math.PI;
-      tree.scale.setScalar(0.62 + (index % 7) * 0.09);
-      this.movingScenery.push(tree);
-      this.roadWorld.add(tree);
+    for (let i = 0; i < (stage === 5 ? 32 : 16); i += 1) {
+      const side = i % 2 ? 1 : -1;
+      const fan = createFan(i);
+      fan.scale.setScalar(0.67 + i % 3 * 0.025);
+      place(fan, side * (6.8 + i % 3 * 0.45), -20 - Math.floor(i / 4) * 37 - i % 4 * 1.2, -side * Math.PI / 2);
     }
-
-    for (let index = 0; index < 18; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1;
-      const house = createHouse(index);
-      house.position.set(side * (9.6 + ((index * 3.1) % 5.5)), 0, -3 - index * 9.7);
-      house.rotation.y = side * (0.05 + (index % 3) * 0.05);
-      house.scale.setScalar(0.68 + (index % 5) * 0.07);
-      this.movingScenery.push(house);
-      this.roadWorld.add(house);
+    for (let i = 0; i < 8; i += 1) {
+      const side = i % 2 ? 1 : -1;
+      place(createFrenchFlag(), side * 7.3, -22 - Math.floor(i / 2) * 40, -side * 0.2);
     }
-
-    for (let index = 0; index < 14; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1;
-      const bale = createHayBale();
-      bale.position.set(side * (8.8 + ((index * 5.3) % 6.5)), 0, 2 - index * 12.6);
-      bale.rotation.y = (index * 0.61) % Math.PI;
-      bale.scale.setScalar(0.75 + (index % 4) * 0.09);
-      this.movingScenery.push(bale);
-      this.roadWorld.add(bale);
-    }
-
-    for (let index = 0; index < 26; index += 1) {
-      const side = index % 2 === 0 ? -1 : 1;
-      const flag = createFrenchFlag();
-      flag.position.set(
-        side * (7.35 + (index % 3) * 0.33),
-        0,
-        -4 - Math.floor(index / 2) * 13.4 - (index % 4) * 0.65,
-      );
-      flag.rotation.y = side < 0 ? 0.16 : Math.PI - 0.16;
-      flag.scale.setScalar(0.82 + (index % 4) * 0.06);
-      this.movingScenery.push(flag);
-      this.roadWorld.add(flag);
-    }
-
-    for (let index = 0; index < 36; index += 1) {
-      const cluster = Math.floor(index / 4);
-      const withinCluster = index % 4;
-      const side = withinCluster < 2 ? -1 : 1;
-      const fan = createFan(index);
-      fan.position.set(
-        side * (7.15 + (withinCluster % 2) * 0.62 + (cluster % 2) * 0.24),
-        0,
-        -1.5 - cluster * 20.5 - (withinCluster % 2) * 1.15,
-      );
-      fan.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
-      fan.rotation.y += ((index % 3) - 1) * 0.12;
-      fan.scale.setScalar(0.9 + (index % 4) * 0.06);
-      this.movingScenery.push(fan);
-      this.roadWorld.add(fan);
-    }
-
-    [-44, -112, -174].forEach((z, index) => {
-      const gantry = createGantry(index);
-      gantry.position.z = z;
-      this.movingScenery.push(gantry);
-      this.roadWorld.add(gantry);
-    });
-
-    for (let index = 0; index < 18; index += 1) {
-      const width = 7 + (index % 5) * 2.1;
-      const height = 8 + (index % 6) * 2.35;
-      const mountainMaterial = meshMaterial(0x9db9ac, 1);
-      mountainMaterial.fog = true;
-      this.mountainMaterials.push(mountainMaterial);
-      const hill = new THREE.Mesh(
-        new THREE.ConeGeometry(width, height, 5),
-        mountainMaterial,
-      );
-      hill.position.set(-42 + index * 5.1, height / 2 - 1.4, -158 - (index % 4) * 3);
-      hill.rotation.y = (index * 0.43) % Math.PI;
-      hill.receiveShadow = true;
-      this.scene.add(hill);
-    }
-
-    const sun = new THREE.Mesh(
-      new THREE.CircleGeometry(4.6, 24),
-      new THREE.MeshBasicMaterial({ color: 0xf4d478, fog: true }),
-    );
-    sun.position.set(-26, 20, -155);
-    this.scene.add(sun);
+    const gantry = createGantry(stage);
+    place(gantry, 0, -140);
   }
 
   private updateStage(stage: GameSnapshot["stageDefinition"]): void {
     if (this.sceneryStage === stage.number) return;
     this.sceneryStage = stage.number;
     const palette = stagePalette[stage.number - 1] ?? stagePalette[0];
-    this.scene.background = new THREE.Color(palette.sky);
-    this.scene.fog = new THREE.Fog(palette.fog, 54, 205);
-    this.vergeMaterial.color.setHex(stage.surface === "gravel" ? palette.soil : palette.verge);
-    this.roadMaterial.color.setHex(stage.surface === "gravel" ? 0x8f755b : 0x59615f);
-    this.roadMaterial.roughness = stage.surface === "gravel" ? 1 : 0.91;
-    this.mountainMaterials.forEach((material, index) => {
-      const color = new THREE.Color(palette.mountain);
-      color.offsetHSL(index % 2 === 0 ? -0.012 : 0.008, -0.02, (index % 3) * 0.018);
-      material.color.copy(color);
-    });
+    this.scene.fog = new THREE.Fog(palette.fog, 90, 250);
+    this.landscape.setStage(stage.number, stage.surface === "gravel");
+    this.populateScenery(stage.number);
     this.showAnnouncement(
       stage.surface === "gravel"
         ? `GRAVEL · ${stage.start.toUpperCase()} → ${stage.finish.toUpperCase()}`
@@ -1483,40 +1572,13 @@ export class ThreeRide {
     );
   }
 
-  private loadTexture(path: string): THREE.Texture {
-    const cached = this.textureCache.get(path);
-    if (cached) return cached;
-    const texture = this.textureLoader.load(path);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-    this.textureCache.set(path, texture);
-    return texture;
-  }
-
   private updateRoadMotion(speed: number, delta: number): void {
-    this.laneMarkers.forEach((marker) => {
-      marker.position.z += speed * delta;
-      if (marker.position.z > WORLD_END_Z) marker.position.z -= WORLD_WRAP_LENGTH;
-    });
-    for (let index = this.movingScenery.length - 1; index >= 0; index -= 1) {
-      const object = this.movingScenery[index];
+    for (const object of [...this.laneMarkers, ...this.movingScenery]) {
       object.position.z += speed * delta;
-      if (object.position.z <= WORLD_END_Z) continue;
-      if (object.userData.fan) {
-        this.movingScenery.splice(index, 1);
-        this.roadWorld.remove(object);
-        if (object instanceof THREE.Sprite) object.material.dispose();
-      } else {
-        object.position.z -= WORLD_WRAP_LENGTH;
-      }
+      if (object.position.z > WORLD_END_Z) object.position.z -= WORLD_WRAP_LENGTH;
+      object.position.x = (object.userData.baseX as number) + roadBend(object.position.z, this.travelled);
+      object.rotation.y = ((object.userData.baseYaw as number) || 0) + roadHeading(object.position.z, this.travelled);
     }
-  }
-
-  private createSprite(path: string, width: number, height: number): THREE.Sprite {
-    const material = new THREE.SpriteMaterial({ map: this.loadTexture(path), transparent: true, depthWrite: false });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(width, height, 1);
-    return sprite;
   }
 
   private spawnPickup(
@@ -1526,36 +1588,22 @@ export class ThreeRide {
     sequenceId?: number,
     sequenceIndex?: number,
   ): void {
-    const sprite = this.createSprite(`/assets/art/bag-${type}.png`, 1.7, 1.7);
+    const sprite = createRoadReward(type);
     sprite.position.set(THREE_LANE_X[lane], 0.95, z);
     this.roadWorld.add(sprite);
     this.objects.push({ mesh: sprite, type, lane, sequenceId, sequenceIndex, speedMultiplier: 1, passedRider: false });
   }
 
   private spawnPowerUp(type: PowerUpType, lane: number, z: number, choiceId: number): void {
-    const sprite = this.createSprite(`/assets/art/${powerUpDefinitions[type].assetKey}.png`, 2.05, 2.05);
+    const sprite = createRoadReward(type);
     sprite.position.set(THREE_LANE_X[lane], 1.15, z);
-    sprite.userData.baseScale = 2.05;
+
     this.roadWorld.add(sprite);
     this.objects.push({ mesh: sprite, type, lane, choiceId, speedMultiplier: 1, passedRider: false });
   }
 
   private spawnPothole(lane: number, z: number, sequenceId?: number): void {
-    const pothole = new THREE.Group();
-    const rim = new THREE.Mesh(
-      new THREE.RingGeometry(0.7, 0.96, 18),
-      new THREE.MeshBasicMaterial({ color: 0x837a68, transparent: true, opacity: 0.75, side: THREE.DoubleSide }),
-    );
-    rim.rotation.x = -Math.PI / 2;
-    rim.scale.y = 0.58;
-    const crater = new THREE.Mesh(
-      new THREE.CircleGeometry(0.76, 18),
-      new THREE.MeshBasicMaterial({ color: 0x241e1a, transparent: true, opacity: 0.95, side: THREE.DoubleSide }),
-    );
-    crater.rotation.x = -Math.PI / 2;
-    crater.scale.y = 0.56;
-    crater.position.y = 0.006;
-    pothole.add(rim, crater);
+    const pothole = createPothole();
     pothole.position.set(THREE_LANE_X[lane], 0.02, z);
     this.roadWorld.add(pothole);
     this.objects.push({ mesh: pothole, type: "pothole", lane, sequenceId, speedMultiplier: 1, passedRider: false });
@@ -1583,11 +1631,12 @@ export class ThreeRide {
       if (!object) continue;
       if (object.sequenceFailed) continue;
       object.mesh.position.z += speed * object.speedMultiplier * delta;
-      if (isPowerUpType(object.type)) {
-        const pulse = 1 + Math.sin(this.elapsedMs / 170) * 0.08;
-        const baseScale = (object.mesh.userData.baseScale as number | undefined) ?? 1;
-        object.mesh.scale.set(baseScale * pulse, baseScale * pulse, 1);
-        object.mesh.rotation.z += delta * 0.55;
+      object.mesh.position.x = THREE_LANE_X[object.lane] + roadBend(object.mesh.position.z, this.travelled);
+      object.mesh.rotation.y = roadHeading(object.mesh.position.z, this.travelled);
+      const rewardModel = object.mesh.userData.rewardModel as THREE.Group | undefined;
+      if (rewardModel) {
+        rewardModel.rotation.y += delta * 1.5;
+        rewardModel.position.y = Math.sin(this.elapsedMs / 310 + object.mesh.position.z * 0.08) * 0.1;
       }
       const pickup = object.type === "sweat" || object.type === "cash" || isPowerUpType(object.type);
       const magnetized = pickupMagnet && (object.type === "sweat" || object.type === "cash") && object.mesh.position.z > -5;
@@ -1850,7 +1899,7 @@ export class ThreeRide {
       return;
     }
     this.animateCyclist(cyclist, speed, delta);
-    cyclist.position.x = THREE.MathUtils.lerp(cyclist.position.x, THREE_LANE_X[this.draftLane], 1 - Math.exp(-delta * 5));
+    cyclist.position.x = THREE.MathUtils.lerp(cyclist.position.x, THREE_LANE_X[this.draftLane] + roadBend(cyclist.position.z, this.travelled), 1 - Math.exp(-delta * 5));
     if (this.droppedFromDraft) {
       cyclist.position.z -= 17 * delta;
       if (cyclist.position.z < -82) {
@@ -1914,6 +1963,15 @@ export class ThreeRide {
     if (wasDrafting) gameAudio.playEffect("draft-end");
   }
 
+  private updateSlipstream(delta: number, speed: number): void {
+    const leader = this.drafting ? this.draftCyclist : this.domestiques[0];
+    const alignment = leader ? Math.abs(this.rider.position.x - leader.position.x) : 0;
+    const strength = this.drafting
+      ? 1 - THREE.MathUtils.smoothstep(alignment, 0.45, 1.5)
+      : 0.48;
+    this.slipstream.update(delta, speed, leader?.position ?? null, this.rider.position, strength);
+  }
+
   private finishDraft(): void {
     this.drafting = false;
     this.droppedFromDraft = true;
@@ -1968,7 +2026,8 @@ export class ThreeRide {
       pedalAngularSpeed * delta;
     cyclist.userData.pedalPhase = pedalPhase;
     positionCyclistLegs(cyclist, pedalPhase);
-    cyclist.position.y = Math.sin(this.elapsedMs / 90) * 0.018;
+    cyclist.position.y = Math.sin(pedalPhase * 2) * 0.009;
+    cyclist.rotation.z += Math.sin(pedalPhase) * 0.003;
   }
 
   private updatePowerUpFeedback(active: GameSnapshot["activePowerUp"]): void {
@@ -2004,6 +2063,7 @@ export class ThreeRide {
   }
 
   private resetWorld(): void {
+    this.slipstream.reset();
     [...this.objects].forEach((object) => this.removeObject(object));
     this.challenges.clear();
     if (this.draftCyclist) this.roadWorld.remove(this.draftCyclist);

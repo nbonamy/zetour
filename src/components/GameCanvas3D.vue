@@ -9,11 +9,10 @@ const props = defineProps<{
   paused: boolean;
 }>();
 
+const emit = defineEmits<{
+  announcement: [value: { message: string; tone: "neutral" | "good" | "bad" }];
+}>();
 const host = ref<HTMLElement | null>(null);
-const announcement = ref<{
-  message: string;
-  tone: "neutral" | "good" | "bad";
-} | null>(null);
 const cameraMode = ref<ThreeCameraMode>("Chase");
 const flow = ref(0);
 const combo = ref(0);
@@ -23,7 +22,7 @@ onMounted(() => {
   if (!host.value) return;
   ride = new ThreeRide(host.value, {
     onAnnouncement: (next) => {
-      announcement.value = next;
+      if (next) emit("announcement", next);
     },
     onCameraChange: (next) => {
       cameraMode.value = next;
@@ -68,19 +67,6 @@ onBeforeUnmount(() => {
       </strong>
       <strong v-else>Find your flow</strong>
       <span><i :style="{ width: `${flow}%` }"></i></span>
-    </div>
-    <Transition name="three-callout">
-      <div
-        v-if="announcement"
-        class="three-announcement"
-        :class="`three-announcement-${announcement.tone}`"
-        aria-live="polite"
-      >
-        {{ announcement.message }}
-      </div>
-    </Transition>
-    <div class="three-speed-lines" aria-hidden="true">
-      <i v-for="line in 10" :key="line"></i>
     </div>
   </div>
 </template>

@@ -7,6 +7,7 @@ import {
   threeRiderModelScale,
   threeWorldSpeed,
 } from "../../src/game/ThreeRide";
+import { roadBend } from "../../src/game/threeLandscape";
 
 describe("ThreeRide helpers", () => {
   it("uses three evenly spaced perspective lanes", () => {
@@ -45,5 +46,17 @@ describe("ThreeRide helpers", () => {
     expect(isThreeLaneCollision(0, 0.8, 1.1, 0)).toBe(true);
     expect(isThreeLaneCollision(0, 2.75, 1.1, 0)).toBe(false);
     expect(isThreeLaneCollision(0, 0, 1.1, -2)).toBe(false);
+  });
+
+  it("keeps the collision zone fixed while the distant road changes direction", () => {
+    for (const distance of [0, 200, 500, 1200, 4000]) {
+      for (const z of [-12, -5, 0, 1.1, 12]) {
+        expect(roadBend(z, distance)).toBeCloseTo(0);
+        for (const lane of THREE_LANE_X) {
+          expect(isThreeLaneCollision(lane, lane + roadBend(z, distance), 1.1, 1.1)).toBe(true);
+        }
+      }
+    }
+    expect(roadBend(-150, 0)).not.toBeCloseTo(roadBend(-150, 1200));
   });
 });

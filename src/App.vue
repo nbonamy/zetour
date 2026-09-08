@@ -263,13 +263,14 @@ const markWorkshopInvitationSeen = (): void => {
 const unsubscribe = gameStore.subscribe((next) => {
   snapshot.value = next;
 });
-const unsubscribeNotices = gameStore.subscribeToNotices((message, tone) => {
+const showNotice = (message: string, tone: "good" | "bad" | "neutral"): void => {
   notice.value = { message, tone };
   window.clearTimeout(noticeTimer);
   noticeTimer = window.setTimeout(() => {
     notice.value = null;
   }, 2_200);
-});
+};
+const unsubscribeNotices = gameStore.subscribeToNotices(showNotice);
 const unsubscribeAudio = gameAudio.subscribe((state) => {
   audioState.value = state;
 });
@@ -504,7 +505,11 @@ onBeforeUnmount(() => {
         :data-game-mode="gameMode"
       >
         <GameCanvas v-if="gameMode === '2d'" :paused="ridePaused" />
-        <GameCanvas3D v-else :paused="ridePaused" />
+        <GameCanvas3D
+          v-else
+          :paused="ridePaused"
+          @announcement="showNotice($event.message, $event.tone)"
+        />
         <header class="tour-hud">
           <section class="hud-panel hud-speed" aria-label="Tour pace">
             <div class="speed-dial" aria-hidden="true">
@@ -662,6 +667,7 @@ onBeforeUnmount(() => {
             v-if="notice"
             class="notice"
             :class="`notice-${notice.tone}`"
+            role="status"
           >
             {{ notice.message }}
           </div>
