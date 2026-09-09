@@ -104,8 +104,8 @@ describe("App", () => {
     try {
       expect(document.querySelector(".game-frame")?.getAttribute("data-game-mode")).toBe("3d");
       expect(document.body.textContent).toContain("Slope ↗ 10.0%");
-      expect(document.querySelector(".mountain-preview")?.textContent).toContain("Your career is unchanged.");
-      expect(document.querySelector(".mountain-preview a")?.getAttribute("href")).toBe("/");
+      expect(document.querySelector(".ride-preview")?.textContent).toContain("Your career is unchanged.");
+      expect(document.querySelector(".ride-preview a")?.getAttribute("href")).toBe("/");
       while (gameStore.getSnapshot().sweat < 100) gameStore.collectBag("sweat");
       await nextTick();
       expect(document.querySelector(".first-upgrade-dialog")).toBeNull();

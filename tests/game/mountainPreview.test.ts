@@ -13,12 +13,15 @@ describe("published mountain preview", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("opens a fixed mountain climb in production without enabling arbitrary QA overrides", async () => {
-    window.history.replaceState(null, "", "/?preview=mountain&qaStage=1&qaGradient=-0.12&qaFinished=1");
+  it.each([
+    { name: "mountain", stage: 5, gradient: 0.1 },
+    { name: "descent", stage: 3, gradient: -0.04 },
+  ])("opens a fixed $name in production without enabling arbitrary QA overrides", async ({ name, stage, gradient }) => {
+    window.history.replaceState(null, "", `/?preview=${name}&qaStage=1&qaGradient=-0.12&qaFinished=1`);
     const { readVisualQaOverrides } = await import("../../src/game/visualQa");
     expect(readVisualQaOverrides()).toMatchObject({
-      stage: 5,
-      gradient: 0.1,
+      stage,
+      gradient,
       speedKmh: 25,
       finished: false,
     });
@@ -30,14 +33,14 @@ describe("published mountain preview", () => {
     expect(readVisualQaOverrides()).toMatchObject({ stage: null, gradient: null });
   });
 
-  it("neither loads nor overwrites the career, even after riding and restarting the preview", async () => {
+  it.each(["mountain", "descent"])("neither loads nor overwrites the career while riding or restarting the %s preview", async (name) => {
     const { GameStore } = await import("../../src/core/gameStore");
     const career = new GameStore();
     career.activateKonamiCheat();
     const savedCareer = window.localStorage.getItem("biker-inc-save-v1");
     expect(savedCareer).not.toBeNull();
 
-    window.history.replaceState(null, "", "/?preview=mountain");
+    window.history.replaceState(null, "", `/?preview=${name}`);
     vi.resetModules();
     const { gameStore: preview } = await import("../../src/core/gameStore");
     expect(preview.getSnapshot().sweat).toBe(0);

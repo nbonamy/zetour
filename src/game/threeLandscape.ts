@@ -10,14 +10,27 @@ export const roadBend = (z: number, distance: number): number => {
 export const roadHeading = (z: number, distance: number): number =>
   Math.atan2(roadBend(z + 0.5, distance) - roadBend(z - 0.5, distance), 1);
 
-// A modest visual exaggeration makes a road grade readable at game scale.
+// Arcade hills: even 4% reads as a clear 20-degree climb or descent, while
+// the steepest grades ease toward 38 degrees instead of becoming vertical.
 // Keep gameplay coordinates on the flat local road; tilt its rendering only.
 export const threeRoadPitch = (gradient: number): number =>
-  Math.atan(THREE.MathUtils.clamp(gradient, -0.12, 0.12) * 1.8);
+  THREE.MathUtils.degToRad(38) * Math.tanh(THREE.MathUtils.clamp(gradient, -0.12, 0.12) / 0.07);
 
 export const applyRoadPitch = (road: THREE.Object3D, pitch: number, riderZ: number): void => {
   road.rotation.x = pitch;
   road.position.set(0, riderZ * Math.sin(pitch), riderZ * (1 - Math.cos(pitch)));
+};
+
+// Ease the distant road onto a plateau. The changing silhouette supplies a
+// visible crest or valley instead of an endlessly tilted flat sheet.
+export const roadSurfaceHeight = (z: number, pitch: number, riderZ = 1.1): number => {
+  const depth = Math.max(0, riderZ - z - 18);
+  return (52 * (1 - Math.exp(-depth / 52)) - depth) * Math.tan(pitch);
+};
+
+export const roadSurfacePitch = (z: number, pitch: number, riderZ = 1.1): number => {
+  const depth = Math.max(0, riderZ - z - 18);
+  return -Math.atan((1 - Math.exp(-depth / 52)) * Math.tan(pitch));
 };
 
 interface Ribbon {
@@ -28,6 +41,8 @@ interface Ribbon {
 export class ThreeLandscape {
   readonly root = new THREE.Group();
   private readonly ground = new THREE.Group();
+  private pitch = 0;
+  private riderZ = 1.1;
   private readonly ribbons: Ribbon[] = [];
   private readonly terrainMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly roadMaterial = new THREE.MeshStandardMaterial({ color: 0x343e43, roughness: 1 });
@@ -73,7 +88,7 @@ export class ThreeLandscape {
     // Broad, irregular ridges give the horizon a silhouette instead of a row
     // of identical cones. They stay distant while roadside objects move past.
     for (let layer = 0; layer < 3; layer += 1) {
-      const geometry = new THREE.PlaneGeometry(380, 85, 38, 8);
+      const geometry = new THREE.PlaneGeometry(660, 85, 54, 8);
       const positions = geometry.attributes.position;
       for (let i = 0; i < positions.count; i += 1) {
         const x = positions.getX(i);
@@ -141,13 +156,18 @@ export class ThreeLandscape {
       const positions = geometry.attributes.position;
       for (let i = 0; i < positions.count; i += 1) {
         positions.setX(i, offsets[i * 3] + roadBend(offsets[i * 3 + 2], distance));
+        positions.setY(i, offsets[i * 3 + 1] + roadSurfaceHeight(offsets[i * 3 + 2], this.pitch, this.riderZ));
       }
       positions.needsUpdate = true;
+      geometry.computeVertexNormals();
     }
   }
 
   setRoadPitch(pitch: number, riderZ: number): void {
+    this.pitch = pitch;
+    this.riderZ = riderZ;
     applyRoadPitch(this.ground, pitch, riderZ);
+    this.mountains.position.y = 70 * Math.sin(pitch);
   }
 
   setStage(stage: number, gravel: boolean): void {

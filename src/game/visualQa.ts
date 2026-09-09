@@ -1,6 +1,6 @@
 import type { PowerUpType } from "../core/gameStore";
 import type { RideEncounter } from "./rideSystems";
-import { isMountainPreview } from "../core/ridePreview";
+import { readRidePreview } from "../core/ridePreview";
 
 export interface VisualQaOverrides {
   domestiques: number | null;
@@ -90,8 +90,9 @@ export const parseVisualQaOverrides = (
 };
 
 export const readVisualQaOverrides = (): VisualQaOverrides => {
-  if (isMountainPreview()) {
-    return parseVisualQaOverrides("?qaStage=5&qaGradient=0.1&qaSpeed=25");
+  const preview = readRidePreview();
+  if (preview) {
+    return parseVisualQaOverrides(`?qaStage=${preview.stage}&qaGradient=${preview.gradient}&qaSpeed=25`);
   }
   if (!import.meta.env.DEV || typeof window === "undefined") {
     return {

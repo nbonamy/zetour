@@ -40,7 +40,7 @@ import {
   type SectorTimeRecord,
 } from "./timeTrial";
 import { formatCompactNumber, formatMultiplier } from "./format";
-import { isMountainPreview } from "./ridePreview";
+import { readRidePreview } from "./ridePreview";
 import {
   cleanChallengeXp,
   PICKUP_XP,
@@ -1973,5 +1973,5 @@ const usesFreshVisualQaCareer =
   new URLSearchParams(window.location.search).get("qaFresh") === "1";
 
 export const gameStore = new GameStore({
-  storage: isMountainPreview() || usesFreshVisualQaCareer ? null : undefined,
+  storage: readRidePreview() || usesFreshVisualQaCareer ? null : undefined,
 });

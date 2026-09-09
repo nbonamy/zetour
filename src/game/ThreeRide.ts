@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ThreeLandscape, roadBend, roadHeading, threeRoadPitch, applyRoadPitch } from "./threeLandscape";
+import { ThreeLandscape, roadBend, roadHeading, threeRoadPitch, applyRoadPitch, roadSurfaceHeight, roadSurfacePitch } from "./threeLandscape";
 import { createRoadReward, createPothole, disposeRoadObject } from "./threeProps";
 import { ThreeSlipstream } from "./threeSlipstream";
 import { createRoadVehicle, animateRoadVehicle } from "./threeVehicles";
@@ -1296,7 +1296,7 @@ export class ThreeRide {
     this.rider.visible = !firstPerson;
     this.cockpit.visible = firstPerson;
     this.cockpit.rotation.z = this.rider.rotation.z * 0.2;
-    this.cockpit.rotation.x = this.roadPitch * 0.45;
+    this.cockpit.rotation.x = THREE.MathUtils.clamp(this.roadPitch * 0.2, -0.12, 0.12);
     const pace = Math.round(this.visualSpeed);
     if (firstPerson && this.cockpit.userData.displayPace !== pace) {
       const context = (this.cockpit.userData.display as HTMLCanvasElement).getContext("2d");
@@ -1346,12 +1346,21 @@ export class ThreeRide {
     const slopeAxis = new THREE.Vector3(1, 0, 0);
     if (firstPerson || mode === "Chase" || mode === "Wide") {
       const lookDirection = desiredLook.clone().sub(desiredPosition);
-      desiredPosition.sub(pivot).applyAxisAngle(slopeAxis, this.roadPitch).add(pivot);
       // Following the full angle would make the road look flat again.
-      const follow = firstPerson ? 0.55 : mode === "Chase" ? 0.6 : 0.8;
+      const climbing = this.roadPitch > 0;
+      const follow = firstPerson ? (climbing ? 0.7 : 0.4) : mode === "Chase" ? (climbing ? 0.78 : 0.3) : (climbing ? 0.85 : 0.55);
+      desiredPosition.sub(pivot).applyAxisAngle(slopeAxis, this.roadPitch * (firstPerson ? 1 : follow)).add(pivot);
+      // Keep the rider framed while the road falls away. A following camera
+      // must also clear the rising surface behind the rider on steep descents.
+      if (!firstPerson) {
+        const roadHeight = -(desiredPosition.z - RIDER_Z) * Math.tan(this.roadPitch);
+        desiredPosition.y = Math.max(desiredPosition.y, roadHeight + 1.5);
+      }
       desiredLook.copy(desiredPosition).add(lookDirection.applyAxisAngle(slopeAxis, this.roadPitch * follow));
     } else {
       desiredLook.sub(pivot).applyAxisAngle(slopeAxis, this.roadPitch).add(pivot);
+      const roadHeight = -(desiredPosition.z - RIDER_Z) * Math.tan(this.roadPitch);
+      desiredPosition.y = Math.max(desiredPosition.y, roadHeight + 2);
     }
     const response = 1 - Math.exp(-delta * (firstPerson ? 14 : 4.6));
     this.cameraPosition.lerp(desiredPosition, response);
@@ -1399,6 +1408,7 @@ export class ThreeRide {
         const marker = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.012, 2.4), markerMaterial);
         marker.position.set(x, 0.018, z);
         marker.userData.baseX = x;
+        marker.userData.baseY = 0.018;
         this.laneMarkers.push(marker);
         this.roadWorld.add(marker);
       }
@@ -1414,11 +1424,11 @@ export class ThreeRide {
     this.movingScenery.forEach((object) => { this.roadWorld.remove(object); disposeRoadObject(object); });
     this.movingScenery.length = 0;
     const place = (object: THREE.Object3D, x: number, z: number, yaw = 0, upright = true): void => {
-      object.position.set(x + roadBend(z, this.travelled), 0, z);
+      object.position.set(x + roadBend(z, this.travelled), roadSurfaceHeight(z, this.roadPitch), z);
       object.userData.baseX = x;
       object.userData.baseYaw = yaw;
       object.userData.upright = upright;
-      object.rotation.set(upright ? -this.roadPitch : 0, yaw + roadHeading(z, this.travelled), 0);
+      object.rotation.set(upright ? -this.roadPitch : roadSurfacePitch(z, this.roadPitch), yaw + roadHeading(z, this.travelled), 0);
       this.movingScenery.push(object);
       this.roadWorld.add(object);
     };
@@ -1518,12 +1528,19 @@ export class ThreeRide {
       object.position.z += speed * delta;
       if (object.position.z > WORLD_END_Z) object.position.z -= WORLD_WRAP_LENGTH;
       object.position.x = (object.userData.baseX as number) + roadBend(object.position.z, this.travelled);
+      object.position.y = ((object.userData.baseY as number) || 0) + roadSurfaceHeight(object.position.z, this.roadPitch);
       object.rotation.set(
-        object.userData.upright ? -this.roadPitch : 0,
+        object.userData.upright ? -this.roadPitch : roadSurfacePitch(object.position.z, this.roadPitch),
         ((object.userData.baseYaw as number) || 0) + roadHeading(object.position.z, this.travelled),
         0,
       );
     }
+  }
+
+  private alignRoadObject(object: THREE.Object3D): void {
+    const clearance = (object.userData.roadClearance ??= object.position.y) as number;
+    object.position.y = clearance + roadSurfaceHeight(object.position.z, this.roadPitch);
+    object.rotation.x = roadSurfacePitch(object.position.z, this.roadPitch);
   }
 
   private spawnPickup(
@@ -1535,6 +1552,7 @@ export class ThreeRide {
   ): void {
     const sprite = createRoadReward(type);
     sprite.position.set(THREE_LANE_X[lane], 0.95, z);
+    this.alignRoadObject(sprite);
     this.roadWorld.add(sprite);
     this.objects.push({ mesh: sprite, type, lane, sequenceId, sequenceIndex, speedMultiplier: 1, passedRider: false });
   }
@@ -1542,6 +1560,7 @@ export class ThreeRide {
   private spawnPowerUp(type: PowerUpType, lane: number, z: number, choiceId: number): void {
     const sprite = createRoadReward(type);
     sprite.position.set(THREE_LANE_X[lane], 1.15, z);
+    this.alignRoadObject(sprite);
 
     this.roadWorld.add(sprite);
     this.objects.push({ mesh: sprite, type, lane, choiceId, speedMultiplier: 1, passedRider: false });
@@ -1550,6 +1569,7 @@ export class ThreeRide {
   private spawnPothole(lane: number, z: number, sequenceId?: number): void {
     const pothole = createPothole();
     pothole.position.set(THREE_LANE_X[lane], 0.02, z);
+    this.alignRoadObject(pothole);
     this.roadWorld.add(pothole);
     this.objects.push({ mesh: pothole, type: "pothole", lane, sequenceId, speedMultiplier: 1, passedRider: false });
   }
@@ -1559,6 +1579,7 @@ export class ThreeRide {
     const car = createRoadVehicle(van, randomInt(0, 2));
     car.scale.setScalar(1.08);
     car.position.set(THREE_LANE_X[lane], 0, z);
+    this.alignRoadObject(car);
     this.roadWorld.add(car);
     this.objects.push({
       mesh: car,
@@ -1580,6 +1601,7 @@ export class ThreeRide {
       animateRoadVehicle(object.mesh, speed * (object.speedMultiplier - 1) * delta);
       object.mesh.position.x = THREE_LANE_X[object.lane] + roadBend(object.mesh.position.z, this.travelled);
       object.mesh.rotation.y = roadHeading(object.mesh.position.z, this.travelled);
+      this.alignRoadObject(object.mesh);
       const rewardModel = object.mesh.userData.rewardModel as THREE.Group | undefined;
       if (rewardModel) {
         rewardModel.rotation.y += delta * 1.5;
@@ -1973,7 +1995,8 @@ export class ThreeRide {
       pedalAngularSpeed * delta;
     cyclist.userData.pedalPhase = pedalPhase;
     positionCyclistLegs(cyclist, pedalPhase);
-    cyclist.position.y = Math.sin(pedalPhase * 2) * 0.009;
+    cyclist.position.y = roadSurfaceHeight(cyclist.position.z, this.roadPitch) + Math.sin(pedalPhase * 2) * 0.009;
+    cyclist.rotation.x = roadSurfacePitch(cyclist.position.z, this.roadPitch);
     cyclist.rotation.z += Math.sin(pedalPhase) * 0.003;
   }
 

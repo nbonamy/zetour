@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { applyRoadPitch, threeRoadPitch, ThreeLandscape } from "../../src/game/threeLandscape";
+import { applyRoadPitch, threeRoadPitch, roadSurfaceHeight, roadSurfacePitch, ThreeLandscape } from "../../src/game/threeLandscape";
 
 describe("3D road grade", () => {
+  it("makes a four-percent grade unmistakable while easing the steepest slopes", () => {
+    const visibleDegrees = THREE.MathUtils.radToDeg(threeRoadPitch(0.04));
+    expect(visibleDegrees).toBeGreaterThan(18);
+    expect(visibleDegrees).toBeLessThan(22);
+    expect(threeRoadPitch(-0.04)).toBeCloseTo(-threeRoadPitch(0.04));
+    expect(threeRoadPitch(0.12)).toBeLessThan(THREE.MathUtils.degToRad(38));
+    expect(threeRoadPitch(0)).toBe(0);
+  });
+
   it("raises the road ahead on a climb and lowers it on a descent", () => {
     for (const gradient of [-0.08, 0, 0.08, 0.12]) {
       const road = new THREE.Group();
@@ -17,6 +26,21 @@ describe("3D road grade", () => {
     expect(threeRoadPitch(0.3)).toBe(threeRoadPitch(0.12));
   });
 
+  it("keeps the playable foreground on grade and levels out ahead into a crest or valley", () => {
+    for (const gradient of [-0.04, 0, 0.1]) {
+      const pitch = threeRoadPitch(gradient);
+      const road = new THREE.Group();
+      applyRoadPitch(road, pitch, 1.1);
+      const point = (z: number) => road.localToWorld(new THREE.Vector3(0, roadSurfaceHeight(z, pitch), z));
+      expect(roadSurfaceHeight(1.1, pitch)).toBeCloseTo(0);
+      expect(Math.abs(roadSurfacePitch(-6, pitch))).toBe(0);
+      expect(roadSurfaceHeight(-6, pitch)).toBeCloseTo(0);
+      expect(Math.sign(point(-80).y)).toBe(Math.sign(gradient));
+      expect(Math.abs(pitch + roadSurfacePitch(-220, pitch))).toBeLessThan(0.02);
+      expect(Math.abs(point(-220).y - point(-200).y)).toBeLessThan(0.4);
+    }
+  });
+
   it("keeps the rendered asphalt and road actors aligned while the horizon stays level", () => {
     const landscape = new ThreeLandscape();
     const actors = new THREE.Group();
@@ -27,6 +51,7 @@ describe("3D road grade", () => {
       landscape.update(100);
       const asphalt = landscape.root.getObjectByName("Road surface") as THREE.Mesh;
       const vertex = new THREE.Vector3().fromBufferAttribute(asphalt.geometry.attributes.position, 60);
+      expect(vertex.y).toBeCloseTo(roadSurfaceHeight(vertex.z, pitch), 4);
       const actor = new THREE.Object3D();
       actor.position.copy(vertex);
       actors.add(actor);

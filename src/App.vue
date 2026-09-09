@@ -34,10 +34,10 @@ import { formatRaceTime } from "./core/timeTrial";
 import { upgrades } from "./core/upgrades";
 import { flowMultiplier as rideFlowMultiplier } from "./game/rideSystems";
 import { readVisualQaOverrides } from "./game/visualQa";
-import { isMountainPreview } from "./core/ridePreview";
+import { readRidePreview } from "./core/ridePreview";
 
 const snapshot = shallowRef(gameStore.getSnapshot());
-const mountainPreview = isMountainPreview();
+const ridePreview = readRidePreview();
 const visualQa = readVisualQaOverrides();
 const visualQaRaceResults: RaceResults | null = visualQa.finished
   ? (() => {
@@ -94,7 +94,7 @@ const firstUpgradeInvitationOpen = ref(false);
 const firstUpgradeInvitationButton = ref<HTMLButtonElement | null>(null);
 const resetConfirmationOpen = ref(false);
 const manuallyPaused = ref(visualQa.paused);
-const gameMode = ref<GameMode | null>(mountainPreview ? "3d" : null);
+const gameMode = ref<GameMode | null>(ridePreview ? "3d" : null);
 const mobileDeviceBlocked = ref(false);
 const audioState = shallowRef(gameAudio.getState());
 const audioModeCopy = computed(() => {
@@ -309,7 +309,7 @@ watch(
     workshopInvitationSeen,
   ],
   ([affordableUpgrade, alreadyPurchased, isWorkshopOpen, isResetOpen, isFinished, wasSeen]) => {
-    if (mountainPreview) return;
+    if (ridePreview) return;
     if (wasSeen || firstUpgradeInvitationOpen.value) return;
     if (alreadyPurchased) {
       markWorkshopInvitationSeen();
@@ -630,7 +630,7 @@ onBeforeUnmount(() => {
         </header>
 
         <aside
-          v-if="!displayedRaceFinished && !mountainPreview"
+          v-if="!displayedRaceFinished && !ridePreview"
           class="leaderboard-hud"
           :class="`leaderboard-${snapshot.leaderboard.status}`"
           aria-label="Live sector leaderboard"
@@ -665,9 +665,9 @@ onBeforeUnmount(() => {
             {{ leaderboardDeltaLabel }}
           </b>
         </aside>
-        <aside v-if="mountainPreview" class="leaderboard-hud mountain-preview">
-          <header><span>Mountain preview</span></header>
-          <p>Alpe d’Huez · 10% climb</p>
+        <aside v-if="ridePreview" class="leaderboard-hud ride-preview">
+          <header><span>{{ ridePreview.title }}</span></header>
+          <p>{{ ridePreview.route }} · {{ Math.abs(ridePreview.gradient * 100) }}% {{ ridePreview.gradient > 0 ? 'climb' : 'descent' }}</p>
           <small>Your career is unchanged.</small>
           <a href="/">Return to career →</a>
         </aside>
