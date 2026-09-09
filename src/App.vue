@@ -34,8 +34,10 @@ import { formatRaceTime } from "./core/timeTrial";
 import { upgrades } from "./core/upgrades";
 import { flowMultiplier as rideFlowMultiplier } from "./game/rideSystems";
 import { readVisualQaOverrides } from "./game/visualQa";
+import { isMountainPreview } from "./core/ridePreview";
 
 const snapshot = shallowRef(gameStore.getSnapshot());
+const mountainPreview = isMountainPreview();
 const visualQa = readVisualQaOverrides();
 const visualQaRaceResults: RaceResults | null = visualQa.finished
   ? (() => {
@@ -92,7 +94,7 @@ const firstUpgradeInvitationOpen = ref(false);
 const firstUpgradeInvitationButton = ref<HTMLButtonElement | null>(null);
 const resetConfirmationOpen = ref(false);
 const manuallyPaused = ref(visualQa.paused);
-const gameMode = ref<GameMode | null>(null);
+const gameMode = ref<GameMode | null>(mountainPreview ? "3d" : null);
 const mobileDeviceBlocked = ref(false);
 const audioState = shallowRef(gameAudio.getState());
 const audioModeCopy = computed(() => {
@@ -307,6 +309,7 @@ watch(
     workshopInvitationSeen,
   ],
   ([affordableUpgrade, alreadyPurchased, isWorkshopOpen, isResetOpen, isFinished, wasSeen]) => {
+    if (mountainPreview) return;
     if (wasSeen || firstUpgradeInvitationOpen.value) return;
     if (alreadyPurchased) {
       markWorkshopInvitationSeen();
@@ -627,7 +630,7 @@ onBeforeUnmount(() => {
         </header>
 
         <aside
-          v-if="!displayedRaceFinished"
+          v-if="!displayedRaceFinished && !mountainPreview"
           class="leaderboard-hud"
           :class="`leaderboard-${snapshot.leaderboard.status}`"
           aria-label="Live sector leaderboard"
@@ -661,6 +664,12 @@ onBeforeUnmount(() => {
           <b class="leaderboard-delta">
             {{ leaderboardDeltaLabel }}
           </b>
+        </aside>
+        <aside v-if="mountainPreview" class="leaderboard-hud mountain-preview">
+          <header><span>Mountain preview</span></header>
+          <p>Alpe d’Huez · 10% climb</p>
+          <small>Your career is unchanged.</small>
+          <a href="/">Return to career →</a>
         </aside>
         <Transition name="notice">
           <div

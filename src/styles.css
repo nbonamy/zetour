@@ -2612,6 +2612,25 @@ kbd {
   top: 126px;
 }
 
+.mountain-preview p {
+  margin: 10px 12px 4px;
+  font-weight: 800;
+}
+
+.mountain-preview > small {
+  display: block;
+  margin: 0 12px 10px;
+}
+
+.mountain-preview a {
+  display: block;
+  padding: 9px 12px;
+  border-top: 1px solid #a47f56;
+  color: #ffe1a4;
+  font-weight: 800;
+  pointer-events: auto;
+}
+
 .hud-bottom {
   position: absolute;
   z-index: 12;

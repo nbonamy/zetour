@@ -97,6 +97,25 @@ describe("App", () => {
     app.unmount();
   });
 
+  it("opens the mountain link directly in 3D with an exit back to the career", async () => {
+    window.history.replaceState(null, "", "/?preview=mountain");
+    window.localStorage.removeItem(WORKSHOP_INVITATION_STORAGE_KEY);
+    const app = await mountAppInMode("3d");
+    try {
+      expect(document.querySelector(".game-frame")?.getAttribute("data-game-mode")).toBe("3d");
+      expect(document.body.textContent).toContain("Slope ↗ 10.0%");
+      expect(document.querySelector(".mountain-preview")?.textContent).toContain("Your career is unchanged.");
+      expect(document.querySelector(".mountain-preview a")?.getAttribute("href")).toBe("/");
+      while (gameStore.getSnapshot().sweat < 100) gameStore.collectBag("sweat");
+      await nextTick();
+      expect(document.querySelector(".first-upgrade-dialog")).toBeNull();
+      expect(window.localStorage.getItem(WORKSHOP_INVITATION_STORAGE_KEY)).toBeNull();
+    } finally {
+      app.unmount();
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
   it.each(["2d", "3d"] as const)("invites the %s rider into the workshop once when the first upgrade becomes affordable", async (mode) => {
     window.localStorage.removeItem(WORKSHOP_INVITATION_STORAGE_KEY);
     const app = await mountAppInMode(mode);
